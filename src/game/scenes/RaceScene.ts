@@ -15,7 +15,7 @@ import type { RaceInfo } from '../systems/RaceSystem';
 import type { BattleSnapshot } from '../systems/BattleSystem';
 
 const PLAYER_X = 520;
-const GROUND_Y = 820;
+const GROUND_Y = 770; // 발끝 770: 하단 입력 패널(830~) 위
 const PX_PER_M = 7; // 캐릭터 간 거리 표현 배율
 
 /**
@@ -68,7 +68,7 @@ export class RaceScene extends Phaser.Scene {
     // 어제의 나 (고스트)
     this.ghost = this.add.sprite(-400, GROUND_Y, chSheet, 'run_right').setOrigin(0.5, 1).setScale(1.15).setAlpha(0.42).setTint(0x8fe0ff).setDepth(6);
     this.ghost.play(anim(chSheet, 'run_right'));
-    this.ghostLabel = this.add.text(-400, GROUND_Y - 300, '👻 어제의 나', styleText(28, '#8fe0ff')).setOrigin(0.5).setAlpha(0.8).setDepth(6);
+    this.ghostLabel = this.add.text(-400, GROUND_Y - 300, '어제의 나', styleText(28, '#8fe0ff')).setOrigin(0.5).setAlpha(0.8).setDepth(6);
     this.ghost.setVisible(false);
     this.ghostLabel.setVisible(false);
 
@@ -96,9 +96,19 @@ export class RaceScene extends Phaser.Scene {
     this.bind(Events.INPUT_CORRECT, (d: { perfect: boolean; combo: number }) => this.onCorrect(d));
     this.bind(Events.INPUT_WRONG, (d: { forgiven: boolean }) => this.onWrong(d));
     this.bind(Events.RACE_CAUGHT, (d: { hpLoss: number }) => this.onCaught(d));
-    this.bind(Events.RACE_TURBO, () => this.flash(0xffd34d, 0.45));
+    this.bind(Events.RACE_TURBO, () => { this.flash(0xffd34d, 0.45); this.player?.sprite.setFrame('dash'); this.time.delayedCall(900, () => this.player?.walk('right', true)); });
+    this.bind(Events.PET_ACTIVE, () => this.pet?.skill());
+    this.bind(Events.IDLE_DRAIN, () => { this.player?.hit(); AudioManager.sfx('hurt', { gain: 0.5 }); });
+    this.bind(Events.PET_PASSIVE, () => this.pet?.skill());
+    this.bind(Events.SYLLABLE_HIT, () => { const s = this.player?.sprite; if (s) this.tweens.add({ targets: s, y: GROUND_Y - 22, duration: 90, yoyo: true }); });
     this.bind(Events.FEVER_CHANGED, (d: { level: number }) => { if (d.level >= 2) this.flash(0xffffff, 0.55); });
     this.bind(Events.RACE_FINISH, () => this.onFinish());
+    this.bind(Events.PLAYER_MOVE, (d: { dir: 'left' | 'right' | 'up' | 'down'; pressed: boolean }) => {
+      if (!this.player) return;
+      if (d.dir === 'up' && d.pressed) this.player.jump();
+      else if (d.dir === 'down') this.player.crouch(d.pressed);
+      else if (d.pressed) this.player.nudge(d.dir === 'right' ? 22 : -22);
+    });
     this.bind(Events.STAGE_FAILED, () => { this.player?.hit(); this.speed = 0; });
     this.bind(Events.SETTINGS_CHANGED, (s: { screenShake: boolean }) => (this.shakeOn = s.screenShake));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -140,7 +150,7 @@ export class RaceScene extends Phaser.Scene {
       this.ghost?.setVisible(true);
       this.ghostLabel?.setVisible(true);
       this.targets.ghostX = Phaser.Math.Clamp(PLAYER_X + (r.ghost - r.player) * PX_PER_M, -300, DESIGN_W + 200);
-      this.ghostLabel?.setText(r.ghostAhead ? '👻 어제의 나' : '👻 어제의 나 (추월!)');
+      this.ghostLabel?.setText(r.ghostAhead ? '어제의 나' : '어제의 나 (추월!)');
     }
     // 추격자 눈 빛: 가까울수록 붉게
     const gap = r.player - r.chaser;

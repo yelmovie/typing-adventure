@@ -5,7 +5,8 @@ import { navigate } from '../../Game';
 import { STAGES } from '../../data/stages';
 import { EventBus, Events } from '../../EventBus';
 import { AudioManager } from '../../systems/AudioManager';
-import { settingsModal, toast } from '../ModalController';
+import { toast } from '../ModalController';
+import { commonTopBar } from '../TopBar';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -59,7 +60,7 @@ export class WorldMapScreen extends Screen {
 
     const allClear = save.progress.clearedStages.length >= 5;
     this.el.classList.toggle('all-clear', allClear);
-    this.el.append(h('div', { class: 'map-title text-outline' }, allClear ? '✨ 빛을 되찾은 세상' : '🗺 모험 지도'));
+    this.el.append(h('div', { class: 'map-title text-outline' }, allClear ? '빛을 되찾은 세상' : '모험 지도'));
 
     // 노드
     for (const st of STAGES) {
@@ -91,21 +92,14 @@ export class WorldMapScreen extends Screen {
       h(
         'div',
         { class: 'panel panel-glass map-progress' },
-        h('div', { class: 'mp-title' }, h('span', {}, `${save.profile.name} 모험가 · Lv.${SaveSystem.level()}`), h('span', {}, `⭐ ${starTotal}/15`)),
+        h('div', { class: 'mp-title' }, h('span', {}, `${save.profile.name} 모험가 · Lv.${SaveSystem.level()}`), h('span', {}, icon('star_on'), ` ${starTotal}/15`)),
         h('div', { class: 'gauge gauge-lg' }, h('div', { class: 'gauge-fill gold', style: { width: `${(clearedCount / 5) * 100}%` } }), h('div', { class: 'gauge-label' }, `스테이지 ${clearedCount} / 5 클리어`)),
-        h('div', { style: { marginTop: '10px', fontSize: '18px', opacity: '0.85' } }, unlocked <= 5 && clearedCount < 5 ? `다음 목표: ${STAGES[unlocked - 1].name}` : '모든 스테이지를 정복했어요!'),
+        h('div', { class: 'mp-next' }, unlocked <= 5 && clearedCount < 5 ? `다음 목표: ${STAGES[unlocked - 1].name}` : '모든 스테이지를 정복했어요!'),
       ),
     );
     this.el.append(h('div', { class: 'map-legend' }, h('span', { class: 'lg-clear' }, '클리어'), h('span', { class: 'lg-cur' }, '현재 위치'), h('span', { class: 'lg-lock' }, '잠김')));
 
-    this.el.append(
-      h(
-        'div',
-        { class: 'topbar' },
-        h('div', { class: 'topbar-left' }, h('button', { class: 'icon-btn', title: '홈으로', onclick: () => { AudioManager.sfx('click'); void navigate('home'); } }, icon('home'))),
-        h('div', { class: 'topbar-right' }, h('button', { class: 'icon-btn', title: '설정', onclick: () => { AudioManager.sfx('click'); settingsModal({ onReset: () => void navigate('home') }); } }, icon('settings'))),
-      ),
-    );
+    this.el.append(commonTopBar({ onReset: () => void navigate('home') }));
   }
 
   private pick(index: number, locked: boolean) {

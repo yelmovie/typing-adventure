@@ -27,26 +27,35 @@ export class DailyScene extends Phaser.Scene {
     ensureParticleTextures(this);
     const save = SaveSystem.get();
     this.cls = save.profile.characterId;
-    this.player = new Player(this, 560, 820, getCharacter(save.profile.characterId).sheet, 1.25);
+    this.player = new Player(this, 560, 770, getCharacter(save.profile.characterId).sheet, 1.25); // 발끝 770: 하단 입력 패널(830~) 위
     this.player.idle('right');
     this.player.setDepth(7);
-    this.pet = new Pet(this, 390, 830, getPet(save.profile.petId).sheet, 0.62);
+    this.player.setLively(true);
+    this.pet = new Pet(this, 390, 780, getPet(save.profile.petId).sheet, 0.62);
     this.pet.setDepth(6);
-    this.add.text(DESIGN_W / 2, 150, '📅 오늘의 도전', styleText(56, '#ffd34d')).setOrigin(0.5).setDepth(10);
+    this.add.text(DESIGN_W / 2, 340, '오늘의 도전', styleText(56, '#ffd34d')).setOrigin(0.5).setDepth(10); // 콤보(≤290) 아래
     this.burst = this.add.particles(0, 0, 'p_star', {
       lifespan: { min: 300, max: 700 }, speed: { min: 150, max: 400 }, scale: { start: 1.1, end: 0 }, gravityY: 300, emitting: false, blendMode: Phaser.BlendModes.ADD, tint: [0xffd34d, 0xfff2b0, 0x8fe0ff, 0xffffff],
     }).setDepth(20);
-    this.bind(Events.SYLLABLE_HIT, () => { AudioManager.sfx('tap'); playClassFx(this, this.cls, 'weak', { x: 560, y: 820 }, { x: 1250, y: 620 }); });
+    this.bind(Events.SYLLABLE_HIT, () => { AudioManager.sfx('tap'); this.player?.jab(); playClassFx(this, this.cls, 'weak', { x: 560, y: 770 }, { x: 1250, y: 620 }); });
+    this.bind(Events.PET_ACTIVE, () => this.pet?.skill());
+    this.bind(Events.PET_PASSIVE, () => this.pet?.skill());
     this.bind(Events.INPUT_CORRECT, (d: { perfect: boolean; combo: number; target: { text: string } }) => {
       AudioManager.sfx(d.perfect ? 'perfect' : 'hit', { rate: AudioManager.comboRate(d.combo) });
       this.player?.attack(() => {});
       this.pet?.cheer();
-      playClassFx(this, this.cls, d.perfect ? 'perfect' : 'strong', { x: 560, y: 820 }, { x: 1250, y: 620 });
+      playClassFx(this, this.cls, d.perfect ? 'perfect' : 'strong', { x: 560, y: 770 }, { x: 1250, y: 620 });
       const t = this.add.text(1250, 620, d.target.text, styleText(64, d.perfect ? '#ff7ab6' : '#fff2b0')).setOrigin(0.5).setDepth(21);
       this.tweens.add({ targets: t, y: 480, alpha: 0, scale: 1.4, duration: 700, onComplete: () => t.destroy() });
       this.burst?.explode(d.perfect ? 30 : 16, 1250, 620);
     });
     this.bind(Events.INPUT_WRONG, (d: { forgiven: boolean }) => { if (!d.forgiven) AudioManager.sfx('miss'); });
+    this.bind(Events.PLAYER_MOVE, (d: { dir: 'left' | 'right' | 'up' | 'down'; pressed: boolean }) => {
+      if (!this.player) return;
+      if (d.dir === 'up' && d.pressed) this.player.jump();
+      else if (d.dir === 'down') this.player.crouch(d.pressed);
+      else if (d.pressed) this.player.nudge(d.dir === 'right' ? 22 : -22);
+    });
     this.bind(Events.STAGE_CLEAR, () => { this.player?.victory(); this.pet?.victory(); AudioManager.sfx('clear'); this.burst?.explode(60, 560, 620); });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       for (const [ev, fn] of this.handlers) EventBus.off(ev, fn);

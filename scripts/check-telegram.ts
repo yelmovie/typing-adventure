@@ -19,9 +19,10 @@ function make() {
 {
   const { T, count } = make();
   for (let i = 0; i < 1500 && !T.finished; i++) T.tick(0.1);
-  assert.ok(T.finished && T.dist === 0);
-  assert.equal(count('TELE_CRASH'), 1);
+  // 무입력 HP 감소가 먼저 끝낼 수도 있고(≈54초), 아니면 140초에 충돌 — 어느 쪽이든 실패
+  assert.ok(T.finished);
   assert.equal(count('STAGE_FAILED'), 1);
+  assert.ok(T.dist === 0 || T.playerHp === 0);
 }
 
 // 2. 어절 완료 → 전송률 상승, 오타 → 통신 끊김 1.5초 동안 판정 정지

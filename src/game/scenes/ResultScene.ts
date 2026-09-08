@@ -40,7 +40,7 @@ export class ResultScene extends Phaser.Scene {
       });
     } else {
       player.hit();
-      this.time.delayedCall(700, () => player.idle('front'));
+      this.time.delayedCall(700, () => { player.sad(); pet.sad(); });
     }
   }
 }

@@ -8,6 +8,10 @@
 export interface TypingCallbacks {
   onChange?: (value: string, composing: boolean) => void;
   onSubmit: (value: string, meta: { usedBackspace: boolean }) => void;
+  /** Tab 키: 어려운 낱말 점프 */
+  onSkip?: () => void;
+  /** 방향키: 캐릭터 이동/점프/앉기 (left·right·up·down) */
+  onMove?: (dir: 'left' | 'right' | 'up' | 'down', pressed: boolean) => void;
 }
 
 export class TypingSystem {
@@ -64,6 +68,16 @@ export class TypingSystem {
       const ke = e as KeyboardEvent;
       const isComposingKey = ke.isComposing || ke.keyCode === 229;
       if (ke.key === 'Backspace') this.usedBackspace = true;
+      if (ke.key.startsWith('Arrow')) {
+        ke.preventDefault();
+        this.cb.onMove?.(ke.key.slice(5).toLowerCase() as 'left' | 'right' | 'up' | 'down', true);
+        return;
+      }
+      if (ke.key === 'Tab') {
+        ke.preventDefault();
+        this.cb.onSkip?.();
+        return;
+      }
       if (ke.key === 'Enter' || (ke.key === ' ' && this.mode === 'word')) {
         ke.preventDefault();
         if (isComposingKey || this.composing) {
@@ -79,6 +93,12 @@ export class TypingSystem {
         } else {
           this.submit();
         }
+      }
+    });
+    on('keyup', (e) => {
+      const ke = e as KeyboardEvent;
+      if (ke.key.startsWith('Arrow')) {
+        this.cb.onMove?.(ke.key.slice(5).toLowerCase() as 'left' | 'right' | 'up' | 'down', false);
       }
     });
     // 캔버스 클릭 등으로 포커스를 잃어도 다시 가져온다

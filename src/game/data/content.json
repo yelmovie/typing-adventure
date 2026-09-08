@@ -1,8 +1,9 @@
 {
   "meta": {
-    "description": "타이핑 어드벤처 연습 콘텐츠. 07_content_schema.json 구조. 이 파일만 수정하면 출제 내용을 바꿀 수 있다.",
-    "difficulty_note": "difficulty 1 = 받침 없는 쉬운 낱말, 2 = 받침/이중모음 포함, 3 = 문장",
-    "variant_note": "tags에 보물/하트/폭탄 을 넣으면 그 변화구가 강제된다. 없으면 12% 확률로 무작위(폭탄은 낱말에만)."
+    "description": "타이핑 어드벤처 출제 콘텐츠. 세계관(사라진 글자·푸른 숲·네온 시티·사막 유적·폭주 열차·어둠의 성채)에 맞춘 낱말·문장. 이 파일만 고치면 출제가 바뀐다.",
+    "difficulty_note": "difficulty 1 = 받침 없는 쉬운 낱말, 2 = 받침·이중모음·겹받침 포함, 3 = 문장·장문",
+    "variant_note": "tags에 보물/하트/폭탄 을 넣으면 그 변화구가 강제된다. 없으면 12% 확률로 무작위(폭탄은 낱말에만).",
+    "tags_note": "편지/전보/최종 = 그 스테이지의 순서 있는 문장(순서N 태그로 정렬), 결정/러시 = 보스 페이즈별 낱말, 박쥐 = 3음절 이상 박쥐용, 대장 = S1 마지막 웨이브 대장 슬라임용 4음절 낱말, 오늘문장 = 오늘의 도전(문장 모드) 풀, 장문1~3 = 오늘의 도전(긴 글 모드) 한 편씩(순서N으로 정렬해 이어 붙임)"
   },
   "units": [
     {
@@ -12,6 +13,7 @@
       "text": "나무",
       "difficulty": 1,
       "tags": [
+        "숲",
         "기본"
       ],
       "weight": 1
@@ -20,9 +22,10 @@
       "id": "w002",
       "stage": "stage_1",
       "type": "word",
-      "text": "바다",
+      "text": "나비",
       "difficulty": 1,
       "tags": [
+        "숲",
         "기본"
       ],
       "weight": 1
@@ -31,10 +34,12 @@
       "id": "w003",
       "stage": "stage_1",
       "type": "word",
-      "text": "우리",
-      "difficulty": 1,
+      "text": "이슬",
+      "difficulty": 2,
       "tags": [
-        "기본"
+        "숲",
+        "기본",
+        "받침"
       ],
       "weight": 1
     },
@@ -42,11 +47,11 @@
       "id": "w004",
       "stage": "stage_1",
       "type": "word",
-      "text": "도전",
+      "text": "오리",
       "difficulty": 1,
       "tags": [
-        "기본",
-        "받침"
+        "숲",
+        "기본"
       ],
       "weight": 1
     },
@@ -54,11 +59,11 @@
       "id": "w005",
       "stage": "stage_1",
       "type": "word",
-      "text": "학교",
-      "difficulty": 2,
+      "text": "여우",
+      "difficulty": 1,
       "tags": [
-        "기본",
-        "받침"
+        "숲",
+        "기본"
       ],
       "weight": 1
     },
@@ -66,11 +71,11 @@
       "id": "w006",
       "stage": "stage_1",
       "type": "word",
-      "text": "친구",
-      "difficulty": 2,
+      "text": "사과",
+      "difficulty": 1,
       "tags": [
-        "기본",
-        "받침"
+        "숲",
+        "기본"
       ],
       "weight": 1
     },
@@ -78,11 +83,11 @@
       "id": "w007",
       "stage": "stage_1",
       "type": "word",
-      "text": "하늘",
-      "difficulty": 2,
+      "text": "바위",
+      "difficulty": 1,
       "tags": [
-        "기본",
-        "받침"
+        "숲",
+        "기본"
       ],
       "weight": 1
     },
@@ -90,9 +95,10 @@
       "id": "w008",
       "stage": "stage_1",
       "type": "word",
-      "text": "공부",
+      "text": "구름",
       "difficulty": 2,
       "tags": [
+        "숲",
         "기본",
         "받침"
       ],
@@ -102,11 +108,11 @@
       "id": "w009",
       "stage": "stage_1",
       "type": "word",
-      "text": "마음",
-      "difficulty": 2,
+      "text": "노루",
+      "difficulty": 1,
       "tags": [
-        "기본",
-        "받침"
+        "숲",
+        "기본"
       ],
       "weight": 1
     },
@@ -114,11 +120,11 @@
       "id": "w010",
       "stage": "stage_1",
       "type": "word",
-      "text": "사랑",
-      "difficulty": 2,
+      "text": "토끼",
+      "difficulty": 1,
       "tags": [
-        "기본",
-        "받침"
+        "숲",
+        "기본"
       ],
       "weight": 1
     },
@@ -126,11 +132,11 @@
       "id": "w011",
       "stage": "stage_1",
       "type": "word",
-      "text": "오늘",
-      "difficulty": 2,
+      "text": "다리",
+      "difficulty": 1,
       "tags": [
-        "기본",
-        "받침"
+        "숲",
+        "기본"
       ],
       "weight": 1
     },
@@ -138,11 +144,11 @@
       "id": "w012",
       "stage": "stage_1",
       "type": "word",
-      "text": "웃음",
-      "difficulty": 2,
+      "text": "조개",
+      "difficulty": 1,
       "tags": [
-        "기본",
-        "받침"
+        "숲",
+        "기본"
       ],
       "weight": 1
     },
@@ -150,11 +156,11 @@
       "id": "w013",
       "stage": "stage_1",
       "type": "word",
-      "text": "행복",
-      "difficulty": 2,
+      "text": "개미",
+      "difficulty": 1,
       "tags": [
-        "기본",
-        "받침"
+        "숲",
+        "기본"
       ],
       "weight": 1
     },
@@ -162,9 +168,10 @@
       "id": "w014",
       "stage": "stage_1",
       "type": "word",
-      "text": "노력",
+      "text": "벌레",
       "difficulty": 2,
       "tags": [
+        "숲",
         "기본",
         "받침"
       ],
@@ -174,9 +181,10 @@
       "id": "w015",
       "stage": "stage_1",
       "type": "word",
-      "text": "성장",
+      "text": "숲길",
       "difficulty": 2,
       "tags": [
+        "숲",
         "기본",
         "받침"
       ],
@@ -186,12 +194,12 @@
       "id": "w016",
       "stage": "stage_1",
       "type": "word",
-      "text": "꿈",
+      "text": "버섯",
       "difficulty": 2,
       "tags": [
+        "숲",
         "기본",
-        "받침",
-        "된소리"
+        "받침"
       ],
       "weight": 1
     },
@@ -199,12 +207,12 @@
       "id": "w017",
       "stage": "stage_1",
       "type": "word",
-      "text": "함께",
+      "text": "햇살",
       "difficulty": 2,
       "tags": [
+        "숲",
         "기본",
-        "받침",
-        "된소리"
+        "받침"
       ],
       "weight": 1
     },
@@ -212,9 +220,10 @@
       "id": "w018",
       "stage": "stage_1",
       "type": "word",
-      "text": "책",
+      "text": "바람",
       "difficulty": 2,
       "tags": [
+        "숲",
         "기본",
         "받침"
       ],
@@ -224,9 +233,10 @@
       "id": "w019",
       "stage": "stage_1",
       "type": "word",
-      "text": "시간",
+      "text": "샘물",
       "difficulty": 2,
       "tags": [
+        "숲",
         "기본",
         "받침"
       ],
@@ -236,373 +246,12 @@
       "id": "w020",
       "stage": "stage_1",
       "type": "word",
-      "text": "연습",
+      "text": "꽃잎",
       "difficulty": 2,
       "tags": [
+        "숲",
         "기본",
         "받침"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "w101",
-      "stage": "stage_2",
-      "type": "word",
-      "text": "과일",
-      "difficulty": 2,
-      "tags": [
-        "이중모음"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "w102",
-      "stage": "stage_2",
-      "type": "word",
-      "text": "왜냐하면",
-      "difficulty": 2,
-      "tags": [
-        "이중모음"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "w103",
-      "stage": "stage_2",
-      "type": "word",
-      "text": "괜찮아",
-      "difficulty": 2,
-      "tags": [
-        "이중모음",
-        "받침"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "w104",
-      "stage": "stage_2",
-      "type": "word",
-      "text": "의자",
-      "difficulty": 2,
-      "tags": [
-        "이중모음"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "w105",
-      "stage": "stage_2",
-      "type": "word",
-      "text": "원숭이",
-      "difficulty": 2,
-      "tags": [
-        "이중모음",
-        "받침"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "w106",
-      "stage": "stage_2",
-      "type": "word",
-      "text": "돼지",
-      "difficulty": 2,
-      "tags": [
-        "이중모음"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "w107",
-      "stage": "stage_2",
-      "type": "word",
-      "text": "귀여워",
-      "difficulty": 2,
-      "tags": [
-        "이중모음"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "w108",
-      "stage": "stage_2",
-      "type": "word",
-      "text": "닭고기",
-      "difficulty": 2,
-      "tags": [
-        "겹받침"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "w109",
-      "stage": "stage_2",
-      "type": "word",
-      "text": "많이",
-      "difficulty": 2,
-      "tags": [
-        "겹받침"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "w110",
-      "stage": "stage_2",
-      "type": "word",
-      "text": "읽기",
-      "difficulty": 2,
-      "tags": [
-        "겹받침"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "w111",
-      "stage": "stage_2",
-      "type": "word",
-      "text": "화요일",
-      "difficulty": 2,
-      "tags": [
-        "이중모음",
-        "받침"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "w112",
-      "stage": "stage_2",
-      "type": "word",
-      "text": "얘기",
-      "difficulty": 2,
-      "tags": [
-        "이중모음"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "w113",
-      "stage": "stage_2",
-      "type": "word",
-      "text": "예쁘다",
-      "difficulty": 2,
-      "tags": [
-        "이중모음",
-        "된소리"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "w114",
-      "stage": "stage_2",
-      "type": "word",
-      "text": "뛰어놀기",
-      "difficulty": 2,
-      "tags": [
-        "이중모음",
-        "된소리"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "w115",
-      "stage": "stage_2",
-      "type": "word",
-      "text": "회의",
-      "difficulty": 2,
-      "tags": [
-        "이중모음"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "w116",
-      "stage": "stage_2",
-      "type": "word",
-      "text": "웨딩",
-      "difficulty": 2,
-      "tags": [
-        "이중모음"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "w117",
-      "stage": "stage_2",
-      "type": "word",
-      "text": "쌀밥",
-      "difficulty": 2,
-      "tags": [
-        "된소리",
-        "받침"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "w118",
-      "stage": "stage_2",
-      "type": "word",
-      "text": "봄꽃",
-      "difficulty": 2,
-      "tags": [
-        "된소리",
-        "받침"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "s001",
-      "stage": "stage_3",
-      "type": "sentence",
-      "text": "나는 오늘도 차근차근 타자를 연습한다.",
-      "difficulty": 3,
-      "tags": [
-        "문장",
-        "띄어쓰기",
-        "마침표"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "s002",
-      "stage": "stage_3",
-      "type": "sentence",
-      "text": "친구와 함께 학교에 갑니다.",
-      "difficulty": 3,
-      "tags": [
-        "문장",
-        "띄어쓰기",
-        "마침표"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "s003",
-      "stage": "stage_3",
-      "type": "sentence",
-      "text": "하늘이 참 맑고 파랗다.",
-      "difficulty": 3,
-      "tags": [
-        "문장",
-        "띄어쓰기",
-        "마침표"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "s004",
-      "stage": "stage_3",
-      "type": "sentence",
-      "text": "책을 읽으면 마음이 자란다.",
-      "difficulty": 3,
-      "tags": [
-        "문장",
-        "띄어쓰기",
-        "마침표"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "s005",
-      "stage": "stage_3",
-      "type": "sentence",
-      "text": "우리는 할 수 있어!",
-      "difficulty": 3,
-      "tags": [
-        "문장",
-        "띄어쓰기",
-        "느낌표"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "s006",
-      "stage": "stage_3",
-      "type": "sentence",
-      "text": "내일은 무엇을 할까?",
-      "difficulty": 3,
-      "tags": [
-        "문장",
-        "띄어쓰기",
-        "물음표"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "w301",
-      "stage": "stage_4",
-      "type": "word",
-      "text": "정확하게",
-      "difficulty": 2,
-      "tags": [
-        "받침"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "w302",
-      "stage": "stage_4",
-      "type": "word",
-      "text": "빠르게",
-      "difficulty": 2,
-      "tags": [
-        "된소리"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "s301",
-      "stage": "stage_4",
-      "type": "sentence",
-      "text": "실력은 연습에서 나온다.",
-      "difficulty": 3,
-      "tags": [
-        "문장"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "s302",
-      "stage": "stage_4",
-      "type": "sentence",
-      "text": "포기하지 않으면 길이 보인다.",
-      "difficulty": 3,
-      "tags": [
-        "문장"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "w401",
-      "stage": "stage_5",
-      "type": "word",
-      "text": "키보드",
-      "difficulty": 2,
-      "tags": [
-        "기본"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "s401",
-      "stage": "stage_5",
-      "type": "sentence",
-      "text": "타이핑의 힘으로 세상을 밝히자!",
-      "difficulty": 3,
-      "tags": [
-        "문장",
-        "느낌표"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "s402",
-      "stage": "stage_5",
-      "type": "sentence",
-      "text": "골렘아, 이제 그만 잠들어라.",
-      "difficulty": 3,
-      "tags": [
-        "문장",
-        "쉼표"
       ],
       "weight": 1
     },
@@ -610,9 +259,10 @@
       "id": "w021",
       "stage": "stage_1",
       "type": "word",
-      "text": "바람",
-      "difficulty": 1,
+      "text": "늪지",
+      "difficulty": 2,
       "tags": [
+        "숲",
         "기본",
         "받침"
       ],
@@ -622,9 +272,10 @@
       "id": "w022",
       "stage": "stage_1",
       "type": "word",
-      "text": "구름",
-      "difficulty": 1,
+      "text": "둥지",
+      "difficulty": 2,
       "tags": [
+        "숲",
         "기본",
         "받침"
       ],
@@ -634,9 +285,10 @@
       "id": "w023",
       "stage": "stage_1",
       "type": "word",
-      "text": "햇살",
-      "difficulty": 1,
+      "text": "풀밭",
+      "difficulty": 2,
       "tags": [
+        "숲",
         "기본",
         "받침"
       ],
@@ -647,8 +299,9 @@
       "stage": "stage_1",
       "type": "word",
       "text": "별빛",
-      "difficulty": 1,
+      "difficulty": 2,
       "tags": [
+        "숲",
         "기본",
         "받침"
       ],
@@ -658,10 +311,11 @@
       "id": "w025",
       "stage": "stage_1",
       "type": "word",
-      "text": "무지개",
+      "text": "두꺼비",
       "difficulty": 2,
       "tags": [
-        "기본"
+        "숲",
+        "박쥐"
       ],
       "weight": 1
     },
@@ -669,10 +323,12 @@
       "id": "w026",
       "stage": "stage_1",
       "type": "word",
-      "text": "소나무",
+      "text": "다람쥐",
       "difficulty": 2,
       "tags": [
-        "기본"
+        "숲",
+        "박쥐",
+        "받침"
       ],
       "weight": 1
     },
@@ -680,10 +336,11 @@
       "id": "w027",
       "stage": "stage_1",
       "type": "word",
-      "text": "도서관",
+      "text": "솔방울",
       "difficulty": 2,
       "tags": [
-        "기본",
+        "숲",
+        "박쥐",
         "받침"
       ],
       "weight": 1
@@ -692,10 +349,11 @@
       "id": "w028",
       "stage": "stage_1",
       "type": "word",
-      "text": "운동장",
+      "text": "반딧불",
       "difficulty": 2,
       "tags": [
-        "기본",
+        "숲",
+        "박쥐",
         "받침"
       ],
       "weight": 1
@@ -704,10 +362,11 @@
       "id": "w029",
       "stage": "stage_1",
       "type": "word",
-      "text": "자전거",
+      "text": "물방울",
       "difficulty": 2,
       "tags": [
-        "기본",
+        "숲",
+        "박쥐",
         "받침"
       ],
       "weight": 1
@@ -716,11 +375,11 @@
       "id": "w030",
       "stage": "stage_1",
       "type": "word",
-      "text": "놀이터",
+      "text": "두더지",
       "difficulty": 2,
       "tags": [
-        "기본",
-        "받침"
+        "숲",
+        "박쥐"
       ],
       "weight": 1
     },
@@ -728,10 +387,11 @@
       "id": "w031",
       "stage": "stage_1",
       "type": "word",
-      "text": "코끼리",
+      "text": "개구리",
       "difficulty": 2,
       "tags": [
-        "기본"
+        "숲",
+        "박쥐"
       ],
       "weight": 1
     },
@@ -739,11 +399,11 @@
       "id": "w032",
       "stage": "stage_1",
       "type": "word",
-      "text": "고양이",
+      "text": "무지개",
       "difficulty": 2,
       "tags": [
-        "기본",
-        "받침"
+        "숲",
+        "박쥐"
       ],
       "weight": 1
     },
@@ -751,11 +411,11 @@
       "id": "w033",
       "stage": "stage_1",
       "type": "word",
-      "text": "강아지",
+      "text": "도토리",
       "difficulty": 2,
       "tags": [
-        "기본",
-        "받침"
+        "숲",
+        "박쥐"
       ],
       "weight": 1
     },
@@ -763,10 +423,12 @@
       "id": "w034",
       "stage": "stage_1",
       "type": "word",
-      "text": "해바라기",
+      "text": "잠자리",
       "difficulty": 2,
       "tags": [
-        "기본"
+        "숲",
+        "박쥐",
+        "받침"
       ],
       "weight": 1
     },
@@ -774,10 +436,12 @@
       "id": "w035",
       "stage": "stage_1",
       "type": "word",
-      "text": "나비",
-      "difficulty": 1,
+      "text": "애벌레",
+      "difficulty": 2,
       "tags": [
-        "기본"
+        "숲",
+        "박쥐",
+        "받침"
       ],
       "weight": 1
     },
@@ -785,82 +449,161 @@
       "id": "w036",
       "stage": "stage_1",
       "type": "word",
-      "text": "숲속",
-      "difficulty": 1,
+      "text": "나뭇잎",
+      "difficulty": 2,
       "tags": [
-        "기본",
+        "숲",
+        "박쥐",
         "받침"
       ],
       "weight": 1
     },
     {
-      "id": "w119",
-      "stage": "stage_2",
+      "id": "w037",
+      "stage": "stage_1",
       "type": "word",
-      "text": "신호등",
+      "text": "올챙이",
       "difficulty": 2,
       "tags": [
-        "도시"
+        "숲",
+        "박쥐",
+        "받침"
       ],
       "weight": 1
     },
     {
-      "id": "w120",
-      "stage": "stage_2",
+      "id": "w038",
+      "stage": "stage_1",
       "type": "word",
-      "text": "도서관",
+      "text": "고라니",
       "difficulty": 2,
       "tags": [
-        "도시"
+        "숲",
+        "박쥐"
       ],
       "weight": 1
     },
     {
-      "id": "w121",
-      "stage": "stage_2",
+      "id": "w039",
+      "stage": "stage_1",
       "type": "word",
-      "text": "학교",
-      "difficulty": 1,
-      "tags": [
-        "도시"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "w122",
-      "stage": "stage_2",
-      "type": "word",
-      "text": "달리기",
+      "text": "산딸기",
       "difficulty": 2,
       "tags": [
-        "도시"
+        "숲",
+        "박쥐",
+        "받침"
       ],
       "weight": 1
     },
     {
-      "id": "w123",
+      "id": "w040",
+      "stage": "stage_1",
+      "type": "word",
+      "text": "메뚜기",
+      "difficulty": 2,
+      "tags": [
+        "숲",
+        "박쥐"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w041",
+      "stage": "stage_1",
+      "type": "word",
+      "text": "고슴도치",
+      "difficulty": 2,
+      "tags": [
+        "숲",
+        "박쥐",
+        "받침",
+        "대장"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w042",
+      "stage": "stage_1",
+      "type": "word",
+      "text": "딱따구리",
+      "difficulty": 2,
+      "tags": [
+        "숲",
+        "박쥐",
+        "받침",
+        "대장"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w043",
+      "stage": "stage_1",
+      "type": "word",
+      "text": "호랑나비",
+      "difficulty": 2,
+      "tags": [
+        "숲",
+        "박쥐",
+        "받침",
+        "대장"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w044",
+      "stage": "stage_1",
+      "type": "word",
+      "text": "숲속마을",
+      "difficulty": 2,
+      "tags": [
+        "숲",
+        "박쥐",
+        "받침",
+        "대장"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w045",
+      "stage": "stage_1",
+      "type": "word",
+      "text": "보물상자",
+      "difficulty": 2,
+      "tags": [
+        "숲",
+        "박쥐",
+        "보물"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w046",
+      "stage": "stage_1",
+      "type": "word",
+      "text": "네잎클로버",
+      "difficulty": 2,
+      "tags": [
+        "숲",
+        "박쥐",
+        "하트"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w047",
       "stage": "stage_2",
       "type": "word",
-      "text": "미래",
-      "difficulty": 1,
+      "text": "횡단보도",
+      "difficulty": 2,
       "tags": [
-        "도시"
+        "도시",
+        "이중모음"
       ],
       "weight": 1
     },
     {
-      "id": "w124",
-      "stage": "stage_2",
-      "type": "word",
-      "text": "버스",
-      "difficulty": 1,
-      "tags": [
-        "도시"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "w125",
+      "id": "w048",
       "stage": "stage_2",
       "type": "word",
       "text": "지하철",
@@ -871,43 +614,22 @@
       "weight": 1
     },
     {
-      "id": "w126",
-      "stage": "stage_2",
-      "type": "word",
-      "text": "횡단보도",
-      "difficulty": 2,
-      "tags": [
-        "도시"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "w127",
-      "stage": "stage_2",
-      "type": "word",
-      "text": "가로등",
-      "difficulty": 2,
-      "tags": [
-        "도시"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "w128",
+      "id": "w049",
       "stage": "stage_2",
       "type": "word",
       "text": "편의점",
       "difficulty": 2,
       "tags": [
-        "도시"
+        "도시",
+        "이중모음"
       ],
       "weight": 1
     },
     {
-      "id": "w129",
+      "id": "w050",
       "stage": "stage_2",
       "type": "word",
-      "text": "자동차",
+      "text": "소방차",
       "difficulty": 2,
       "tags": [
         "도시"
@@ -915,10 +637,250 @@
       "weight": 1
     },
     {
-      "id": "w130",
+      "id": "w051",
       "stage": "stage_2",
       "type": "word",
-      "text": "골목길",
+      "text": "경찰관",
+      "difficulty": 2,
+      "tags": [
+        "도시",
+        "이중모음"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w052",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "놀이공원",
+      "difficulty": 2,
+      "tags": [
+        "도시",
+        "이중모음"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w053",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "회전문",
+      "difficulty": 2,
+      "tags": [
+        "도시",
+        "이중모음"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w054",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "광장",
+      "difficulty": 2,
+      "tags": [
+        "도시",
+        "이중모음"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w055",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "왕관",
+      "difficulty": 2,
+      "tags": [
+        "도시",
+        "이중모음"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w056",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "궤도",
+      "difficulty": 2,
+      "tags": [
+        "도시",
+        "이중모음"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w057",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "퀴즈",
+      "difficulty": 2,
+      "tags": [
+        "도시",
+        "이중모음"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w058",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "원숭이",
+      "difficulty": 2,
+      "tags": [
+        "도시",
+        "이중모음"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w059",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "돼지",
+      "difficulty": 2,
+      "tags": [
+        "도시",
+        "이중모음"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w060",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "괜찮아",
+      "difficulty": 2,
+      "tags": [
+        "도시",
+        "이중모음"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w061",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "왜냐하면",
+      "difficulty": 2,
+      "tags": [
+        "도시",
+        "이중모음"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w062",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "쇼윈도",
+      "difficulty": 2,
+      "tags": [
+        "도시",
+        "이중모음"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w063",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "워터파크",
+      "difficulty": 2,
+      "tags": [
+        "도시",
+        "이중모음"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w064",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "스웨터",
+      "difficulty": 2,
+      "tags": [
+        "도시",
+        "이중모음"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w065",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "화요일",
+      "difficulty": 2,
+      "tags": [
+        "도시",
+        "이중모음"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w066",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "뛰어가자",
+      "difficulty": 2,
+      "tags": [
+        "도시",
+        "이중모음"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w067",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "최고야",
+      "difficulty": 2,
+      "tags": [
+        "도시",
+        "이중모음"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w068",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "열쇠",
+      "difficulty": 2,
+      "tags": [
+        "도시",
+        "이중모음"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w069",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "외계인",
+      "difficulty": 2,
+      "tags": [
+        "도시",
+        "이중모음"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w070",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "위험해",
+      "difficulty": 2,
+      "tags": [
+        "도시",
+        "이중모음"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w071",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "웃음소리",
       "difficulty": 2,
       "tags": [
         "도시"
@@ -926,7 +888,7 @@
       "weight": 1
     },
     {
-      "id": "w131",
+      "id": "w072",
       "stage": "stage_2",
       "type": "word",
       "text": "네온사인",
@@ -937,7 +899,40 @@
       "weight": 1
     },
     {
-      "id": "w132",
+      "id": "w073",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "자판기",
+      "difficulty": 2,
+      "tags": [
+        "도시"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w074",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "가로등",
+      "difficulty": 2,
+      "tags": [
+        "도시"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w075",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "골목길",
+      "difficulty": 2,
+      "tags": [
+        "도시"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w076",
       "stage": "stage_2",
       "type": "word",
       "text": "분수대",
@@ -948,18 +943,7 @@
       "weight": 1
     },
     {
-      "id": "w133",
-      "stage": "stage_2",
-      "type": "word",
-      "text": "공원",
-      "difficulty": 1,
-      "tags": [
-        "도시"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "w134",
+      "id": "w077",
       "stage": "stage_2",
       "type": "word",
       "text": "전철역",
@@ -970,106 +954,305 @@
       "weight": 1
     },
     {
-      "id": "w007",
+      "id": "w078",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "야광봉",
+      "difficulty": 2,
+      "tags": [
+        "도시",
+        "이중모음"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w079",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "쌩쌩",
+      "difficulty": 2,
+      "tags": [
+        "도시"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w080",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "반짝반짝",
+      "difficulty": 2,
+      "tags": [
+        "도시"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w081",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "빨간불",
+      "difficulty": 2,
+      "tags": [
+        "도시"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w082",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "초록불",
+      "difficulty": 2,
+      "tags": [
+        "도시"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w083",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "달려라",
+      "difficulty": 2,
+      "tags": [
+        "도시"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w084",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "앞으로",
+      "difficulty": 2,
+      "tags": [
+        "도시"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w085",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "얼른",
+      "difficulty": 2,
+      "tags": [
+        "도시"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w086",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "멈추지마",
+      "difficulty": 2,
+      "tags": [
+        "도시"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w087",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "금화주머니",
+      "difficulty": 2,
+      "tags": [
+        "도시",
+        "보물"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w088",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "회복약",
+      "difficulty": 2,
+      "tags": [
+        "도시",
+        "하트"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w089",
       "stage": "stage_3",
       "type": "sentence",
       "text": "사막을 지나온 사람에게.",
       "difficulty": 3,
       "tags": [
-        "편지"
+        "편지",
+        "순서1"
       ],
       "weight": 1
     },
     {
-      "id": "w008",
+      "id": "w090",
       "stage": "stage_3",
       "type": "sentence",
       "text": "오래된 탑 뒤의 길을 찾을 수 있겠는가?",
       "difficulty": 3,
       "tags": [
-        "편지"
+        "편지",
+        "순서2"
       ],
       "weight": 1
     },
     {
-      "id": "w009",
+      "id": "w091",
       "stage": "stage_3",
       "type": "sentence",
-      "text": "길 끝에는 별빛이 비치는 문이 있다.",
+      "text": "길 끝에는 별빛이 비치는 황금문이 있다.",
       "difficulty": 3,
       "tags": [
-        "편지"
+        "편지",
+        "순서3"
       ],
       "weight": 1
     },
     {
-      "id": "w010",
+      "id": "w092",
       "stage": "stage_3",
       "type": "sentence",
-      "text": "문은 정직한 손끝에만 열린다.",
+      "text": "문은 정직한 손끝에만 열린다, 서두르지 마라.",
       "difficulty": 3,
       "tags": [
-        "편지"
+        "편지",
+        "순서4"
       ],
       "weight": 1
     },
     {
-      "id": "w011",
+      "id": "w093",
       "stage": "stage_3",
       "type": "sentence",
       "text": "한 글자씩 천천히, 그러나 멈추지 마라!",
       "difficulty": 3,
       "tags": [
-        "편지"
+        "편지",
+        "순서5"
       ],
       "weight": 1
     },
     {
-      "id": "w012",
+      "id": "w094",
       "stage": "stage_3",
       "type": "sentence",
-      "text": "너의 이름을 별들이 기억할 것이다.",
+      "text": "네가 되찾은 글자들이 이 사막에 다시 이름을 붙여 줄 것이다.",
       "difficulty": 3,
       "tags": [
-        "편지"
+        "편지",
+        "순서6"
       ],
       "weight": 1
     },
     {
-      "id": "w303",
+      "id": "w095",
+      "stage": "stage_3",
+      "type": "sentence",
+      "text": "모래 언덕 너머로 별똥별이 떨어졌다.",
+      "difficulty": 3,
+      "tags": [
+        "사막"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w096",
+      "stage": "stage_3",
+      "type": "sentence",
+      "text": "낙타는 물 없이도 며칠을 걷는다.",
+      "difficulty": 3,
+      "tags": [
+        "사막"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w097",
+      "stage": "stage_3",
+      "type": "sentence",
+      "text": "유적의 벽에는 사라진 글자들이 새겨져 있었다.",
+      "difficulty": 3,
+      "tags": [
+        "사막"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w098",
       "stage": "stage_4",
       "type": "sentence",
-      "text": "기관실로 긴급히 전합니다.",
+      "text": "기관실로 긴급히 전합니다!",
       "difficulty": 3,
       "tags": [
-        "전보"
+        "전보",
+        "순서1"
       ],
       "weight": 1
     },
     {
-      "id": "w304",
+      "id": "w099",
       "stage": "stage_4",
       "type": "sentence",
-      "text": "앞 철교가 무너져 선로가 끊겼습니다.",
+      "text": "앞쪽 철교가 무너져 선로가 끊겼습니다.",
       "difficulty": 3,
       "tags": [
-        "전보"
+        "전보",
+        "순서2"
       ],
       "weight": 1
     },
     {
-      "id": "w305",
+      "id": "w100",
       "stage": "stage_4",
       "type": "sentence",
-      "text": "지금 즉시 속도를 줄이고 열차를 정지하십시오!",
+      "text": "지금 즉시 속도를 줄이고 다리 앞에서 열차를 멈추십시오!",
       "difficulty": 3,
       "tags": [
-        "전보"
+        "전보",
+        "순서3"
       ],
       "weight": 1
     },
     {
-      "id": "w402",
+      "id": "w101",
+      "stage": "stage_4",
+      "type": "sentence",
+      "text": "증기 기관차가 산길을 따라 달린다.",
+      "difficulty": 3,
+      "tags": [
+        "열차"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w102",
+      "stage": "stage_4",
+      "type": "sentence",
+      "text": "전신기 소리가 또각또각 울린다.",
+      "difficulty": 3,
+      "tags": [
+        "열차"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w103",
+      "stage": "stage_4",
+      "type": "sentence",
+      "text": "승객들은 창밖의 안개를 바라보았다.",
+      "difficulty": 3,
+      "tags": [
+        "열차"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w104",
       "stage": "stage_5",
       "type": "word",
       "text": "빛",
@@ -1080,7 +1263,7 @@
       "weight": 1
     },
     {
-      "id": "w403",
+      "id": "w105",
       "stage": "stage_5",
       "type": "word",
       "text": "용기",
@@ -1091,7 +1274,7 @@
       "weight": 1
     },
     {
-      "id": "w404",
+      "id": "w106",
       "stage": "stage_5",
       "type": "word",
       "text": "희망",
@@ -1102,7 +1285,7 @@
       "weight": 1
     },
     {
-      "id": "w405",
+      "id": "w107",
       "stage": "stage_5",
       "type": "word",
       "text": "미래",
@@ -1113,7 +1296,7 @@
       "weight": 1
     },
     {
-      "id": "w406",
+      "id": "w108",
       "stage": "stage_5",
       "type": "word",
       "text": "도전",
@@ -1124,189 +1307,761 @@
       "weight": 1
     },
     {
-      "id": "w407",
+      "id": "w109",
       "stage": "stage_5",
       "type": "word",
-      "text": "빛",
-      "difficulty": 1,
+      "text": "별똥별",
+      "difficulty": 2,
       "tags": [
         "러시"
       ],
       "weight": 1
     },
     {
-      "id": "w408",
+      "id": "w110",
       "stage": "stage_5",
       "type": "word",
-      "text": "별",
-      "difficulty": 1,
+      "text": "마법책",
+      "difficulty": 2,
       "tags": [
         "러시"
       ],
       "weight": 1
     },
     {
-      "id": "w409",
+      "id": "w111",
       "stage": "stage_5",
       "type": "word",
-      "text": "용기",
-      "difficulty": 1,
+      "text": "열쇠",
+      "difficulty": 2,
       "tags": [
         "러시"
       ],
       "weight": 1
     },
     {
-      "id": "w410",
+      "id": "w112",
       "stage": "stage_5",
       "type": "word",
-      "text": "함께",
-      "difficulty": 1,
+      "text": "촛불",
+      "difficulty": 2,
       "tags": [
         "러시"
       ],
       "weight": 1
     },
     {
-      "id": "w411",
+      "id": "w113",
       "stage": "stage_5",
       "type": "word",
-      "text": "도전",
-      "difficulty": 1,
+      "text": "그림자",
+      "difficulty": 2,
       "tags": [
         "러시"
       ],
       "weight": 1
     },
     {
-      "id": "w412",
+      "id": "w114",
       "stage": "stage_5",
       "type": "word",
-      "text": "희망",
-      "difficulty": 1,
+      "text": "왕관",
+      "difficulty": 2,
       "tags": [
         "러시"
       ],
       "weight": 1
     },
     {
-      "id": "w413",
+      "id": "w115",
       "stage": "stage_5",
       "type": "word",
-      "text": "마음",
-      "difficulty": 1,
+      "text": "성문",
+      "difficulty": 2,
       "tags": [
         "러시"
       ],
       "weight": 1
     },
     {
-      "id": "w414",
+      "id": "w116",
       "stage": "stage_5",
       "type": "word",
-      "text": "친구",
-      "difficulty": 1,
+      "text": "횃불",
+      "difficulty": 2,
       "tags": [
         "러시"
       ],
       "weight": 1
     },
     {
-      "id": "w415",
+      "id": "w117",
       "stage": "stage_5",
       "type": "word",
-      "text": "시작",
-      "difficulty": 1,
+      "text": "우정",
+      "difficulty": 2,
       "tags": [
         "러시"
       ],
       "weight": 1
     },
     {
-      "id": "w416",
+      "id": "w118",
       "stage": "stage_5",
       "type": "word",
       "text": "약속",
-      "difficulty": 1,
+      "difficulty": 2,
       "tags": [
         "러시"
       ],
       "weight": 1
     },
     {
-      "id": "w417",
+      "id": "w119",
       "stage": "stage_5",
       "type": "word",
-      "text": "하늘",
-      "difficulty": 1,
+      "text": "함께",
+      "difficulty": 2,
       "tags": [
         "러시"
       ],
       "weight": 1
     },
     {
-      "id": "w418",
-      "stage": "stage_5",
-      "type": "word",
-      "text": "바다",
-      "difficulty": 1,
-      "tags": [
-        "러시"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "w419",
-      "stage": "stage_5",
-      "type": "word",
-      "text": "꿈",
-      "difficulty": 1,
-      "tags": [
-        "러시"
-      ],
-      "weight": 1
-    },
-    {
-      "id": "w420",
+      "id": "w120",
       "stage": "stage_5",
       "type": "word",
       "text": "웃음",
-      "difficulty": 1,
+      "difficulty": 2,
       "tags": [
         "러시"
       ],
       "weight": 1
     },
     {
-      "id": "w421",
+      "id": "w121",
       "stage": "stage_5",
       "type": "word",
-      "text": "노력",
-      "difficulty": 1,
+      "text": "꿈",
+      "difficulty": 2,
       "tags": [
         "러시"
       ],
       "weight": 1
     },
     {
-      "id": "w422",
+      "id": "w122",
+      "stage": "stage_5",
+      "type": "word",
+      "text": "용사",
+      "difficulty": 2,
+      "tags": [
+        "러시"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w123",
+      "stage": "stage_5",
+      "type": "word",
+      "text": "방패",
+      "difficulty": 2,
+      "tags": [
+        "러시"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w124",
+      "stage": "stage_5",
+      "type": "word",
+      "text": "번개",
+      "difficulty": 2,
+      "tags": [
+        "러시"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w125",
+      "stage": "stage_5",
+      "type": "word",
+      "text": "외침",
+      "difficulty": 2,
+      "tags": [
+        "러시"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w126",
+      "stage": "stage_5",
+      "type": "word",
+      "text": "되찾자",
+      "difficulty": 2,
+      "tags": [
+        "러시"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w127",
       "stage": "stage_5",
       "type": "sentence",
       "text": "우리는 작은 한 글자부터 새로운 길을 만들었다.",
       "difficulty": 3,
       "tags": [
-        "최종"
+        "최종",
+        "순서1"
       ],
       "weight": 1
     },
     {
-      "id": "w423",
+      "id": "w128",
       "stage": "stage_5",
       "type": "sentence",
       "text": "포기하지 않고 계속 나아가면 더 넓은 세상이 열린다!",
       "difficulty": 3,
       "tags": [
-        "최종"
+        "최종",
+        "순서2"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w129",
+      "stage": "stage_5",
+      "type": "sentence",
+      "text": "어둠이 훔쳐 간 글자들을 우리의 손끝으로 하나씩 되찾아, 다시 빛나는 세상을 열어 보자!",
+      "difficulty": 3,
+      "tags": [
+        "최종",
+        "순서3"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w130",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "오늘도 즐겁게 하루를 시작해요.",
+      "difficulty": 2,
+      "tags": [
+        "오늘문장"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w131",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "친구와 함께 놀면 시간이 빨리 가요.",
+      "difficulty": 2,
+      "tags": [
+        "오늘문장"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w132",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "책을 읽으면 새로운 세상을 만나요.",
+      "difficulty": 2,
+      "tags": [
+        "오늘문장"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w133",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "작은 습관이 모여 큰 변화를 만들어요.",
+      "difficulty": 2,
+      "tags": [
+        "오늘문장"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w134",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "비 온 뒤에 무지개가 떴어요.",
+      "difficulty": 2,
+      "tags": [
+        "오늘문장"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w135",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "꾸준히 연습하면 실력이 늘어요.",
+      "difficulty": 2,
+      "tags": [
+        "오늘문장"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w136",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "웃는 얼굴은 주변을 밝게 만들어요.",
+      "difficulty": 2,
+      "tags": [
+        "오늘문장"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w137",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "정직하게 말하는 것이 가장 용기 있는 일이에요.",
+      "difficulty": 2,
+      "tags": [
+        "오늘문장"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w138",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "작은 친절이 큰 감동을 줘요.",
+      "difficulty": 2,
+      "tags": [
+        "오늘문장"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w139",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "실수해도 다시 도전하면 돼요.",
+      "difficulty": 2,
+      "tags": [
+        "오늘문장"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w140",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "봄이 오면 새싹이 파릇하게 돋아요.",
+      "difficulty": 2,
+      "tags": [
+        "오늘문장"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w141",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "가족과 함께하는 저녁이 제일 따뜻해요.",
+      "difficulty": 2,
+      "tags": [
+        "오늘문장"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w142",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "궁금한 것은 바로바로 물어봐요.",
+      "difficulty": 2,
+      "tags": [
+        "오늘문장"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w143",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "오늘 배운 것을 내일 다시 써 봐요.",
+      "difficulty": 2,
+      "tags": [
+        "오늘문장"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w144",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "느려도 꾸준하면 결국 도착해요.",
+      "difficulty": 2,
+      "tags": [
+        "오늘문장"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w145",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "마을 어귀에는 아주 오래된 느티나무 한 그루가 서 있었습니다.",
+      "difficulty": 3,
+      "tags": [
+        "장문1",
+        "순서1"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w146",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "이 나무는 백 년이 넘도록 그 자리를 지키며 자라 왔습니다.",
+      "difficulty": 3,
+      "tags": [
+        "장문1",
+        "순서2"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w147",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "처음에는 작은 씨앗 하나에 지나지 않았지만, 비와 바람과 햇살을 견디며 조금씩 굵어졌습니다.",
+      "difficulty": 3,
+      "tags": [
+        "장문1",
+        "순서3"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w148",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "여름이면 넓은 그늘을 만들어 마을 사람들에게 시원한 쉼터가 되어 주었습니다.",
+      "difficulty": 3,
+      "tags": [
+        "장문1",
+        "순서4"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w149",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "아이들은 나무 아래에 모여 앉아 이야기를 나누고, 어른들은 그 그늘에서 땀을 식혔습니다.",
+      "difficulty": 3,
+      "tags": [
+        "장문1",
+        "순서5"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w150",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "겨울이 되어 잎이 모두 떨어져도 나무는 뿌리를 깊이 내리고 다음 봄을 조용히 기다렸습니다.",
+      "difficulty": 3,
+      "tags": [
+        "장문1",
+        "순서6"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w151",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "느티나무를 보면서 사람들은 느리더라도 꾸준히 자라는 것이 얼마나 큰 힘이 되는지 깨달았습니다.",
+      "difficulty": 3,
+      "tags": [
+        "장문1",
+        "순서7"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w152",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "가끔 태풍이 불어 가지가 꺾이기도 했지만, 나무는 그때마다 새로운 가지를 뻗어 다시 씩씩하게 자랐습니다.",
+      "difficulty": 3,
+      "tags": [
+        "장문1",
+        "순서8"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w153",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "지금도 나무 아래를 지날 때면 오랜 세월을 견뎌 온 그 단단함이 느껴집니다.",
+      "difficulty": 3,
+      "tags": [
+        "장문1",
+        "순서9"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w154",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "그렇게 오랜 시간이 지나도 나무는 여전히 마을을 지키는 든든한 친구로 남아 있습니다.",
+      "difficulty": 3,
+      "tags": [
+        "장문1",
+        "순서10"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w155",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "작은 시냇물 한 방울이 산꼭대기에서부터 여행을 시작했습니다.",
+      "difficulty": 3,
+      "tags": [
+        "장문2",
+        "순서1"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w156",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "졸졸 흐르던 물은 여러 갈래의 개울과 만나며 점점 큰 강을 이루었습니다.",
+      "difficulty": 3,
+      "tags": [
+        "장문2",
+        "순서2"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w157",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "강물은 넓은 들판을 지나고 마을을 통과하며 논과 밭에 생명을 나누어 주었습니다.",
+      "difficulty": 3,
+      "tags": [
+        "장문2",
+        "순서3"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w158",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "그러다 마침내 드넓은 바다에 다다라 수많은 물방울과 하나가 되었습니다.",
+      "difficulty": 3,
+      "tags": [
+        "장문2",
+        "순서4"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w159",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "따뜻한 햇살이 바닷물을 데우면 물은 눈에 보이지 않는 수증기가 되어 하늘로 올라갔습니다.",
+      "difficulty": 3,
+      "tags": [
+        "장문2",
+        "순서5"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w160",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "하늘 높이 올라간 수증기는 차가운 공기를 만나 작은 물방울로 뭉쳐 구름을 만들었습니다.",
+      "difficulty": 3,
+      "tags": [
+        "장문2",
+        "순서6"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w161",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "구름이 점점 무거워지면 물방울은 다시 비가 되어 땅으로 떨어졌습니다.",
+      "difficulty": 3,
+      "tags": [
+        "장문2",
+        "순서7"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w162",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "논밭을 적신 물은 다시 땅속 깊이 스며들어 맑은 지하수가 되기도 합니다.",
+      "difficulty": 3,
+      "tags": [
+        "장문2",
+        "순서8"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w163",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "이렇게 물은 한자리에 머무르지 않고 세상 곳곳을 돌며 모든 생명을 살리고 있습니다.",
+      "difficulty": 3,
+      "tags": [
+        "장문2",
+        "순서9"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w164",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "이렇게 물은 산에서 바다로, 다시 하늘에서 산으로 끊임없이 돌고 도는 여행을 계속합니다.",
+      "difficulty": 3,
+      "tags": [
+        "장문2",
+        "순서10"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w165",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "우리 동네 골목 끝에는 아주 작은 도서관이 하나 있습니다.",
+      "difficulty": 3,
+      "tags": [
+        "장문3",
+        "순서1"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w166",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "낡은 책장 몇 개와 낮은 탁자가 전부였지만, 그곳에는 늘 따뜻한 온기가 감돌았습니다.",
+      "difficulty": 3,
+      "tags": [
+        "장문3",
+        "순서2"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w167",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "학교가 끝나면 아이들은 하나둘 도서관으로 모여들어 저마다 좋아하는 책을 골라 읽었습니다.",
+      "difficulty": 3,
+      "tags": [
+        "장문3",
+        "순서3"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w168",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "어떤 날은 모험 이야기에 푹 빠졌고, 어떤 날은 우주와 별에 관한 책을 넘기며 눈을 반짝였습니다.",
+      "difficulty": 3,
+      "tags": [
+        "장문3",
+        "순서4"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w169",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "책을 많이 읽을수록 머릿속에는 가 보지 못한 곳들이 하나씩 늘어났습니다.",
+      "difficulty": 3,
+      "tags": [
+        "장문3",
+        "순서5"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w170",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "친구들과 읽은 책 이야기를 나누다 보면 시간 가는 줄 몰랐습니다.",
+      "difficulty": 3,
+      "tags": [
+        "장문3",
+        "순서6"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w171",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "가끔은 낯선 나라의 이야기책을 골라 읽으며 전혀 몰랐던 문화를 알게 되기도 합니다.",
+      "difficulty": 3,
+      "tags": [
+        "장문3",
+        "순서7"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w172",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "작은 도서관은 크지 않았지만, 그 안에는 세상 어디로든 떠날 수 있는 문이 숨어 있었습니다.",
+      "difficulty": 3,
+      "tags": [
+        "장문3",
+        "순서8"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w173",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "그렇게 작은 도서관은 아이들의 상상력을 조금씩 키워 주는 소중한 공간이 되었습니다.",
+      "difficulty": 3,
+      "tags": [
+        "장문3",
+        "순서9"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w174",
+      "stage": "daily",
+      "type": "sentence",
+      "text": "오늘도 아이들은 그 문을 열고 새로운 이야기 속으로 걸어 들어갑니다.",
+      "difficulty": 3,
+      "tags": [
+        "장문3",
+        "순서10"
       ],
       "weight": 1
     }

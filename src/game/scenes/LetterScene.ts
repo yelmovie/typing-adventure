@@ -12,7 +12,7 @@ import type { StageId } from '../types';
 import type { BattleSnapshot } from '../systems/BattleSystem';
 import { LETTER } from '../systems/LetterSystem';
 
-const PAPER = { x: 640, y: 520, w: 900, h: 400 }; // 콤보 숫자(y≈200~330) 아래
+const PAPER = { x: 800, y: 520, w: 880, h: 360 }; // 콤보(y≤290) 아래 · 좌측 패널(x≤330)/캐릭터(x≤260) 오른쪽 · 룬 줄(≈746)까지 하단 패널(830) 위
 const GATE = { x: 1560, y: 470 };
 
 /**
@@ -26,7 +26,7 @@ export class LetterScene extends Phaser.Scene {
   private runeRow?: Phaser.GameObjects.Container;
   private locks: Phaser.GameObjects.Image[] = [];
   private gateGlow?: Phaser.GameObjects.Ellipse;
-  private hourglass?: Phaser.GameObjects.Text;
+  private hourglass?: Phaser.GameObjects.Image;
   private sparkle?: Phaser.GameObjects.Particles.ParticleEmitter;
   private handlers: [string, (...args: never[]) => void][] = [];
 
@@ -37,6 +37,7 @@ export class LetterScene extends Phaser.Scene {
   preload() {
     this.load.image('ui_lock', './assets/ui/icon_lock.webp');
     this.load.image('ui_unlock', './assets/ui/icon_unlock.webp');
+    this.load.image('ui_clock', './assets/ui/icon_clock.webp');
   }
 
   create(data: { stageId: StageId }) {
@@ -56,9 +57,9 @@ export class LetterScene extends Phaser.Scene {
     g.fillRoundedRect(PAPER.x - PAPER.w / 2, PAPER.y - PAPER.h / 2, PAPER.w, PAPER.h, 22);
     g.lineStyle(6, 0x8a6a3a, 1);
     g.strokeRoundedRect(PAPER.x - PAPER.w / 2, PAPER.y - PAPER.h / 2, PAPER.w, PAPER.h, 22);
-    this.add.text(PAPER.x, PAPER.y - PAPER.h / 2 + 34, '📜 잊힌 탐험가의 편지', { ...styleText(30, '#5a3a10', '#f3e5c0'), strokeThickness: 2, shadow: undefined }).setOrigin(0.5).setDepth(5);
+    this.add.text(PAPER.x, PAPER.y - PAPER.h / 2 + 34, '잊힌 탐험가의 편지', { ...styleText(30, '#5a3a10', '#f3e5c0'), strokeThickness: 2, shadow: undefined }).setOrigin(0.5).setDepth(5);
     for (let i = 0; i < LETTER.sentences; i++) {
-      const t = this.add.text(PAPER.x - PAPER.w / 2 + 50, PAPER.y - PAPER.h / 2 + 90 + i * 52, '· · · · · · · · · · · ·', { ...styleText(30, '#b9a888', '#f3e5c0'), strokeThickness: 0, shadow: undefined }).setOrigin(0, 0.5).setDepth(5);
+      const t = this.add.text(PAPER.x - PAPER.w / 2 + 50, PAPER.y - PAPER.h / 2 + 86 + i * 44, '· · · · · · · · · · · ·', { ...styleText(28, '#b9a888', '#f3e5c0'), strokeThickness: 0, shadow: undefined }).setOrigin(0, 0.5).setDepth(5);
       this.lineTexts.push(t);
     }
     this.runeRow = this.add.container(PAPER.x, PAPER.y + PAPER.h / 2 + 46).setDepth(6);
@@ -77,13 +78,14 @@ export class LetterScene extends Phaser.Scene {
       this.locks.push(l);
     }
 
-    this.player = new Player(this, 260, 900, getCharacter(save.profile.characterId).sheet, 1.2);
+    this.player = new Player(this, 150, 760, getCharacter(save.profile.characterId).sheet, 1.05);
     this.player.idle('right');
     this.player.setDepth(7);
-    this.pet = new Pet(this, 120, 905, getPet(save.profile.petId).sheet, 0.58);
+    this.player.setLively(true);
+    this.pet = new Pet(this, 275, 770, getPet(save.profile.petId).sheet, 0.5);
     this.pet.setDepth(6);
 
-    this.hourglass = this.add.text(PAPER.x + PAPER.w / 2 - 50, PAPER.y - PAPER.h / 2 + 34, '⏳', { fontSize: '40px' }).setOrigin(0.5).setDepth(6).setAlpha(0);
+    this.hourglass = this.add.image(PAPER.x + PAPER.w / 2 - 50, PAPER.y - PAPER.h / 2 + 34, 'ui_clock').setDisplaySize(40, 40).setDepth(6).setAlpha(0);
     this.sparkle = this.add.particles(0, 0, 'p_star', {
       lifespan: { min: 400, max: 900 }, speed: { min: 60, max: 220 }, scale: { start: 0.9, end: 0 }, gravityY: 200, emitting: false, blendMode: Phaser.BlendModes.ADD, tint: [0xffd34d, 0xfff2b0, 0xffffff, 0x63e074],
     }).setDepth(20);
@@ -93,12 +95,22 @@ export class LetterScene extends Phaser.Scene {
     this.bind(Events.LETTER_CRACK, (d: { index: number }) => this.crackRune(d.index, true));
     this.bind(Events.LETTER_RESTORE, (d: { index: number }) => this.crackRune(d.index, false));
     this.bind(Events.LETTER_GLOW, () => this.glowAll());
-    this.bind(Events.LETTER_LINE, (d: { index: number; text: string; perfect: boolean }) => this.writeLine(d));
+    this.bind(Events.LETTER_LINE, (d: { index: number; text: string; perfect: boolean; wrong?: boolean }) => this.writeLine(d));
     this.bind(Events.LETTER_LOCK, (d: { lock: number }) => this.openLock(d.lock - 1));
+    this.bind(Events.SYLLABLE_HIT, () => { if (Math.random() < 0.5) this.player?.jab(); });
+    this.bind(Events.PET_ACTIVE, () => this.pet?.skill());
+    this.bind(Events.IDLE_DRAIN, () => { this.player?.hit(); AudioManager.sfx('hurt', { gain: 0.5 }); });
+    this.bind(Events.PET_PASSIVE, () => this.pet?.skill());
     this.bind(Events.LETTER_IDLE, (d: { idle: boolean }) => this.tweens.add({ targets: this.hourglass, alpha: d.idle ? 1 : 0, duration: 300 }));
     this.bind(Events.LETTER_GATE, () => this.openGate());
     this.bind(Events.INPUT_CORRECT, (d: { perfect: boolean; combo: number }) => this.onCorrect(d));
     this.bind(Events.INPUT_WRONG, (d: { forgiven: boolean }) => { if (!d.forgiven) AudioManager.sfx('miss'); });
+    this.bind(Events.PLAYER_MOVE, (d: { dir: 'left' | 'right' | 'up' | 'down'; pressed: boolean }) => {
+      if (!this.player) return;
+      if (d.dir === 'up' && d.pressed) this.player.jump();
+      else if (d.dir === 'down') this.player.crouch(d.pressed);
+      else if (d.pressed) this.player.nudge(d.dir === 'right' ? 22 : -22);
+    });
     this.bind(Events.STAGE_FAILED, () => this.player?.hit());
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       for (const [ev, fn] of this.handlers) EventBus.off(ev, fn);
@@ -139,6 +151,7 @@ export class LetterScene extends Phaser.Scene {
     gem.setFillStyle(0xffd34d, 1);
     if (silent) return;
     AudioManager.sfx('tap', { rate: 1.2 + i * 0.05 });
+    this.player?.jab();
     this.tweens.add({ targets: c, scale: 1.5, duration: 120, yoyo: true });
     this.sparkle?.explode(8, this.runeRow!.x + c.x, this.runeRow!.y);
   }
@@ -157,10 +170,10 @@ export class LetterScene extends Phaser.Scene {
     this.sparkle?.explode(30, PAPER.x, PAPER.y + PAPER.h / 2 + 46);
   }
 
-  private writeLine(d: { index: number; text: string; perfect: boolean }) {
+  private writeLine(d: { index: number; text: string; perfect: boolean; wrong?: boolean }) {
     const t = this.lineTexts[d.index];
     if (!t) return;
-    t.setText(d.text).setColor(d.perfect ? '#b8600a' : '#3a2a10').setAlpha(0);
+    t.setText(d.text).setColor(d.wrong ? '#b56a6a' : d.perfect ? '#b8600a' : '#3a2a10').setAlpha(0);
     this.tweens.add({ targets: t, alpha: 1, x: t.x + 6, duration: 400, ease: 'Sine.easeOut' });
     this.sparkle?.explode(d.perfect ? 30 : 14, t.x + 200, t.y);
   }
@@ -177,6 +190,7 @@ export class LetterScene extends Phaser.Scene {
   private onCorrect(d: { perfect: boolean; combo: number }) {
     AudioManager.sfx(d.perfect ? 'perfect' : 'hit', { rate: AudioManager.comboRate(d.combo) });
     this.pet?.cheer();
+    this.player?.hop();
     this.player?.cheer();
     this.time.delayedCall(900, () => this.player?.idle('right'));
   }

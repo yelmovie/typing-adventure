@@ -9,7 +9,8 @@ import { TypingRun, type Emit } from './TypingRun';
 import { countStrokes } from '../util/hangul';
 import type { BattleSnapshot, TypingMode } from './BattleSystem';
 
-export const DAILY = { words: 20 };
+export const DAILY = { words: 20, sentences: 10 };
+export type DailyKind = 'word' | 'sentence' | 'long';
 
 /** YYYY-MM-DD (로컬) */
 export function todayKey(d = new Date()): string {
@@ -30,21 +31,44 @@ export function seededRandom(seed: string): () => number {
   };
 }
 
-/** 오늘의 낱말 20개 (풀에서 시드 셔플) */
-export function pickDailyWords(pool: ContentUnit[], key = todayKey()): ContentUnit[] {
+/** 오늘의 낱말/문장 N개 (풀에서 시드 셔플). count 기본값은 낱말 20개(기존 동작 유지) */
+export function pickDailyWords(pool: ContentUnit[], count = DAILY.words, key = todayKey()): ContentUnit[] {
   const rnd = seededRandom(key);
   const a = [...pool];
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(rnd() * (i + 1));
     [a[i], a[j]] = [a[j], a[i]];
   }
-  return a.slice(0, DAILY.words);
+  return a.slice(0, count);
+}
+
+/** 순서N 태그 기준 정렬 (없으면 원래 순서) */
+function byOrder(a: ContentUnit, b: ContentUnit): number {
+  const n = (u: ContentUnit) => Number((u.tags.find((t) => t.startsWith('순서')) ?? '순서0').slice(2));
+  return n(a) - n(b);
+}
+
+/** 오늘의 긴 글 한 편 — 날짜 시드로 후보 중 하나를 골라 순서대로 이어 붙인다.
+ *  pool 은 장문 조각(같은 피스 태그를 공유하는 여러 문장)들이 뒤섞여 들어온다. */
+export function pickDailyLong(pool: ContentUnit[], key = todayKey()): ContentUnit[] {
+  const pieceTags = [...new Set(pool.flatMap((u) => u.tags.filter((t) => /^장문\d+$/.test(t))))].sort();
+  if (pieceTags.length === 0) return pool.sort(byOrder);
+  const idx = Math.floor(seededRandom(key)() * pieceTags.length);
+  const tag = pieceTags[idx];
+  return pool.filter((u) => u.tags.includes(tag)).sort(byOrder);
+}
+
+/** finalizeAndSave(ScoreSystem)가 기록 키를 종류별로 나누려고 참조 — 오늘의 도전은 한 번에 하나만 진행되므로 모듈 전역으로 충분 */
+let activeKind: DailyKind = 'word';
+export function currentDailyKind(): DailyKind {
+  return activeKind;
 }
 
 export class DailySystem implements TypingMode {
   readonly stage: StageDef;
   readonly difficulty: Difficulty;
   readonly run: TypingRun;
+  readonly kind: DailyKind;
   score = 0;
   finished = false;
   running = false;
@@ -53,11 +77,13 @@ export class DailySystem implements TypingMode {
   private words: ContentUnit[];
   private idx = 0;
 
-  constructor(stage: StageDef, difficulty: Difficulty, pet: PetDef, words: ContentUnit[], emit: Emit) {
+  constructor(stage: StageDef, difficulty: Difficulty, pet: PetDef, words: ContentUnit[], emit: Emit, kind: DailyKind = 'word') {
     this.stage = stage;
     this.difficulty = difficulty;
     this.emit = emit;
     this.words = words;
+    this.kind = kind;
+    activeKind = kind;
     this.run = new TypingRun({ stage, difficulty, pet, next: () => this.words[this.idx] ?? null, emit });
   }
 
@@ -83,6 +109,30 @@ export class DailySystem implements TypingMode {
     if (!this.running || this.finished) return;
     this.run.onCommit(value);
   }
+  /** 방향키: 이 모드는 연출만 */
+  move(dir: 'left' | 'right' | 'up' | 'down', pressed: boolean) {
+    if (!this.running || this.finished) return;
+    this.emit('PLAYER_MOVE', { dir, pressed });
+  }
+  skip(): boolean {
+    if (!this.running || this.finished) return false;
+    const t = this.run.current;
+    if (!t) return false;
+    const r = this.run.skip();
+    if (!r) return false;
+    this.idx++;
+    if (this.idx >= this.words.length) {
+      this.finished = true;
+      this.running = false;
+      this.run.stats.stop();
+      this.emit('STAGE_CLEAR', this.snapshot());
+      return true;
+    }
+    this.run.advance();
+    this.emit('TARGET_CHANGED', this.snapshot());
+    return true;
+  }
+
   submit(value: string, usedBackspace: boolean) {
     if (!this.running || this.finished) return;
     const t = this.run.current;
@@ -91,6 +141,15 @@ export class DailySystem implements TypingMode {
     if (!r) return;
     if (!r.correct) {
       this.emit('INPUT_WRONG', { typed: value, target: t, hpLoss: 0, timeLoss: 0, forgiven: r.forgiven, shielded: false, snapshot: this.snapshot() });
+      this.idx++; // 틀린 낱말은 넘긴다
+      if (this.idx >= this.words.length) {
+        this.finished = true;
+        this.running = false;
+        this.run.stats.stop();
+        this.emit('STAGE_CLEAR', this.snapshot());
+        return;
+      }
+      this.run.advance();
       this.emit('TARGET_CHANGED', this.snapshot());
       return;
     }

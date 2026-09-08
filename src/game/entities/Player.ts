@@ -12,6 +12,12 @@ export class Player {
   private baseScale: number;
   facing: Dir = 'front';
   busy = false;
+  /** true 면 동작이 끝난 뒤 idle 대신 걷기 애니로 돌아간다 (S1 처럼 계속 걸어가는 씬) */
+  walking = false;
+  /** 방향키 상태(연출용) — 전용 프레임이 없어 트윈으로 표현 */
+  jumping = false;
+  crouching = false;
+  private idleTimer?: Phaser.Time.TimerEvent;
 
   constructor(scene: Phaser.Scene, x: number, y: number, sheet: string, scale = 1) {
     this.scene = scene;
@@ -55,9 +61,9 @@ export class Player {
     this.sprite.setScale(this.baseScale);
     this.bob = this.scene.tweens.add({
       targets: this.sprite,
-      scaleY: this.baseScale * 1.025,
-      scaleX: this.baseScale * 0.985,
-      duration: 900,
+      scaleY: this.baseScale * 1.04,
+      scaleX: this.baseScale * 0.975,
+      duration: 760,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
@@ -66,10 +72,61 @@ export class Player {
 
   idle(dir: Dir = this.facing) {
     this.facing = dir;
+    if (this.walking) {
+      this.walk(dir, false);
+      return;
+    }
     this.sprite.anims.stop();
     this.sprite.setFrame(`idle_${dir}`);
     this.sprite.setFlipX(false);
     this.startBob();
+  }
+
+  /** 전투 대기 중 살아있는 느낌: 2.5~4.5초마다 두리번·응원·제자리 뛰기 중 하나 */
+  setLively(on: boolean) {
+    this.idleTimer?.remove();
+    if (!on) return;
+    const schedule = () => {
+      this.idleTimer = this.scene.time.delayedCall(2500 + Math.random() * 2000, () => {
+        if (!this.sprite.active) return;
+        if (!this.busy) {
+          const r = Math.random();
+          if (r < 0.35) {
+            // 두리번: 잠깐 정면/뒤 보고 다시 오른쪽
+            const look: Dir = Math.random() < 0.5 ? 'front' : 'left';
+            this.sprite.setFrame(`idle_${look}`);
+            this.scene.time.delayedCall(450, () => { if (!this.busy && this.sprite.active) this.sprite.setFrame(`idle_${this.facing}`); });
+          } else if (r < 0.65) {
+            this.cheer();
+            this.scene.time.delayedCall(700, () => { if (!this.busy && this.sprite.active) this.idle(this.facing); });
+          } else {
+            this.hop();
+          }
+        }
+        schedule();
+      });
+    };
+    schedule();
+  }
+
+  /** 대시 프레임(TURBO·FEVER 진입 등) */
+  dash(ms = 600) {
+    this.bob?.stop();
+    this.sprite.setScale(this.baseScale);
+    this.sprite.setFrame('dash');
+    this.scene.tweens.add({ targets: this.sprite, x: this.sprite.x + 24, duration: 90, yoyo: true, repeat: 2 });
+    this.scene.time.delayedCall(ms, () => { if (!this.busy && this.sprite.active) this.idle(this.facing); });
+  }
+
+  /** 실패 화면: 풀 죽은 포즈(피격 프레임 유지 + 고개 숙임) */
+  sad() {
+    this.busy = true;
+    this.bob?.stop();
+    this.sprite.anims.stop();
+    this.sprite.setScale(this.baseScale);
+    this.sprite.setFrame('hit');
+    this.sprite.setAngle(-6);
+    this.scene.tweens.add({ targets: this.sprite, y: this.baseY + 6, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
   }
 
   walk(dir: Dir, run = false) {
@@ -149,6 +206,76 @@ export class Player {
     });
   }
 
+  /** 글자 하나 맞을 때: 짧은 찌르기(공격 프레임 + 앞으로 톡) — busy 중이면 살짝 흔들리기만 */
+  jab() {
+    if (this.busy) {
+      this.scene.tweens.add({ targets: this.sprite, scaleX: this.baseScale * 1.06, duration: 50, yoyo: true });
+      return;
+    }
+    this.busy = true;
+    this.bob?.stop();
+    this.sprite.setScale(this.baseScale);
+    this.sprite.setFlipX(false);
+    this.sprite.play(anim(this.sheet, 'attack'));
+    const x0 = this.sprite.x;
+    this.scene.tweens.add({ targets: [this.sprite, this.shadow], x: x0 + 34, duration: 70, yoyo: true, ease: 'Quad.easeOut', onComplete: () => { this.sprite.setX(x0); this.shadow.setX(x0); this.busy = false; this.idle('right'); } });
+  }
+
+  /** 방향키 좌우: 전용 프레임 없이 짧게 앞뒤로 톡 (전진·후진 연출) */
+  nudge(dx: number) {
+    if (this.jumping || this.crouching) return;
+    const x0 = this.sprite.x;
+    this.scene.tweens.add({ targets: [this.sprite, this.shadow], x: x0 + dx, duration: 130, yoyo: true, ease: 'Quad.easeOut' });
+  }
+
+  /** 방향키 위: 점프(y 아크 + 스쿼시·스트레치) */
+  jump(ms = 420) {
+    if (this.jumping) return;
+    this.jumping = true;
+    const y0 = this.baseY;
+    this.bob?.stop();
+    this.scene.tweens.add({ targets: this.sprite, scaleY: this.baseScale * 0.82, scaleX: this.baseScale * 1.15, duration: 90, yoyo: true, ease: 'Quad.easeOut' });
+    this.scene.tweens.add({
+      targets: this.sprite,
+      y: y0 - 130,
+      duration: ms / 2,
+      yoyo: true,
+      ease: 'Sine.easeOut',
+      onComplete: () => {
+        this.sprite.setY(y0);
+        this.jumping = false;
+        if (!this.busy) this.startBob();
+      },
+    });
+  }
+
+  /** 방향키 아래: 앉기(scaleY 스쿼시 유지, 키를 떼면 원복) */
+  crouch(on: boolean) {
+    if (this.crouching === on) return;
+    this.crouching = on;
+    this.bob?.stop();
+    const y0 = this.baseY;
+    if (on) {
+      this.scene.tweens.add({ targets: this.sprite, scaleY: this.baseScale * 0.62, scaleX: this.baseScale * 1.08, y: y0 + 24 * this.baseScale, duration: 110, ease: 'Quad.easeOut' });
+    } else {
+      this.scene.tweens.add({
+        targets: this.sprite,
+        scaleY: this.baseScale,
+        scaleX: this.baseScale,
+        y: y0,
+        duration: 110,
+        ease: 'Quad.easeOut',
+        onComplete: () => { if (!this.busy) this.startBob(); },
+      });
+    }
+  }
+
+  /** 정답: 폴짝 */
+  hop() {
+    const y0 = this.baseY;
+    this.scene.tweens.add({ targets: this.sprite, y: y0 - 46, duration: 130, yoyo: true, ease: 'Quad.easeOut', onComplete: () => this.sprite.setY(y0) });
+  }
+
   cheer() {
     this.bob?.stop();
     this.sprite.setScale(this.baseScale);
@@ -157,6 +284,7 @@ export class Player {
 
   destroy() {
     this.bob?.stop();
+    this.idleTimer?.remove();
     this.sprite.destroy();
     this.shadow.destroy();
   }

@@ -110,6 +110,15 @@ export class LetterSystem implements TypingMode {
       this.idleOn = idle;
       this.emit('LETTER_IDLE', { idle });
     }
+    const drain = this.run.idleDrain(dt);
+    if (drain > 0) {
+      this.playerHp = Math.max(0, this.playerHp - drain);
+      this.emit('IDLE_DRAIN', { hpLoss: drain, hp: this.playerHp, idle: this.run.idleSeconds });
+      if (this.playerHp <= 0) {
+        this.fail('hp');
+        return;
+      }
+    }
     this.emit('HUD_TICK', this.snapshot());
   }
 
@@ -161,6 +170,26 @@ export class LetterSystem implements TypingMode {
     this.lastMatched = Math.max(this.lastMatched, done);
   }
 
+  /** 방향키: 이 모드는 연출만 */
+  move(dir: 'left' | 'right' | 'up' | 'down', pressed: boolean) {
+    if (!this.running || this.finished) return;
+    this.emit('PLAYER_MOVE', { dir, pressed });
+  }
+
+  skip(): boolean {
+    if (!this.running || this.finished) return false;
+    const t = this.run.current;
+    if (!t) return false;
+    const r = this.run.skip();
+    if (!r) return false;
+    this.streak = 0;
+    this.lines.push(t.text);
+    this.idx++;
+    this.emit('LETTER_LINE', { index: this.lines.length - 1, text: t.text, perfect: false, wrong: true });
+    this.afterLine();
+    return true;
+  }
+
   submit(value: string, usedBackspace: boolean) {
     if (!this.running || this.finished) return;
     const cur = this.run.current;
@@ -170,17 +199,29 @@ export class LetterSystem implements TypingMode {
     if (!r) return;
     if (!r.correct) {
       this.streak = 0;
-      this.emit('INPUT_WRONG', { typed: value, target: cur, hpLoss: 0, timeLoss: 0, forgiven: r.forgiven, shielded: false, snapshot: this.snapshot() });
-      this.emit('TARGET_CHANGED', this.snapshot());
+      this.applyHp(r.hpDelta);
+      this.emit('INPUT_WRONG', { typed: value, target: cur, hpLoss: r.hpDelta < 0 ? -r.hpDelta : 0, timeLoss: 0, forgiven: r.forgiven, shielded: false, snapshot: this.snapshot() });
+      // 틀린 채 Enter → 그 문장은 흐릿하게 기록되고 다음 문장으로 (점수 없음, PERFECT 아님)
+      this.lines.push(cur.text);
+      this.idx++;
+      this.emit('LETTER_LINE', { index: this.lines.length - 1, text: cur.text, perfect: false, wrong: true });
+      this.afterLine();
+      if (!this.finished && this.playerHp <= 0) this.fail('hp');
       return;
     }
     const combo = this.run.combo;
     this.score += calcWordScore(combo, r.perfect, countStrokes(cur.text)) + LETTER.sentenceBonus + r.bonusScore;
+    this.applyHp(r.hpDelta);
     if (r.perfect) this.perfectLines++;
     this.lines.push(cur.text);
     this.idx++;
     this.emit('INPUT_CORRECT', { target: cur, perfect: r.perfect, damage: 0, gained: 0, combo, mult: r.mult, variant: r.variant, snapshot: this.snapshot() });
     this.emit('LETTER_LINE', { index: this.lines.length - 1, text: cur.text, perfect: r.perfect });
+    this.afterLine();
+  }
+
+  /** 문장 하나가 끝난 뒤 공통: 자물쇠·비밀방·클리어·다음 문장 */
+  private afterLine() {
     if (this.lines.length % LETTER.perLock === 0 && this.locksOpen < LETTER.locks) {
       this.locksOpen++;
       this.emit('LETTER_LOCK', { lock: this.locksOpen, total: LETTER.locks });
@@ -199,6 +240,21 @@ export class LetterSystem implements TypingMode {
     this.emit('TARGET_CHANGED', this.snapshot());
   }
 
+  private fail(reason: 'time' | 'hp') {
+    if (this.finished) return;
+    this.finished = true;
+    this.running = false;
+    this.run.stats.stop();
+    this.emit('STAGE_FAILED', { reason, snapshot: this.snapshot() });
+  }
+
+  private applyHp(delta: number) {
+    if (!delta) return;
+    this.playerHp = Math.max(0, Math.min(this.playerMaxHp, this.playerHp + delta));
+    if (delta < 0) this.emit('PLAYER_HIT', { hpLoss: -delta, hp: this.playerHp });
+    else this.emit('HP_HEAL', { amount: delta, hp: this.playerHp });
+  }
+
   private clear() {
     this.finished = true;
     this.running = false;
@@ -207,7 +263,7 @@ export class LetterSystem implements TypingMode {
       this.accuracyReward = true;
       this.run.coins += LETTER.accuracyCoins;
     }
-    this.score += this.perfectLines * 200;
+    this.score += this.perfectLines * 200 + Math.round(this.playerHp * RULES.hpClearBonusPerHp);
     this.emit('LETTER_GATE', { perfectLines: this.perfectLines, secretRoom: this.secretRoom, accuracyReward: this.accuracyReward });
     this.emit('STAGE_CLEAR', this.snapshot());
   }

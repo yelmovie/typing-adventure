@@ -12,14 +12,16 @@ const ROWS: { key: string; shift?: string }[][] = [
 ];
 
 export class KeyboardGuide {
+  /** 화면 중앙 오버레이 배경(기본 숨김) — 켜기 버튼을 누르면 뜨고, 배경을 클릭하거나 다시 누르면 사라짐 */
   readonly el: HTMLElement;
+  private panel: HTMLElement;
   private keys = new Map<string, HTMLElement>();
   private shiftKey: HTMLElement;
   private spaceKey: HTMLElement;
   private enterKey: HTMLElement;
   private backKey: HTMLElement;
 
-  constructor() {
+  constructor(opts: { onBackdropClick?: () => void } = {}) {
     this.backKey = h('div', { class: 'key wide' }, '← 지움');
     this.shiftKey = h('div', { class: 'key wide' }, '⇧ Shift');
     this.spaceKey = h('div', { class: 'key space' }, 'Space');
@@ -37,16 +39,20 @@ export class KeyboardGuide {
       ),
     );
     rows[2].prepend(this.shiftKey);
-    this.el = h('div', { class: 'kbd-guide' }, rows, h('div', { class: 'kbd-row' }, this.spaceKey));
+    this.panel = h('div', { class: 'kbd-guide' }, rows, h('div', { class: 'kbd-row' }, this.spaceKey));
+    this.el = h('div', {
+      class: 'kbd-overlay',
+      onclick: (e: MouseEvent) => { if (e.target === this.el) opts.onBackdropClick?.(); },
+    }, this.panel);
   }
 
   setVisible(v: boolean) {
-    this.el.classList.toggle('off', !v);
+    this.el.classList.toggle('show', v);
   }
 
   /** 다람쥐 패시브: 다음 키를 크게 */
   setBig(v: boolean) {
-    this.el.classList.toggle('big', v);
+    this.panel.classList.toggle('big', v);
   }
 
   update(target: string, current: string) {

@@ -4,10 +4,11 @@ import { SaveSystem } from '../../systems/SaveSystem';
 import { navigate } from '../../Game';
 import { getCharacter, getPet, portraitUrl } from '../../data/characters';
 import { DIFFICULTY_LABEL } from '../../data/stages';
-import { settingsModal, collectionModal, certificateModal, confirmModal } from '../ModalController';
+import { collectionModal, certificateModal, confirmModal, dailyPickModal } from '../ModalController';
 import { AudioManager } from '../../systems/AudioManager';
 import { currentTitle, nextTitle, unlockedDecors } from '../../data/titles';
 import { ABOUT } from '../../data/about';
+import { commonTopBar } from '../TopBar';
 
 export class HomeScreen extends Screen {
   constructor() {
@@ -41,7 +42,7 @@ export class HomeScreen extends Screen {
             'div',
             {},
             h('div', { class: 'pc-name' }, `${save.profile.name} · Lv.${SaveSystem.level()}`),
-            h('div', { class: 'pc-title' }, `🏷 ${currentTitle(save.progress.coins ?? 0).name}`, h('span', { class: 'muted' }, (() => { const n = nextTitle(save.progress.coins ?? 0); return n ? ` · 다음 칭호까지 ${n.coins - (save.progress.coins ?? 0)}코인` : ' · 최고 칭호!'; })())),
+            h('div', { class: 'pc-title' }, h('span', { class: 'tag' }, currentTitle(save.progress.coins ?? 0).name), h('span', { class: 'muted' }, (() => { const n = nextTitle(save.progress.coins ?? 0); return n ? ` · 다음 칭호까지 ${n.coins - (save.progress.coins ?? 0)}코인` : ' · 최고 칭호!'; })())),
             h('div', { class: 'pc-sub' }, `${ch.name} · ${pet.name} · `, h('b', {}, DIFFICULTY_LABEL[save.profile.difficulty].name)),
             h('div', { class: 'pc-sub' }, icon('star_on'), ` ${stars} · `, icon('coin'), ` ${save.progress.coins ?? 0} · 최고 `, h('b', {}, `${save.records.bestCpm}타/분`)),
           ),
@@ -58,7 +59,7 @@ export class HomeScreen extends Screen {
     const menu = h(
       'div',
       { class: 'home-menu' },
-      this.btn('▶', '모험 시작', 'btn-primary btn-lg', async () => {
+      this.btn(icon('flag'), '모험 시작', `btn-primary btn-lg ${has ? '' : 'home-start-pulse'}`, async () => {
         if (has) {
           const ok = await confirmModal('새 모험', '새로운 모험을 시작하면 지금까지의 기록이 초기화돼요.\n계속할까요? (이어하기는 기존 기록을 유지해요)');
           if (!ok) return;
@@ -66,18 +67,18 @@ export class HomeScreen extends Screen {
         }
         void navigate('setup');
       }),
-      this.btn('⏩', '이어하기', `btn-sky btn-lg ${has ? '' : 'disabled'}`, () => {
+      this.btn(icon('pin'), '이어하기', `btn-sky btn-lg ${has ? '' : 'disabled'}`, () => {
         if (!has) return;
         void navigate('worldmap');
       }),
-      this.btn('📅', '오늘의 도전', `btn-sky ${has ? '' : 'disabled'}`, () => { if (has) void navigate('battle', { stageId: 'daily' }); }),
-      this.btn(icon('book'), '도감', 'btn-purple', () => collectionModal()),
-      this.btn(icon('trophy'), '오늘의 인증서', 'btn-gold', () => certificateModal()),
-      this.btn(icon('settings'), '설정', 'btn-gray', () => settingsModal({ onReset: () => this.show({}) })),
+      this.btn(icon('clock'), '오늘의 도전', `btn-sky btn-md ${has ? '' : 'disabled'}`, () => { if (has) dailyPickModal(); }),
+      this.btn(icon('book'), '도감', 'btn-purple btn-md', () => collectionModal()),
+      this.btn(icon('trophy'), '인증서', 'btn-gold btn-md', () => certificateModal()),
     );
     this.el.append(menu);
+    this.el.append(commonTopBar({ onReset: () => this.show({}) }));
     this.el.append(h('div', { class: 'home-tip' }, has ? `${save.profile.name} 모험가, 다시 만나서 반가워요!` : '모험 시작을 눌러 이름과 캐릭터를 정해 보세요'));
-    this.el.append(h('div', { class: 'home-version' }, `${ABOUT.version} · 기록은 이 기기에만 저장돼요 · ⓒ ${ABOUT.year} ${ABOUT.author}`));
+    this.el.append(h('div', { class: 'home-version' }, `${ABOUT.version} · 기록은 이 기기에만 저장돼요 · © ${ABOUT.year} ${ABOUT.author}`));
   }
 
   private btn(ic: string | HTMLElement, label: string, cls: string, onClick: () => void) {

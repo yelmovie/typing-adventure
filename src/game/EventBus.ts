@@ -23,9 +23,18 @@ export const Events = {
   SYLLABLE_HIT: 'SYLLABLE_HIT', // 음절 확정이 목표와 맞음 → 약공격
   SYLLABLE_MISS: 'SYLLABLE_MISS', // 틀린 음절 확정 (판정 아님, 표시만)
   FEVER_CHANGED: 'FEVER_CHANGED', // { level: 0|1|2|3 }
-  PET_ACTIVE: 'PET_ACTIVE', // FEVER 진입 시 펫 액티브 { active, pet }
+  PET_ACTIVE: 'PET_ACTIVE', // POWER/FEVER 진입 시 펫 액티브 { active, pet }
+  PET_PASSIVE: 'PET_PASSIVE', // 펫 패시브가 실제로 작동한 순간 { passive, pet }
+  IDLE_DRAIN: 'IDLE_DRAIN', // 무입력으로 HP 감소 { hpLoss, hp }
+  SKIP: 'SKIP', // 점프로 낱말 건너뜀 { left, target }
+  WAVE_SWEEP: 'WAVE_SWEEP', // 5콤보마다 화면의 적 전부 소탕 { combo, count }
+  ITEM_DROP: 'ITEM_DROP', // 처치한 몬스터가 떨어뜨린 아이템 { uid, item, score }
+  ITEM_APPLIED: 'ITEM_APPLIED', // 아이템 효과 발동(방패·번개 등) { item }
   BOMB_EXPLODE: 'BOMB_EXPLODE', // 폭탄 단어 시간 초과
   VARIANT_BONUS: 'VARIANT_BONUS', // 보물/하트 획득 { variant, ... }
+  HP_HEAL: 'HP_HEAL', // 콤보 회복·PERFECT 회복 { amount, hp }
+  PLAYER_MOVE: 'PLAYER_MOVE', // 방향키 입력 { dir, pressed } — 씬이 연출만
+  DODGE: 'DODGE', // 점프/앉기로 몬스터 접촉 회피 { uid, kind }
   // 스테이지 1 웨이브
   WAVE_SPAWN: 'WAVE_SPAWN',
   WAVE_TICK: 'WAVE_TICK',

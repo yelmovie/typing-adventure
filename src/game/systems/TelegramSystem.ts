@@ -120,6 +120,15 @@ export class TelegramSystem implements TypingMode {
         }
       }
     }
+    const drain = this.run.idleDrain(dt);
+    if (drain > 0) {
+      this.playerHp = Math.max(0, this.playerHp - drain);
+      this.emit('IDLE_DRAIN', { hpLoss: drain, hp: this.playerHp, idle: this.run.idleSeconds });
+      if (this.playerHp <= 0) {
+        this.fail('hp');
+        return;
+      }
+    }
     this.dist = Math.max(0, this.dist - this.speed() * dt);
     this.emit('HUD_TICK', this.snapshot());
     this.emit('TELE_TICK', this.snapshot().telegram);
@@ -153,6 +162,31 @@ export class TelegramSystem implements TypingMode {
     }
   }
 
+  /** 방향키: 이 모드는 연출만 */
+  move(dir: 'left' | 'right' | 'up' | 'down', pressed: boolean) {
+    if (!this.running || this.finished) return;
+    this.emit('PLAYER_MOVE', { dir, pressed });
+  }
+
+  skip(): boolean {
+    if (!this.running || this.finished) return false;
+    const t = this.run.current;
+    if (!t) return false;
+    const r = this.run.skip();
+    if (!r) return false;
+    this.lines.push(t.text);
+    this.wordsDoneBefore += this.wordsCur;
+    this.wordsCur = 0;
+    this.idx++;
+    if (this.lines.length >= this.sentences.length) {
+      this.clear();
+      return true;
+    }
+    this.run.advance();
+    this.emit('TARGET_CHANGED', this.snapshot());
+    return true;
+  }
+
   submit(value: string, usedBackspace: boolean) {
     if (!this.running || this.finished) return;
     if (this.outageLeft > 0) {
@@ -168,12 +202,25 @@ export class TelegramSystem implements TypingMode {
         this.outageLeft = TELE.outageSec;
         this.emit('TELE_OUTAGE', { on: true });
       }
-      this.emit('INPUT_WRONG', { typed: value, target: cur, hpLoss: 0, timeLoss: 0, forgiven: r.forgiven, shielded: false, snapshot: this.snapshot() });
+      this.applyHp(r.hpDelta);
+      this.emit('INPUT_WRONG', { typed: value, target: cur, hpLoss: r.hpDelta < 0 ? -r.hpDelta : 0, timeLoss: 0, forgiven: r.forgiven, shielded: false, snapshot: this.snapshot() });
+      // 틀린 채 Enter → 그 전보 문장은 넘긴다 (점수 없음). 브레이크는 걸리지 않는다.
+      this.lines.push(cur.text);
+      this.wordsDoneBefore += this.wordsCur;
+      this.wordsCur = 0;
+      this.idx++;
+      if (this.lines.length >= this.sentences.length) {
+        this.clear();
+        return;
+      }
+      if (this.playerHp <= 0) { this.fail('hp'); return; }
+      this.run.advance();
       this.emit('TARGET_CHANGED', this.snapshot());
       return;
     }
     const combo = this.run.combo;
     this.score += calcWordScore(combo, r.perfect, countStrokes(cur.text)) + TELE.sentenceBonus + r.bonusScore;
+    this.applyHp(r.hpDelta);
     this.lines.push(cur.text);
     this.wordsDoneBefore += this.words(cur.text).length;
     this.wordsCur = 0;
@@ -190,12 +237,19 @@ export class TelegramSystem implements TypingMode {
     this.emit('TARGET_CHANGED', this.snapshot());
   }
 
+  private applyHp(delta: number) {
+    if (!delta) return;
+    this.playerHp = Math.max(0, Math.min(this.playerMaxHp, this.playerHp + delta));
+    if (delta < 0) this.emit('PLAYER_HIT', { hpLoss: -delta, hp: this.playerHp });
+    else this.emit('HP_HEAL', { amount: delta, hp: this.playerHp });
+  }
+
   private clear() {
     this.finished = true;
     this.running = false;
     this.stopped = true;
     this.run.stats.stop();
-    this.score += Math.round(this.dist) * 10; // 남은 거리 = 여유 보너스
+    this.score += Math.round(this.dist) * 10 + Math.round(this.playerHp * RULES.hpClearBonusPerHp); // 남은 거리 = 여유 보너스
     this.emit('TELE_STOP', { dist: this.dist, elapsed: this.elapsed });
     this.emit('STAGE_CLEAR', this.snapshot());
   }

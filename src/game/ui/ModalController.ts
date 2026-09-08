@@ -1,14 +1,14 @@
-import { h, clear, fmt, uiImg } from '../util/dom';
+import { h, clear, fmt, uiImg, icon, type IconName } from '../util/dom';
 import { SaveSystem } from '../systems/SaveSystem';
 import { AudioManager } from '../systems/AudioManager';
+import { navigate } from '../Game';
 import { BADGES } from '../data/badges';
-import { todayKey } from '../systems/DailySystem';
+import { todayKey, type DailyKind } from '../systems/DailySystem';
 import { currentTitle, TITLES, DECORS, unlockMet2 } from '../data/titles';
 import { ABOUT, STORY, STUDENT_GUIDE, TEACHER_GUIDE } from '../data/about';
 import { ENEMIES } from '../data/enemies';
 import { PETS, CHARACTERS, portraitUrl } from '../data/characters';
-import { allContent } from '../data/content';
-import { STAGES } from '../data/stages';
+import { ITEMS } from '../data/items';
 
 const root = () => document.getElementById('modal-root')!;
 
@@ -70,7 +70,7 @@ export function confirmModal(title: string, body: string, okText = '예', cancel
 /** 설정 모달: BGM / 효과음 / 화면 흔들림 / 키보드 가이드 / 초기화 */
 export function settingsModal(opts: { onReset?: () => void } = {}) {
   const s = SaveSystem.get().settings;
-  const row = (label: string, key: keyof typeof s, icon: string) => {
+  const row = (label: string, key: keyof typeof s) => {
     const t = h('div', { class: `toggle ${s[key] ? 'on' : ''}`, role: 'switch', 'aria-checked': String(s[key]) });
     t.addEventListener('click', () => {
       const v = !SaveSystem.get().settings[key];
@@ -80,7 +80,7 @@ export function settingsModal(opts: { onReset?: () => void } = {}) {
       AudioManager.applySettings();
       AudioManager.sfx('click');
     });
-    return h('div', { class: 'setting-row' }, h('span', {}, `${icon} ${label}`), t);
+    return h('div', { class: 'setting-row' }, h('span', {}, label), t);
   };
   const slider = (label: string, key: 'bgmVolume' | 'sfxVolume') => {
     const input = h('input', { type: 'range', min: '0', max: '100', value: String(Math.round((s[key] ?? 0.7) * 100)), class: 'vol', 'aria-label': label }) as HTMLInputElement;
@@ -96,27 +96,27 @@ export function settingsModal(opts: { onReset?: () => void } = {}) {
   const cleared = SaveSystem.get().progress.clearedStages.includes('stage_5');
   const panel = h(
     'div',
-    { class: 'panel modal', style: { width: '680px' } },
-    h('div', { class: 'panel-title purple' }, '⚙ 설정'),
+    { class: 'panel modal modal-sm' },
+    h('div', { class: 'panel-title purple' }, icon('settings'), '설정'),
     closeBtn(),
     h(
       'div',
-      { style: { padding: '0 10px' } },
-      row('배경 음악', 'bgm', '🎵'),
+      { class: 'settings-body' },
+      row('배경 음악', 'bgm'),
       slider('　　볼륨', 'bgmVolume'),
-      row('효과음', 'sfx', '🔔'),
+      row('효과음', 'sfx'),
       slider('　　볼륨', 'sfxVolume'),
-      row('화면 흔들림', 'screenShake', '📳'),
-      row('키보드 가이드', 'showKeyboardGuide', '⌨️'),
+      row('화면 흔들림', 'screenShake'),
+      row('키보드 가이드', 'showKeyboardGuide'),
     ),
     h(
       'div',
       { class: 'setting-links' },
-      h('button', { class: 'btn btn-sm btn-sky', onclick: () => { AudioManager.sfx('click'); guideModal('student'); } }, '📘 학생 가이드'),
-      h('button', { class: 'btn btn-sm btn-purple', onclick: () => { AudioManager.sfx('click'); guideModal('teacher'); } }, '📗 교사용 가이드'),
-      h('button', { class: 'btn btn-sm btn-gray', onclick: () => { AudioManager.sfx('click'); storyModal('prologue'); } }, '📖 프롤로그 다시보기'),
-      h('button', { class: `btn btn-sm btn-gray ${cleared ? '' : 'disabled'}`, onclick: () => { if (!cleared) { toast('어둠의 성채를 밝히면 열려요'); return; } AudioManager.sfx('click'); storyModal('ending'); } }, cleared ? '🌟 엔딩 다시보기' : '🔒 엔딩 다시보기'),
-      h('button', { class: 'btn btn-sm btn-gold', onclick: () => { AudioManager.sfx('click'); aboutModal(); } }, 'ℹ 정보·크레딧'),
+      h('button', { class: 'btn btn-sm btn-sky', onclick: () => { AudioManager.sfx('click'); guideModal('student'); } }, icon('book'), ' 학생 가이드'),
+      h('button', { class: 'btn btn-sm btn-purple', onclick: () => { AudioManager.sfx('click'); guideModal('teacher'); } }, icon('book'), ' 교사용 가이드'),
+      h('button', { class: 'btn btn-sm btn-gray', onclick: () => { AudioManager.sfx('click'); storyModal('prologue'); } }, '프롤로그 다시보기'),
+      h('button', { class: `btn btn-sm btn-gray ${cleared ? '' : 'disabled'}`, onclick: () => { if (!cleared) { toast('어둠의 성채를 밝히면 열려요'); return; } AudioManager.sfx('click'); storyModal('ending'); } }, cleared ? icon('star_on') : icon('lock'), ' 엔딩 다시보기'),
+      h('button', { class: 'btn btn-sm btn-gold', onclick: () => { AudioManager.sfx('click'); aboutModal(); } }, '정보·크레딧'),
     ),
     h(
       'div',
@@ -136,7 +136,7 @@ export function settingsModal(opts: { onReset?: () => void } = {}) {
             }
           },
         },
-        '🗑 기록 초기화',
+        '기록 초기화',
       ),
     ),
   );
@@ -156,7 +156,7 @@ function canDoBlock(current: string): HTMLElement {
   };
   input.addEventListener('change', () => apply(input.value));
   const chips = h('div', { class: 'c-cando-chips' }, CAN_DO_CHIPS.map((c) => h('button', { class: 'btn btn-sm btn-sky', onclick: () => { AudioManager.sfx('click'); input.value = c; apply(c); } }, c)));
-  return h('div', { class: 'c-cando' }, h('div', { class: 'c-cando-title' }, '✍ 내가 할 수 있게 된 것'), line, chips, input);
+  return h('div', { class: 'c-cando' }, h('div', { class: 'c-cando-title' }, '내가 할 수 있게 된 것'), line, chips, input);
 }
 
 /** 학생·교사 가이드 */
@@ -164,8 +164,8 @@ export function guideModal(kind: 'student' | 'teacher') {
   const lines = kind === 'student' ? STUDENT_GUIDE : TEACHER_GUIDE;
   const panel = h(
     'div',
-    { class: 'panel modal', style: { width: '900px' } },
-    h('div', { class: `panel-title ${kind === 'student' ? 'sky' : 'purple'}` }, kind === 'student' ? '📘 학생 가이드 · 이렇게 놀아요' : '📗 교사용 가이드'),
+    { class: 'panel modal modal-lg' },
+    h('div', { class: `panel-title ${kind === 'student' ? 'sky' : 'purple'}` }, icon('book'), kind === 'student' ? '학생 가이드 · 이렇게 놀아요' : '교사용 가이드'),
     closeBtn(),
     h('div', { class: 'guide-list' }, lines.map((l) => h('p', {}, l))),
     kind === 'teacher'
@@ -185,13 +185,13 @@ export function storyModal(kind: 'prologue' | 'ending', onDone?: () => void) {
     if (i >= lines.length) return;
     const p = h('p', { class: 'anim-fade-in' }, lines[i++]);
     body.appendChild(p);
-    if (i >= lines.length) btn.textContent = kind === 'prologue' ? '⚔ 모험 시작!' : '확인';
+    if (i >= lines.length) btn.textContent = kind === 'prologue' ? '모험 시작!' : '확인';
   };
-  const btn = h('button', { class: 'btn btn-gold btn-md', onclick: () => { AudioManager.sfx('click'); if (i < lines.length) showNext(); else { closeModal(); onDone?.(); } } }, '다음 ▶');
+  const btn = h('button', { class: 'btn btn-gold btn-md', onclick: () => { AudioManager.sfx('click'); if (i < lines.length) showNext(); else { closeModal(); onDone?.(); } } }, '다음');
   const panel = h(
     'div',
-    { class: 'panel panel-cream modal story-modal', style: { width: '900px' } },
-    h('div', { class: 'panel-title' }, kind === 'prologue' ? '📖 사라진 글자들' : '🌟 되찾은 글자들'),
+    { class: 'panel panel-cream modal story-modal modal-lg' },
+    h('div', { class: 'panel-title' }, kind === 'prologue' ? '사라진 글자들' : '되찾은 글자들'),
     h('img', { class: 'story-art', src: `./assets/backgrounds/${kind === 'prologue' ? 'bg_story_prologue' : 'bg_story_ending'}.webp`, alt: '', draggable: 'false' }),
     closeBtn(onDone),
     body,
@@ -205,8 +205,8 @@ export function storyModal(kind: 'prologue' | 'ending', onDone?: () => void) {
 export function aboutModal() {
   const panel = h(
     'div',
-    { class: 'panel modal', style: { width: '900px' } },
-    h('div', { class: 'panel-title gold' }, `ℹ ${ABOUT.appName} ${ABOUT.version}`),
+    { class: 'panel modal modal-lg' },
+    h('div', { class: 'panel-title gold' }, `${ABOUT.appName} ${ABOUT.version}`),
     closeBtn(),
     h(
       'div',
@@ -223,7 +223,14 @@ export function aboutModal() {
   open(panel);
 }
 
-/** 도감: 몬스터 / 배지 / 펫 / 낱말 */
+/** 이미지가 없으면(404) 글자 CSS 아이콘으로 대체 — portraitUrl 기준(몬스터·펫) */
+function portraitWithFallback(sheet: string, alt: string, fallback: string): HTMLElement {
+  const img = h('img', { class: 'ui-icon xl', src: portraitUrl(sheet), alt }) as HTMLImageElement;
+  img.addEventListener('error', () => img.replaceWith(h('span', {}, fallback)), { once: true });
+  return img;
+}
+
+/** 도감: 몬스터 / 배지 / 친구들 / 칭호·장식 / 아이템 — 친구들 제외 4×4 격자 */
 export function collectionModal() {
   const save = SaveSystem.get();
   const body = h('div', {});
@@ -239,7 +246,13 @@ export function collectionModal() {
           { class: 'coll-grid' },
           ENEMIES.map((e) => {
             const seen = save.collection.enemiesSeen.includes(e.id);
-            return h('div', { class: `coll-item ${seen ? '' : 'locked'}` }, h('img', { src: portraitUrl(e.sheet), alt: e.name }), h('div', { class: 'n' }, seen ? e.name : '???'), h('div', { class: 'muted', style: { fontSize: '14px', textAlign: 'center' } }, seen ? e.desc : '아직 만나지 못했어요'));
+            return h(
+              'div',
+              { class: `coll-item ${seen ? '' : 'locked'}` },
+              h('div', { class: `coll-icon ${seen ? '' : 'dim'}` }, portraitWithFallback(e.sheet, e.name, seen ? e.name.slice(0, 1) : '?')),
+              h('div', { class: 'n' }, seen ? e.name : '???'),
+              h('div', { class: 'coll-desc' }, seen ? e.desc : '아직 만나지 못했어요'),
+            );
           }),
         ),
       );
@@ -250,7 +263,7 @@ export function collectionModal() {
           { class: 'coll-grid' },
           BADGES.map((b) => {
             const has = save.collection.badges.includes(b.id);
-            return h('div', { class: `coll-item ${has ? '' : 'locked'}` }, h('div', { class: `coll-icon ${has ? '' : 'dim'}` }, uiImg(`badge_${b.id}`, 'xl', b.icon)), h('div', { class: 'n' }, b.name), h('div', { class: 'muted', style: { fontSize: '14px', textAlign: 'center' } }, b.desc));
+            return h('div', { class: `coll-item ${has ? '' : 'locked'}` }, h('div', { class: `coll-icon ${has ? '' : 'dim'}` }, uiImg(`badge_${b.id}`, 'xl', b.icon)), h('div', { class: 'n' }, b.name), h('div', { class: 'coll-desc' }, b.desc));
           }),
         ),
       );
@@ -261,47 +274,85 @@ export function collectionModal() {
           { class: 'coll-grid' },
           [...CHARACTERS, ...PETS].map((p) => {
             const open = 'passive' in p ? save.collection.petsUnlocked.includes(p.id) : (save.collection.charactersUnlocked ?? CHARACTERS.map((c) => c.id)).includes(p.id);
-            return h('div', { class: `coll-item ${open ? '' : 'locked'}` }, h('img', { src: portraitUrl(p.sheet), alt: p.name }), h('div', { class: 'n' }, open ? p.name : '???'), h('div', { class: 'muted', style: { fontSize: '14px', textAlign: 'center' } }, open ? p.desc : `🔒 ${p.unlock?.desc ?? ''}`));
+            return h('div', { class: `coll-item ${open ? '' : 'locked'}` }, h('img', { class: 'ui-icon xl', src: portraitUrl(p.sheet), alt: p.name }), h('div', { class: 'n' }, open ? p.name : '???'), h('div', { class: 'coll-desc' }, open ? p.desc : [icon('lock'), ` ${p.unlock?.desc ?? ''}`]));
           }),
         ),
       );
-    } else if (tab === 'titles') {
-      const coins = save.progress.coins ?? 0;
-      body.appendChild(h('div', { class: 'muted', style: { textAlign: 'center', marginBottom: '10px', fontSize: '18px' } }, `지금 코인 ${coins} · 보물 낱말·비밀방·정확도 보상으로 모아요`));
+    } else if (tab === 'items') {
+      body.appendChild(h('div', { class: 'coll-note' }, '몬스터를 물리치면 무작위로 떨어져요'));
       body.appendChild(
         h(
           'div',
           { class: 'coll-grid' },
-          [...TITLES.map((t) => ({ icon: '🏷', name: t.name, coins: t.coins, img: '' })), ...DECORS.map((d) => ({ icon: d.icon, name: d.name, coins: d.coins, img: `item_${d.id}` }))].map((x) => {
-            const has = unlockMet2(coins, x.coins);
-            return h('div', { class: `coll-item ${has ? '' : 'locked'}` }, h('div', { class: `coll-icon ${has ? '' : 'dim'}` }, x.img ? uiImg(x.img, 'xl', x.icon) : h('span', { class: 'xl' }, x.icon)), h('div', { class: 'n' }, x.name), h('div', { class: 'muted', style: { fontSize: '14px', textAlign: 'center' } }, has ? '열림' : `코인 ${x.coins}`));
-          }),
+          ITEMS.map((it) => h('div', { class: 'coll-item' }, h('div', { class: 'coll-icon' }, uiImg(`item_${it.id}`, 'xl', it.name.slice(0, 1))), h('div', { class: 'n' }, it.name), h('div', { class: 'coll-desc' }, it.desc))),
         ),
       );
     } else {
-      const seen = new Set(save.collection.wordsSeen);
-      const units = allContent().filter((u) => STAGES.find((s) => s.id === u.stage)?.index! <= save.progress.unlockedStage);
+      // 칭호·장식
+      const coins = save.progress.coins ?? 0;
+      body.appendChild(h('div', { class: 'coll-note' }, `지금 코인 ${coins} · 보물 낱말·비밀방·정확도 보상으로 모아요`));
+      const titleItems = TITLES.map((t, i) => ({ name: t.name, coins: t.coins, img: undefined as string | undefined, label: String(i + 1) }));
+      const decorItems = DECORS.map((d) => ({ name: d.name, coins: d.coins, img: `item_${d.id}`, label: d.icon }));
       body.appendChild(
         h(
           'div',
-          { style: { display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center', maxHeight: '420px', overflowY: 'auto', padding: '6px' } },
-          units.map((u) => h('span', { class: `badge ${seen.has(u.id) ? '' : 'locked'}`, style: { fontSize: '20px', padding: '6px 16px' } }, seen.has(u.id) ? u.text : '???')),
+          { class: 'coll-grid' },
+          [...titleItems, ...decorItems].map((x) => {
+            const has = unlockMet2(coins, x.coins);
+            return h(
+              'div',
+              { class: `coll-item ${has ? '' : 'locked'}` },
+              h('div', { class: `coll-icon ${has ? '' : 'dim'}` }, x.img ? uiImg(x.img, 'xl', x.label) : h('span', {}, x.label)),
+              h('div', { class: 'n' }, x.name),
+              h('div', { class: 'coll-desc' }, has ? '열림' : `코인 ${x.coins}`),
+            );
+          }),
         ),
       );
     }
   };
   for (const [key, label] of [
-    ['monsters', '👾 몬스터'],
-    ['badges', '🏅 배지'],
-    ['pets', '🐾 친구들'],
-    ['words', '📖 낱말'],
-    ['titles', '🏷 칭호·장식'],
+    ['monsters', '몬스터'],
+    ['badges', '배지'],
+    ['pets', '친구들'],
+    ['items', '아이템'],
+    ['titles', '칭호·장식'],
   ]) {
     tabs.appendChild(h('button', { class: 'btn btn-sm btn-gray', dataset: { tab: key }, onclick: () => { AudioManager.sfx('click'); render(key); } }, label));
   }
-  const panel = h('div', { class: 'panel modal', style: { width: '1000px' } }, h('div', { class: 'panel-title sky' }, '📚 모험 도감'), closeBtn(), tabs, body);
+  const panel = h('div', { class: 'panel modal modal-xl' }, h('div', { class: 'panel-title sky' }, icon('book'), '모험 도감'), closeBtn(), tabs, body);
   open(panel);
   render('monsters');
+}
+
+/** 오늘의 도전 종류 선택: 단어 / 문장 / 긴 글 */
+export function dailyPickModal() {
+  const kinds: { kind: DailyKind; name: string; desc: string; ic: IconName }[] = [
+    { kind: 'word', name: '단어', desc: '짧은 낱말 20개로 빠르게 도전해요', ic: 'bolt' },
+    { kind: 'sentence', name: '문장', desc: '문장을 띄어쓰기까지 정확하게 입력해요', ic: 'target' },
+    { kind: 'long', name: '긴 글', desc: '약 500자 긴 글에 도전해요', ic: 'book' },
+  ];
+  const panel = h(
+    'div',
+    { class: 'panel modal modal-md' },
+    h('div', { class: 'panel-title sky' }, icon('clock'), '오늘의 도전'),
+    closeBtn(),
+    h('div', { class: 'modal-body' }, '어떤 도전을 해볼까요?'),
+    h(
+      'div',
+      { class: 'daily-pick-grid' },
+      kinds.map((k) =>
+        h(
+          'div',
+          { class: 'card daily-pick-card', role: 'button', tabindex: '0', onclick: () => { AudioManager.sfx('click'); closeModal(); void navigate('battle', { stageId: 'daily', dailyKind: k.kind }); } },
+          icon(k.ic, 'lg'),
+          h('div', { class: 'card-name' }, k.name),
+          h('div', { class: 'card-desc' }, k.desc),
+        ),
+      ),
+    ),
+  );
+  open(panel);
 }
 
 /** 오늘의 인증서: 개인 기록만 (우리 반/친구 기록 없음) */
@@ -326,7 +377,7 @@ export function certificateModal() {
     { class: 'cert' },
     h('div', { class: 'c-title' }, '오늘의 모험 인증서'),
     h('div', { class: 'c-date' }, dateStr),
-    h('div', { class: 'c-name' }, `${name} 모험가`, h('div', { class: 'c-title-tag' }, `🏷 ${currentTitle(save.progress.coins ?? 0).name}`)),
+    h('div', { class: 'c-name' }, `${name} 모험가`, h('div', { class: 'c-title-tag' }, `칭호 · ${currentTitle(save.progress.coins ?? 0).name}`)),
     h('div', { class: 'c-line' }, `타이핑 어드벤처에서 스테이지 ${clears}개를 클리어하고`, h('br'), '한글 타자 실력을 키웠음을 인증합니다.'),
     h(
       'div',
@@ -336,11 +387,11 @@ export function certificateModal() {
       h('div', {}, `${save.records.bestCombo}`, h('small', {}, '최대 콤보')),
       h('div', {}, `${save.collection.badges.length}`, h('small', {}, '획득 배지')),
     ),
-    (() => { const d = save.records.daily?.[todayKey()]; return d ? h('div', { class: 'c-line' }, `📅 오늘의 도전: ${fmt.int(d.cpm)}타/분 · 정확도 ${fmt.pct(d.accuracy)}% · 최대 콤보 ${d.maxCombo}`) : h('div', { class: 'c-line muted' }, '📅 오늘의 도전은 아직 안 했어요'); })(),
+    (() => { const d = save.records.daily?.[todayKey()]; return d ? h('div', { class: 'c-line' }, `오늘의 도전: ${fmt.int(d.cpm)}타/분 · 정확도 ${fmt.pct(d.accuracy)}% · 최대 콤보 ${d.maxCombo}`) : h('div', { class: 'c-line muted' }, '오늘의 도전은 아직 안 했어요'); })(),
     h('div', { class: 'c-praise' }, praise),
     canDoBlock(save.profile.canDo ?? ''),
   );
-  const panel = h('div', { class: 'panel panel-cream modal', style: { width: '860px' } }, h('div', { class: 'panel-title' }, '🏅 오늘의 인증서'), closeBtn(), cert, h('div', { class: 'modal-actions' }, h('button', { class: 'btn btn-gold', onclick: () => { AudioManager.sfx('click'); closeModal(); } }, '확인')));
+  const panel = h('div', { class: 'panel panel-cream modal modal-md' }, h('div', { class: 'panel-title' }, icon('trophy'), '오늘의 인증서'), closeBtn(), cert, h('div', { class: 'modal-actions' }, h('button', { class: 'btn btn-gold', onclick: () => { AudioManager.sfx('click'); closeModal(); } }, '확인')));
   open(panel);
 }
 

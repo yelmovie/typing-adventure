@@ -14,8 +14,8 @@ import type { StageId } from '../types';
 import type { BossInfo, BossCrystal } from '../systems/BossSystem';
 import { playClassFx } from './ClassFx';
 
-const PLAYER_POS = { x: 520, y: 800 };
-const BOSS_POS = { x: 1380, y: 790 };
+const PLAYER_POS = { x: 480, y: 760 }; // 발끝 760: 하단 입력 패널(830~) 위
+const BOSS_POS = { x: 1420, y: 750 };
 const CRYSTAL_COLORS = [0xffd34d, 0x4fc3f7, 0xa78bfa, 0x63e074, 0xff7ab6];
 
 /**
@@ -34,6 +34,7 @@ export class BossScene extends Phaser.Scene {
   private burst?: Phaser.GameObjects.Particles.ParticleEmitter;
   private shakeOn = true;
   private cls = 'brown_boy';
+  private phase3 = false;
   private handlers: [string, (...args: never[]) => void][] = [];
 
   constructor() {
@@ -53,6 +54,7 @@ export class BossScene extends Phaser.Scene {
     this.player = new Player(this, PLAYER_POS.x, PLAYER_POS.y, getCharacter(save.profile.characterId).sheet, 1.25);
     this.player.idle('right');
     this.player.setDepth(7);
+    this.player.setLively(true);
     this.pet = new Pet(this, PLAYER_POS.x - 170, PLAYER_POS.y + 10, getPet(save.profile.petId).sheet, 0.62);
     this.pet.setDepth(6);
     const def = getEnemy(stage.enemies[0]);
@@ -62,7 +64,7 @@ export class BossScene extends Phaser.Scene {
 
     this.dark = this.add.rectangle(DESIGN_W / 2, DESIGN_H / 2, DESIGN_W, DESIGN_H, 0x0a0420, 0).setDepth(15);
     this.core = this.add.ellipse(BOSS_POS.x, BOSS_POS.y - 300, 90, 90, 0xfff2b0, 0).setDepth(9).setBlendMode(Phaser.BlendModes.ADD);
-    this.phaseText = this.add.text(DESIGN_W / 2, 150, '', styleText(60, '#a78bfa')).setOrigin(0.5).setDepth(25).setAlpha(0);
+    this.phaseText = this.add.text(DESIGN_W / 2, 640, '', styleText(60, '#a78bfa')).setOrigin(0.5).setDepth(25).setAlpha(0);
     this.burst = this.add.particles(0, 0, 'p_star', {
       lifespan: { min: 300, max: 800 }, speed: { min: 150, max: 450 }, scale: { start: 1.2, end: 0 }, rotate: { min: 0, max: 360 }, gravityY: 300,
       emitting: false, blendMode: Phaser.BlendModes.ADD, tint: [0xffd34d, 0xfff2b0, 0xa78bfa, 0xffffff],
@@ -81,7 +83,17 @@ export class BossScene extends Phaser.Scene {
     this.bind(Events.INPUT_CORRECT, (d: { perfect: boolean; combo: number }) => this.onCorrect(d));
     this.bind(Events.INPUT_WRONG, (d: { forgiven: boolean }) => this.onWrong(d));
     this.bind(Events.FEVER_CHANGED, (d: { level: number }) => { if (d.level >= 2) this.flash(d.level === 3 ? 0xffd34d : 0xffffff, 0.6); });
+    this.bind(Events.PET_ACTIVE, () => this.pet?.skill());
+    this.bind(Events.IDLE_DRAIN, () => { this.player?.hit(); AudioManager.sfx('hurt', { gain: 0.5 }); });
+    this.bind(Events.PET_PASSIVE, () => this.pet?.skill());
+    this.bind(Events.SYLLABLE_HIT, () => { if (this.phase3) this.player?.jab(); });
     this.bind(Events.STAGE_FAILED, () => this.player?.hit());
+    this.bind(Events.PLAYER_MOVE, (d: { dir: 'left' | 'right' | 'up' | 'down'; pressed: boolean }) => {
+      if (!this.player) return;
+      if (d.dir === 'up' && d.pressed) this.player.jump();
+      else if (d.dir === 'down') this.player.crouch(d.pressed);
+      else if (d.pressed) this.player.nudge(d.dir === 'right' ? 22 : -22);
+    });
     this.bind(Events.SETTINGS_CHANGED, (s: { screenShake: boolean }) => (this.shakeOn = s.screenShake));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       for (const [ev, fn] of this.handlers) EventBus.off(ev, fn);
@@ -107,11 +119,11 @@ export class BossScene extends Phaser.Scene {
   private buildCrystals(list: BossCrystal[]) {
     list.forEach((cr, i) => {
       const a = -Math.PI * 0.95 + (i / (list.length - 1)) * Math.PI * 0.9;
-      const x = BOSS_POS.x + Math.cos(a) * 420;
-      const y = BOSS_POS.y - 330 + Math.sin(a) * 170;
+      const x = BOSS_POS.x + Math.cos(a) * 400; // 아크 중심 y=440: 라벨(-110)이 상단 HUD(≤112)·중앙 콤보(≤290) 아래
+      const y = BOSS_POS.y - 310 + Math.sin(a) * 150;
       const gem = this.add.image(0, 0, 'fx_crystals', `c${i}_r0`).setScale(0.62);
       const glow = this.add.ellipse(0, 0, 150, 190, CRYSTAL_COLORS[i % 5], 0.2).setBlendMode(Phaser.BlendModes.ADD);
-      const label = this.add.text(0, -120, cr.word.text, styleText(46, '#ffffff')).setOrigin(0.5);
+      const label = this.add.text(0, -110, cr.word.text, styleText(44, '#ffffff')).setOrigin(0.5);
       const c = this.add.container(x, y, [glow, gem, label]).setDepth(10);
       this.tweens.add({ targets: c, y: y - 18, duration: 1200 + i * 150, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       this.tweens.add({ targets: glow, scale: 1.15, alpha: 0.35, duration: 900, yoyo: true, repeat: -1 });
@@ -123,6 +135,7 @@ export class BossScene extends Phaser.Scene {
     const x = this.crystals[i];
     if (!x) return;
     AudioManager.sfx('tap', { rate: 1.3 });
+    this.player?.jab();
     this.tweens.add({ targets: x.gem, scale: 0.5, duration: 60, yoyo: true });
     x.gem.setFrame(`c${i}_r1`); // 균열
     x.gem.setTintFill(0xffffff);
@@ -155,6 +168,7 @@ export class BossScene extends Phaser.Scene {
       for (const x of this.crystals) x.c.setVisible(false);
     }
     if (phase === 3) {
+      this.phase3 = true;
       for (const t of this.queueTexts) t.destroy();
       this.queueTexts = [];
     }
@@ -163,11 +177,11 @@ export class BossScene extends Phaser.Scene {
   private renderQueue(d: { queue: string[]; added?: string; bomb?: boolean; cleared?: boolean }) {
     for (const t of this.queueTexts) t.destroy();
     this.queueTexts = d.queue.map((w, i) => {
-      const t = this.add.text(960, 300 + i * 78, w, styleText(i === 0 ? 62 : 46, i === 0 ? '#ffd34d' : '#d9d0ff')).setOrigin(0.5).setDepth(12);
-      if (d.bomb && i === d.queue.length - 1) t.setColor('#ff6b6b').setText(`💣 ${w}`);
+      const t = this.add.text(900, 280 + i * 70, w, styleText(i === 0 ? 58 : 44, i === 0 ? '#ffd34d' : '#d9d0ff')).setOrigin(0.5).setDepth(12); // 보스(x≥1220)·플레이어(x≤630) 사이 빈 띠
+      if (d.bomb && i === d.queue.length - 1) t.setColor('#ff6b6b').setText(w);
       if (d.added === w && i === d.queue.length - 1) {
-        t.setX(1500).setAlpha(0);
-        this.tweens.add({ targets: t, x: 960, alpha: 1, duration: 250, ease: 'Quad.easeOut' });
+        t.setX(1400).setAlpha(0);
+        this.tweens.add({ targets: t, x: 900, alpha: 1, duration: 250, ease: 'Quad.easeOut' });
       }
       return t;
     });
@@ -205,6 +219,7 @@ export class BossScene extends Phaser.Scene {
     AudioManager.sfx(d.perfect ? 'perfect' : 'hit', { rate: AudioManager.comboRate(d.combo) });
     if (d.combo > 0 && d.combo % 5 === 0) AudioManager.sfx('combo', { rate: AudioManager.comboRate(d.combo) });
     this.player?.attack(() => {});
+    this.player?.hop();
     this.pet?.cheer();
   }
 

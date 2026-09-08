@@ -23,6 +23,8 @@ export const RULES = {
   finalSec: 10,
   feverMult: [1, 1.5, 2, 3] as const,
   idleSec: 3,
+  drainAfterSec: 4, // 무입력 4초부터
+  drainHpPerSec: 2, // 초당 HP -2
   bombSec: 5,
   bombPetBonusSec: 2,
   shieldSec: 5,
@@ -34,7 +36,15 @@ export const RULES = {
   fireAoeRatio: 0.25,
   strongBonus: 1.1,
   adaptiveWindow: 10,
+  skipsPerStage: 3, // 점프(어려운 낱말 건너뛰기) 횟수
   fastStrokesPerSec: 2.5, // ≈150 타/분
+  // 위험·보상 루프 (HP 있는 모드 공통)
+  wrongHp: 3, // 오답 제출(용서 안 됨) -3 HP
+  comboHealEvery: 10, // 10콤보마다
+  comboHealHp: 5, // +5 HP
+  perfectHealHp: 2, // PERFECT +2 HP
+  itemHeartHp: 20, // 하트 아이템 회복량
+  hpClearBonusPerHp: 2, // 클리어 시 남은 HP 1당 점수
 };
 
 export type Emit = (ev: string, data?: unknown) => void;
@@ -53,8 +63,11 @@ export interface SubmitResult {
   correct: boolean;
   perfect: boolean;
   forgiven: boolean; // 오답이지만 용서됨: 콤보 유지, 패널티 없음
+  skipped?: boolean; // 점프로 건너뜀: 정확도 영향 없음, 콤보만 0
   mult: number; // 강공격 배율 (콤보/FEVER/펫)
   bonusScore: number;
+  /** 오답 -3 / 10콤보 +5 / PERFECT +2 (모드가 상한 지켜 적용) */
+  hpDelta: number;
   variant?: WordVariant;
   petActive?: PetActive; // 이번 제출로 FEVER에 진입해 펫 액티브가 발동됨
   feverEntered: boolean;
@@ -79,6 +92,7 @@ export class TypingRun {
   current: ContentUnit | null = null;
   /** 오답 노트: 틀린 음절을 확정했거나 오답 제출한 목표(중복 없음, 순서 유지) */
   mistakes: string[] = [];
+  skipsLeft = RULES.skipsPerStage;
 
   private o: RunOptions;
   private now: () => number;
@@ -86,6 +100,7 @@ export class TypingRun {
   private wrongAt = -1;
   private fixed = false;
   private idle = 0;
+  private drainAcc = 0;
   private decayAcc = 0;
   private bombElapsed = 0;
   private forgivePet: number;
@@ -174,6 +189,17 @@ export class TypingRun {
   }
 
   /** Enter/Space/자동 제출. 정답·오답 판정과 콤보·FEVER·변화구·적응형 갱신. 목표 이동은 호출자가 advance(). */
+  /** 점프: 현재 목표를 건너뛴다. 남은 횟수가 없으면 null */
+  skip(): SubmitResult | null {
+    const cur = this.current;
+    if (!cur || this.skipsLeft <= 0) return null;
+    this.skipsLeft--;
+    this.idle = 0;
+    this.setCombo(0);
+    this.o.emit('SKIP', { left: this.skipsLeft, target: cur });
+    return { correct: false, perfect: false, forgiven: false, skipped: true, mult: 1, bonusScore: 0, hpDelta: 0, feverEntered: false, target: cur };
+  }
+
   submit(value: string, usedBackspace: boolean): SubmitResult | null {
     const cur = this.current;
     if (!cur) return null;
@@ -188,16 +214,20 @@ export class TypingRun {
       this.stats.addWrong(v, cur.text);
       this.noteMistake(cur.text);
       let forgiven = false;
+      let forgivenBy: 'fever' | 'pet' | null = null;
       if (this.forgiveFever > 0) {
         this.forgiveFever--;
         forgiven = true;
+        forgivenBy = 'fever';
       } else if (this.forgivePet > 0) {
         this.forgivePet--;
         forgiven = true;
+        forgivenBy = 'pet';
       }
+      if (forgivenBy === 'pet') this.o.emit('PET_PASSIVE', { passive: this.pet.passive, pet: this.pet });
       if (!forgiven) this.setCombo(0);
       this.updateAdaptive();
-      return { correct: false, perfect: false, forgiven, mult: 1, bonusScore: 0, feverEntered: false, target: cur };
+      return { correct: false, perfect: false, forgiven, mult: 1, bonusScore: 0, hpDelta: forgiven ? 0 : -RULES.wrongHp, feverEntered: false, target: cur };
     }
 
     const perfect = !usedBackspace && !this.fixed;
@@ -218,7 +248,8 @@ export class TypingRun {
     const prevLevel = this.feverLevel;
     const petActive = this.updateFever();
     this.updateAdaptive();
-    return { correct: true, perfect, forgiven: false, mult, bonusScore, variant: cur.variant, petActive, feverEntered: this.feverLevel > prevLevel, target: cur };
+    const hpDelta = (perfect ? RULES.perfectHealHp : 0) + (this.combo % RULES.comboHealEvery === 0 ? RULES.comboHealHp : 0);
+    return { correct: true, perfect, forgiven: false, mult, bonusScore, hpDelta, variant: cur.variant, petActive, feverEntered: this.feverLevel > prevLevel, target: cur };
   }
 
   /** 100ms마다. 폭탄 시간 초과면 { bomb: true } (호출자가 advance) */
@@ -256,6 +287,21 @@ export class TypingRun {
     return { bomb: false };
   }
 
+  /** 무입력이 길어지면 깎일 HP (정수). 목표가 있을 때만. 모드가 tick 마다 호출해 적용한다 */
+  idleDrain(dt: number): number {
+    if (!this.current || this.idle < RULES.drainAfterSec) {
+      this.drainAcc = 0;
+      return 0;
+    }
+    this.drainAcc += dt * RULES.drainHpPerSec;
+    const n = Math.floor(this.drainAcc);
+    this.drainAcc -= n;
+    return n;
+  }
+  get idleSeconds() {
+    return this.idle;
+  }
+
   wordsSeen(): string[] {
     return [...this.seen];
   }
@@ -291,7 +337,7 @@ export class TypingRun {
       this.forgiveFever = 1;
     }
     this.setLevel(target);
-    if (target < 2) return undefined;
+    // 펫 액티브는 POWER(10콤보) 진입부터 발동 — FEVER 까지 기다리면 아이가 거의 못 본다
     const a = this.pet.active;
     if (a === 'shield') this.shieldLeft = RULES.shieldSec;
     if (a === 'word_hint') this.wordHint = true;

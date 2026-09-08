@@ -16,7 +16,7 @@ import type { BattleSnapshot, EnemyState, TypingMode } from './BattleSystem';
 export const BOSS = {
   hp: 100,
   crystals: 5,
-  rushSec: 3,
+  rushSec: 2.4,
   queueMax: 4,
   darkHp: 10,
   rushDamage: 5,
@@ -85,7 +85,7 @@ export class BossSystem implements TypingMode {
     this.emit = emit;
     this.bossSheet = bossSheet;
     this.rushPool = shuffle(words.rush);
-    this.finalSentences = words.final.slice(0, 2);
+    this.finalSentences = words.final.slice(0, 3); // 문장 → 문장 → 장문
     this.crystals = words.crystals.slice(0, BOSS.crystals).map((w, i) => {
       const syl = [...w.text].filter((c) => c.trim()).length;
       return { index: i, word: w, hp: syl, maxHp: syl, broken: false };
@@ -171,6 +171,15 @@ export class BossSystem implements TypingMode {
       }
       this.darkness = Math.max(0, this.darkness - dt * 0.03);
     }
+    const drain = this.run.idleDrain(dt);
+    if (drain > 0) {
+      this.playerHp = Math.max(0, this.playerHp - drain);
+      this.emit('IDLE_DRAIN', { hpLoss: drain, hp: this.playerHp, idle: this.run.idleSeconds });
+      if (this.playerHp <= 0) {
+        this.fail('hp');
+        return;
+      }
+    }
     this.emit('HUD_TICK', this.snapshot());
     this.emit('BOSS_TICK', this.snapshot().boss);
     if (this.timeLeft <= 0) this.fail('time');
@@ -189,6 +198,22 @@ export class BossSystem implements TypingMode {
     }
   }
 
+  /** 방향키: 이 모드는 연출만 */
+  move(dir: 'left' | 'right' | 'up' | 'down', pressed: boolean) {
+    if (!this.running || this.finished) return;
+    this.emit('PLAYER_MOVE', { dir, pressed });
+  }
+
+  skip(): boolean {
+    if (!this.running || this.finished) return false;
+    const t = this.run.current;
+    if (!t) return false;
+    const r = this.run.skip();
+    if (!r) return false;
+    this.advancePhaseTarget(false, 0);
+    return true;
+  }
+
   submit(value: string, usedBackspace: boolean) {
     if (!this.running || this.finished) return;
     const t = this.run.current;
@@ -196,16 +221,24 @@ export class BossSystem implements TypingMode {
     const r = this.run.submit(value, usedBackspace);
     if (!r) return;
     if (!r.correct) {
-      this.emit('INPUT_WRONG', { typed: value, target: t, hpLoss: 0, timeLoss: 0, forgiven: r.forgiven, shielded: false, snapshot: this.snapshot() });
-      this.emit('TARGET_CHANGED', this.snapshot());
+      this.applyHp(r.hpDelta);
+      this.emit('INPUT_WRONG', { typed: value, target: t, hpLoss: r.hpDelta < 0 ? -r.hpDelta : 0, timeLoss: 0, forgiven: r.forgiven, shielded: false, snapshot: this.snapshot() });
+      if (this.playerHp <= 0) { this.fail('hp'); return; }
+      // 틀린 채 Enter → 반복시키지 않고 넘긴다 (보상 없음)
+      this.advancePhaseTarget(false, 0);
       return;
     }
     const combo = this.run.combo;
     this.score += calcWordScore(combo, r.perfect, countStrokes(t.text)) + r.bonusScore;
+    this.applyHp(r.hpDelta);
     if (r.variant === 'heart') this.playerHp = Math.min(this.playerMaxHp, this.playerHp + RULES.heartHp);
     if (r.petActive === 'time_plus') this.timeLeft += RULES.petTimePlus;
     this.emit('INPUT_CORRECT', { target: t, perfect: r.perfect, damage: 0, gained: 0, combo, mult: r.mult, variant: r.variant, snapshot: this.snapshot() });
+    this.advancePhaseTarget(true, r.mult, r.perfect, r.feverEntered, r.petActive);
+  }
 
+  /** 목표 하나가 끝났을 때(정답이든 오답이든) 페이즈 진행. hit=false 면 보상·피해 없음 */
+  private advancePhaseTarget(hit: boolean, mult: number, perfect = false, feverEntered = false, petActive?: string) {
     if (this.phase === 1) {
       const c = this.currentCrystal!;
       c.broken = true;
@@ -219,15 +252,15 @@ export class BossSystem implements TypingMode {
       }
     } else if (this.phase === 2) {
       this.queue.shift();
-      let dmg = Math.round(BOSS.rushDamage * r.mult);
-      if (r.feverEntered && this.run.feverLevel === 3) {
+      let dmg = hit ? Math.round(BOSS.rushDamage * mult) : 0;
+      if (hit && feverEntered && this.run.feverLevel === 3) {
         dmg += BOSS.finalFeverDamage;
         this.queue = [];
         this.darkness = 0;
         this.emit('BOSS_QUEUE', { queue: [], cleared: true });
       }
-      if (r.petActive === 'fire_aoe') dmg += BOSS.fireDamage;
-      this.damageBoss(dmg, r.perfect);
+      if (hit && petActive === 'fire_aoe') dmg += BOSS.fireDamage;
+      if (dmg > 0) this.damageBoss(dmg, perfect);
       if (this.bossHp <= BOSS.phase3At) {
         this.phase = 3;
         this.queue = [];
@@ -236,17 +269,22 @@ export class BossSystem implements TypingMode {
       } else this.emit('BOSS_QUEUE', { queue: this.queue.map((q) => q.text) });
     } else {
       this.finalIdx++;
-      if (this.finalIdx === 1) {
-        this.armorBroken = true;
-        this.bossHp = BOSS.armorHp;
-        this.emit('BOSS_ARMOR', {});
-        this.emit('BOSS_HIT', { damage: BOSS.phase3At - BOSS.armorHp, hp: this.bossHp, perfect: r.perfect });
+      const n = this.finalSentences.length;
+      if (this.finalIdx < n) {
+        // 문장마다 갑옷 한 겹: HP 30 → 30×(1 - idx/n)
+        const before = this.bossHp;
+        this.bossHp = Math.round(BOSS.phase3At * (1 - this.finalIdx / n));
+        if (!this.armorBroken) {
+          this.armorBroken = true;
+          this.emit('BOSS_ARMOR', {});
+        }
+        this.emit('BOSS_HIT', { damage: before - this.bossHp, hp: this.bossHp, perfect });
       } else {
         this.coreExposed = true;
         this.bossHp = 0;
         this.finalDone = true;
         this.emit('BOSS_CORE', {});
-        this.emit('BOSS_FINAL', { perfect: r.perfect, perfectCount: this.run.perfectCount });
+        this.emit('BOSS_FINAL', { perfect, perfectCount: this.run.perfectCount });
         this.clear();
         return;
       }
@@ -260,11 +298,18 @@ export class BossSystem implements TypingMode {
     this.emit('BOSS_HIT', { damage: dmg, hp: this.bossHp, perfect });
   }
 
+  private applyHp(delta: number) {
+    if (!delta) return;
+    this.playerHp = Math.max(0, Math.min(this.playerMaxHp, this.playerHp + delta));
+    if (delta < 0) this.emit('PLAYER_HIT', { hpLoss: -delta, hp: this.playerHp });
+    else this.emit('HP_HEAL', { amount: delta, hp: this.playerHp });
+  }
+
   private clear() {
     this.finished = true;
     this.running = false;
     this.run.stats.stop();
-    this.score += Math.round(this.timeLeft) * 5 + 1000;
+    this.score += Math.round(this.timeLeft) * 5 + 1000 + Math.round(this.playerHp * RULES.hpClearBonusPerHp);
     this.emit('STAGE_CLEAR', this.snapshot());
   }
   private fail(reason: 'time' | 'hp') {

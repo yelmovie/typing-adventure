@@ -71,10 +71,26 @@ export class Pet {
     });
   }
 
+  /** 스킬 발동: 크게 두 번 뛰고 반짝 */
+  skill() {
+    this.hop?.stop();
+    this.sprite.play(anim(this.sheet, 'cheer'));
+    this.scene.tweens.add({ targets: this.sprite, y: this.baseY - 90, duration: 200, yoyo: true, repeat: 1, ease: 'Quad.easeOut', onComplete: () => { this.startHop(); this.idle('right'); } });
+    this.scene.tweens.add({ targets: this.sprite, scaleX: this.sprite.scaleX * 1.25, scaleY: this.sprite.scaleY * 1.25, duration: 200, yoyo: true, repeat: 1 });
+  }
+
   victory() {
     this.sprite.play(anim(this.sheet, 'victory'));
     this.hop?.stop();
     this.scene.tweens.add({ targets: this.sprite, y: this.baseY - 50, duration: 260, yoyo: true, repeat: -1 });
+  }
+
+  /** 실패 화면: 시무룩 */
+  sad() {
+    this.hop?.stop();
+    this.sprite.anims.stop();
+    this.sprite.setFrame('hit');
+    this.scene.tweens.add({ targets: this.sprite, angle: -8, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
   }
 
   destroy() {

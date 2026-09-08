@@ -1,21 +1,22 @@
 import type { BadgeDef, BattleResult, SaveData } from '../types';
 
 export const BADGES: BadgeDef[] = [
-  { id: 'first_clear', name: '첫 모험', icon: '🌱', desc: '첫 스테이지를 클리어했어요' },
-  { id: 'accuracy_100', name: '완벽한 손가락', icon: '💯', desc: '정확도 100%로 클리어' },
-  { id: 'combo_10', name: '콤보 마스터', icon: '🔥', desc: '10콤보 달성' },
-  { id: 'fever_master', name: 'FEVER 타임', icon: '⚡', desc: '20콤보로 FEVER 진입' },
-  { id: 'speed_150', name: '번개 타자', icon: '💨', desc: '150타/분 이상 기록' },
-  { id: 'three_stars', name: '별 수집가', icon: '⭐', desc: '별 3개로 클리어' },
-  { id: 'perfect_5', name: '퍼펙트 사냥꾼', icon: '🎯', desc: '한 판에 PERFECT 5회' },
-  { id: 'forest_hero', name: '숲의 영웅', icon: '🌲', desc: '푸른 숲의 문을 열었어요' },
-  { id: 'lake_hero', name: '네온 러너', icon: '🌃', desc: '네온 시티 게이트 도착' },
-  { id: 'ghost_beat', name: '어제의 나 추월', icon: '👻', desc: '레이스에서 내 최고 기록을 넘었어요' },
-  { id: 'desert_hero', name: '황금문 개방', icon: '🏜', desc: '잊힌 편지를 완성했어요' },
-  { id: 'letter_perfect', name: '별빛 필사가', icon: '📜', desc: '편지 문장 4개 이상 PERFECT' },
-  { id: 'train_hero', name: '비상 브레이크', icon: '🚂', desc: '폭주 열차를 세웠어요' },
-  { id: 'train_calm', name: '침착한 통신사', icon: '📡', desc: '열차를 별 3개로 세웠어요' },
-  { id: 'ending', name: '글자를 되찾은 영웅', icon: '👑', desc: '어둠의 성채를 밝혔어요' },
+  { id: 'first_clear', name: '첫 모험', icon: '첫', desc: '첫 스테이지를 클리어했어요' },
+  { id: 'accuracy_100', name: '완벽한 손가락', icon: '100', desc: '정확도 100%로 클리어' },
+  { id: 'combo_10', name: '콤보 마스터', icon: '콤', desc: '10콤보 달성' },
+  { id: 'fever_master', name: 'FEVER 타임', icon: 'FV', desc: '20콤보로 FEVER 진입' },
+  { id: 'speed_150', name: '번개 타자', icon: '150', desc: '150타/분 이상 기록' },
+  { id: 'three_stars', name: '별 수집가', icon: '★', desc: '별 3개로 클리어' },
+  { id: 'perfect_5', name: '퍼펙트 사냥꾼', icon: 'PF', desc: '한 판에 PERFECT 5회' },
+  { id: 'forest_hero', name: '숲의 영웅', icon: '숲', desc: '푸른 숲의 문을 열었어요' },
+  { id: 'lake_hero', name: '네온 러너', icon: '네', desc: '네온 시티 게이트 도착' },
+  { id: 'ghost_beat', name: '어제의 나 추월', icon: '추', desc: '레이스에서 내 최고 기록을 넘었어요' },
+  { id: 'desert_hero', name: '황금문 개방', icon: '문', desc: '잊힌 편지를 완성했어요' },
+  { id: 'letter_perfect', name: '별빛 필사가', icon: '필', desc: '편지 문장 4개 이상 PERFECT' },
+  { id: 'train_hero', name: '비상 브레이크', icon: '차', desc: '폭주 열차를 세웠어요' },
+  { id: 'train_calm', name: '침착한 통신사', icon: '통', desc: '열차를 별 3개로 세웠어요' },
+  { id: 'ending', name: '글자를 되찾은 영웅', icon: '왕', desc: '어둠의 성채를 밝혔어요' },
+  { id: 'coin_collector', name: '보물 사냥꾼', icon: '보', desc: '코인 200개를 모았어요' },
 ];
 
 export function getBadge(id: string): BadgeDef | undefined {
@@ -48,5 +49,6 @@ export function evaluateBadges(
   if (result.stageId === 'stage_4') add('train_hero');
   if (result.stageId === 'stage_4' && result.stars >= 3) add('train_calm');
   if (result.stageId === 'stage_5') add('ending');
+  if ((save.progress.coins ?? 0) >= 200) add('coin_collector');
   return earned;
 }

@@ -11,7 +11,7 @@ import { DESIGN_W, DESIGN_H } from '../Game';
 import type { StageId } from '../types';
 import type { TelegramInfo } from '../systems/TelegramSystem';
 
-const DECK_Y = 830;
+const DECK_Y = 780; // 발끝 760: 하단 입력 패널(830~) 위
 
 /**
  * 폭주 열차 연출. 배경이 속도에 맞춰 흐르고, 위험 지점(끊어진 다리)이 가까워질수록 흔들림·붉은 경고가 커진다.
@@ -70,16 +70,17 @@ export class TrainScene extends Phaser.Scene {
       this.telegraph = this.add.image(760, DECK_Y - 20, 'fx_train_props', 'c0_r0').setOrigin(0.5, 1).setScale(0.5).setDepth(4);
       this.gauge = this.add.image(600, DECK_Y - 60, 'fx_train_props', 'c0_r1').setOrigin(0.5, 1).setScale(0.42).setDepth(4);
       this.lever = this.add.image(900, DECK_Y - 20, 'fx_train_props', 'c0_r2').setOrigin(0.5, 1).setScale(0.45).setDepth(4);
-      this.add.text(760, DECK_Y - 200, '📡 전신기', styleText(22, '#fff2b0')).setOrigin(0.5).setDepth(5);
+      this.add.text(760, DECK_Y - 200, '전신기', styleText(22, '#fff2b0')).setOrigin(0.5).setDepth(5);
     } else {
       const tg = this.add.graphics().setDepth(4);
       tg.fillStyle(0x5a3a1a, 1); tg.fillRoundedRect(760, DECK_Y - 110, 160, 90, 10);
       tg.fillStyle(0xd9a52a, 1); tg.fillCircle(840, DECK_Y - 65, 22);
     }
 
-    this.player = new Player(this, 380, DECK_Y - 20, getCharacter(save.profile.characterId).sheet, 1.15);
+    this.player = new Player(this, 520, DECK_Y - 20, getCharacter(save.profile.characterId).sheet, 1.15); // 좌측 전보 패널(x≤490) 오른쪽
     this.player.idle('right');
     this.player.setDepth(6);
+    this.player.setLively(true);
     this.pet = new Pet(this, 230, DECK_Y - 12, getPet(save.profile.petId).sheet, 0.55);
     this.pet.setDepth(5);
 
@@ -90,7 +91,7 @@ export class TrainScene extends Phaser.Scene {
     br.fillStyle(0xffffff, 1); br.fillRect(-6, -110, 12, 30); br.fillRect(-6, -75, 12, 10);
     this.bridge = this.add.container(DESIGN_W + 300, 640, [br]).setDepth(1).setScale(0.4);
 
-    this.distText = this.add.text(DESIGN_W / 2, 470, '', styleText(54, '#ff7a76')).setOrigin(0.5).setDepth(12);
+    this.distText = this.add.text(DESIGN_W / 2, 400, '', styleText(54, '#ff7a76')).setOrigin(0.5).setDepth(12);
     this.warn = this.add.rectangle(DESIGN_W / 2, DESIGN_H / 2, DESIGN_W, DESIGN_H, 0xff2a2a, 0).setDepth(25);
     this.noise = this.add.rectangle(DESIGN_W / 2, DESIGN_H / 2, DESIGN_W, DESIGN_H, 0xffffff, 0).setDepth(26).setBlendMode(Phaser.BlendModes.ADD);
 
@@ -103,12 +104,22 @@ export class TrainScene extends Phaser.Scene {
 
     this.bind(Events.TELE_TICK, (t: TelegramInfo) => this.onTick(t));
     this.bind(Events.TELE_WORD, () => this.pulseTelegraph());
+    this.bind(Events.SYLLABLE_HIT, () => this.player?.jab());
+    this.bind(Events.PET_ACTIVE, () => this.pet?.skill());
+    this.bind(Events.IDLE_DRAIN, () => { this.player?.hit(); AudioManager.sfx('hurt', { gain: 0.5 }); });
+    this.bind(Events.PET_PASSIVE, () => this.pet?.skill());
     this.bind(Events.TELE_OUTAGE, (d: { on: boolean }) => this.setOutage(d.on));
     this.bind(Events.TELE_BRAKE, (d: { stage: number }) => this.onBrake(d.stage));
     this.bind(Events.TELE_STOP, () => this.onStop());
     this.bind(Events.TELE_CRASH, () => this.onCrash());
-    this.bind(Events.INPUT_CORRECT, (d: { perfect: boolean; combo: number }) => { AudioManager.sfx(d.perfect ? 'perfect' : 'hit', { rate: AudioManager.comboRate(d.combo) }); this.pet?.cheer(); });
+    this.bind(Events.INPUT_CORRECT, (d: { perfect: boolean; combo: number }) => { AudioManager.sfx(d.perfect ? 'perfect' : 'hit', { rate: AudioManager.comboRate(d.combo) }); this.pet?.cheer(); this.player?.hop(); });
     this.bind(Events.INPUT_WRONG, (d: { forgiven: boolean }) => { if (!d.forgiven) AudioManager.sfx('miss'); });
+    this.bind(Events.PLAYER_MOVE, (d: { dir: 'left' | 'right' | 'up' | 'down'; pressed: boolean }) => {
+      if (!this.player) return;
+      if (d.dir === 'up' && d.pressed) this.player.jump();
+      else if (d.dir === 'down') this.player.crouch(d.pressed);
+      else if (d.pressed) this.player.nudge(d.dir === 'right' ? 22 : -22);
+    });
     this.bind(Events.SETTINGS_CHANGED, (s: { screenShake: boolean }) => (this.shakeOn = s.screenShake));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       for (const [ev, fn] of this.handlers) EventBus.off(ev, fn);
@@ -167,7 +178,7 @@ export class TrainScene extends Phaser.Scene {
       AudioManager.sfx('bomb', { rate: 2.2, gain: 0.35 });
       this.noise?.setFillStyle(0xffffff, 0.25);
       this.tweens.add({ targets: this.noise, fillAlpha: { from: 0.3, to: 0.05 }, duration: 80, yoyo: true, repeat: 8, onComplete: () => this.noise?.setFillStyle(0xffffff, 0) });
-      const t = this.add.text(DESIGN_W / 2, 560, '📵 통신 끊김…', styleText(48, '#ff6b6b')).setOrigin(0.5).setDepth(27);
+      const t = this.add.text(DESIGN_W / 2, 620, '통신 끊김…', styleText(48, '#ff6b6b')).setOrigin(0.5).setDepth(27);
       this.tweens.add({ targets: t, alpha: 0, duration: 300, delay: 1200, onComplete: () => t.destroy() });
     }
   }
@@ -179,9 +190,9 @@ export class TrainScene extends Phaser.Scene {
       this.time.delayedCall(700, () => { if (!this.stopped) this.lever?.setFrame('c0_r2'); });
     }
     if (this.shakeOn) this.cameras.main.shake(300, 0.01);
-    const t = this.add.text(DESIGN_W / 2, 380, `🛑 브레이크 ${stage}단!`, styleText(56, '#ffd34d')).setOrigin(0.5).setDepth(27).setScale(0.5);
+    const t = this.add.text(DESIGN_W / 2, 520, `브레이크 ${stage}단!`, styleText(56, '#ffd34d')).setOrigin(0.5).setDepth(27).setScale(0.5);
     this.tweens.add({ targets: t, scale: 1, duration: 200, ease: 'Back.easeOut' });
-    this.tweens.add({ targets: t, alpha: 0, y: 340, duration: 500, delay: 900, onComplete: () => t.destroy() });
+    this.tweens.add({ targets: t, alpha: 0, y: 480, duration: 500, delay: 900, onComplete: () => t.destroy() });
     this.sparks?.explode(60, 500, DECK_Y + 60);
   }
 
@@ -192,7 +203,7 @@ export class TrainScene extends Phaser.Scene {
     this.speed = 0;
     if (this.sparks) this.sparks.emitting = false;
     AudioManager.sfx('clear');
-    const t = this.add.text(DESIGN_W / 2, 400, '🚂 열차 정지 완료!', styleText(72, '#63e074')).setOrigin(0.5).setDepth(27).setScale(0.5);
+    const t = this.add.text(DESIGN_W / 2, 520, '열차 정지 완료!', styleText(72, '#63e074')).setOrigin(0.5).setDepth(27).setScale(0.5);
     this.tweens.add({ targets: t, scale: 1, duration: 300, ease: 'Back.easeOut' });
     this.time.delayedCall(400, () => { this.player?.victory(); this.pet?.victory(); });
   }
@@ -201,8 +212,8 @@ export class TrainScene extends Phaser.Scene {
     this.speed = 0;
     if (this.shakeOn) this.cameras.main.shake(700, 0.02);
     this.warn?.setFillStyle(0xff2a2a, 0.35);
-    const t = this.add.text(DESIGN_W / 2, 400, '급정지 실패…', styleText(64, '#ff6b6b')).setOrigin(0.5).setDepth(27);
-    this.tweens.add({ targets: t, y: 380, duration: 400 });
+    const t = this.add.text(DESIGN_W / 2, 520, '급정지 실패…', styleText(64, '#ff6b6b')).setOrigin(0.5).setDepth(27);
+    this.tweens.add({ targets: t, y: 500, duration: 400 });
     this.player?.hit();
   }
 }

@@ -70,6 +70,10 @@ export interface TypingMode {
   resume(): void;
   commit(value: string): void;
   submit(value: string, usedBackspace: boolean): void;
+  /** 점프: 현재 목표 건너뛰기 (남은 횟수 없으면 false) */
+  skip(): boolean;
+  /** 방향키 이동 (모드가 지원할 때만) */
+  move?(dir: 'left' | 'right' | 'up' | 'down', pressed: boolean): void;
   snapshot(): BattleSnapshot;
   wordsSeen(): string[];
 }
@@ -174,6 +178,15 @@ export class BattleSystem implements TypingMode {
     const perChar = Math.max(1, Math.round((this.damageScale * DAMAGE.base * 0.4) / chars));
     const dmg = Math.round(newHits * perChar * this.run.damageMult());
     this.damageEnemy(enemy, dmg, { weak: true });
+  }
+
+  skip(): boolean {
+    if (!this.running || this.finished) return false;
+    const r = this.run.skip();
+    if (!r) return false;
+    this.run.advance();
+    EventBus.emit(Events.TARGET_CHANGED, this.snapshot());
+    return true;
   }
 
   /** 확정 문자열 제출 (TypingSystem에서 호출) */

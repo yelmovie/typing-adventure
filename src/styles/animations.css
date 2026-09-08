@@ -73,11 +73,39 @@
   85% { transform: translate(-50%, 0); opacity: 1; }
   100% { transform: translate(-50%, -20px); opacity: 0; }
 }
-@keyframes ta-judge {
-  0% { transform: translate(-50%, 0) scale(0.5); opacity: 0; }
-  20% { transform: translate(-50%, -10px) scale(1.2); opacity: 1; }
-  70% { transform: translate(-50%, -30px) scale(1); opacity: 1; }
-  100% { transform: translate(-50%, -60px) scale(0.9); opacity: 0; }
+/* 판정 팝 4종: 스케일 팝 → 감속 → 페이드 */
+@keyframes ta-judge-stamp {
+  0% { transform: translate(-50%, 0) scale(1.7); opacity: 0; }
+  18% { transform: translate(-50%, 0) scale(0.92); opacity: 1; }
+  30% { transform: translate(-50%, 0) scale(1.04); opacity: 1; }
+  70% { transform: translate(-50%, -8px) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -34px) scale(0.96); opacity: 0; }
+}
+@keyframes ta-judge-rays {
+  0% { transform: translate(-50%, -50%) rotate(0deg) scale(0.4); opacity: 0; }
+  25% { opacity: 1; }
+  100% { transform: translate(-50%, -50%) rotate(40deg) scale(1.1); opacity: 0; }
+}
+@keyframes ta-judge-good {
+  0% { transform: translate(-50%, 10px) scale(0.6); opacity: 0; }
+  25% { transform: translate(-50%, -6px) scale(1.08); opacity: 1; }
+  65% { transform: translate(-50%, -14px) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -36px) scale(0.94); opacity: 0; }
+}
+@keyframes ta-judge-miss {
+  0% { transform: translate(-50%, -8px) scale(1.15); opacity: 0; }
+  15% { transform: translate(calc(-50% - 9px), 0) scale(1); opacity: 1; }
+  30% { transform: translate(calc(-50% + 8px), 2px); }
+  45% { transform: translate(calc(-50% - 5px), 4px); }
+  60% { transform: translate(calc(-50% + 3px), 6px); opacity: 1; }
+  100% { transform: translate(-50%, 22px) scale(0.92); opacity: 0; }
+}
+@keyframes ta-judge-ribbon {
+  0% { transform: translate(-50%, 0) scaleX(0.2); opacity: 0; }
+  22% { transform: translate(-50%, 0) scaleX(1.06); opacity: 1; }
+  34% { transform: translate(-50%, 0) scaleX(1); }
+  78% { transform: translate(-50%, -4px) scaleX(1); opacity: 1; }
+  100% { transform: translate(-50%, -26px) scaleX(1); opacity: 0; }
 }
 
 .anim-float { animation: ta-float 3s ease-in-out infinite; }
@@ -91,5 +119,11 @@
 .anim-blink { animation: ta-blink 1s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
-  .anim-float, .anim-pulse, .anim-blink { animation: none; }
+  .anim-float, .anim-pulse, .anim-blink, .home-start-pulse, .home-logo .logo-img, .key.next, .map-node.current .node-pin,
+  .combo-box.fever .combo-num, .combo-box.fever .combo-txt, .screen.power .combo-box .combo-num, .screen.fever .fever-overlay,
+  .card.selected, .result-stat .new, .gauge-fill.hp-low, .stat-box .val.warn, .tele-panel.outage, .tele-panel.danger .td-dist,
+  .race-track.danger .tk-mark.chaser, .screen.all-clear .map-node .node-pin, .loading-logo { animation: none; }
+  /* 판정 팝·리본은 일회성이라 유지하되 흔들림·회전 광선만 끈다 */
+  .judge-pop.perfect::before { animation: none; opacity: 0.35; }
+  .judge-pop.miss { animation: ta-judge-good 0.7s ease-out forwards; }
 }

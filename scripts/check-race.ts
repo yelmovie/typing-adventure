@@ -18,7 +18,7 @@ function make(ghost: { samples: number[]; finishSec: number } | null = null) {
 // 1. 아무것도 안 치면 기본 속도로 달리고, 추격자가 따라잡는다 (60m 차이, 5 vs 4.5 → 못 잡음… 30초마다 가속 → 결국 잡힘)
 {
   const { r, count } = make();
-  for (let i = 0; i < 1800 && !r.finished; i++) r.tick(0.1); // 최대 180초
+  for (let i = 0; i < 1800 && !r.finished; i++) { r.tick(0.1); if (i % 30 === 0) r.commit(r.run.current!.text[0]); } // 낱말은 안 끝내고 한 글자만 계속 → 무입력 감소 없이 추격만
   assert.ok(count('RACE_CAUGHT') >= 1, '가만히 있으면 잡힌다');
 }
 

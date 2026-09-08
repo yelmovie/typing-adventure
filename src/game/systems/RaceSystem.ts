@@ -167,6 +167,15 @@ export class RaceSystem implements TypingMode {
       this.run.advance();
       this.emit('TARGET_CHANGED', this.snapshot());
     }
+    const drain = this.run.idleDrain(dt);
+    if (drain > 0) {
+      this.playerHp = Math.max(0, this.playerHp - drain);
+      this.emit('IDLE_DRAIN', { hpLoss: drain, hp: this.playerHp, idle: this.run.idleSeconds });
+      if (this.playerHp <= 0) {
+        this.fail('hp');
+        return;
+      }
+    }
     if (this.chaser >= this.dist) this.caught();
     if (this.finished) return;
     this.emit('HUD_TICK', this.snapshot());
@@ -195,6 +204,24 @@ export class RaceSystem implements TypingMode {
     this.run.onCommit(value);
   }
 
+  /** 방향키: 이 모드는 연출만(이동·점프·앉기가 판정에 영향 없음) */
+  move(dir: 'left' | 'right' | 'up' | 'down', pressed: boolean) {
+    if (!this.running || this.finished) return;
+    this.emit('PLAYER_MOVE', { dir, pressed });
+  }
+
+  skip(): boolean {
+    if (!this.running || this.finished) return false;
+    const t = this.run.current;
+    if (!t) return false;
+    const r = this.run.skip();
+    if (!r) return false;
+    this.wordSec = 0;
+    this.run.advance();
+    this.emit('TARGET_CHANGED', this.snapshot());
+    return true;
+  }
+
   submit(value: string, usedBackspace: boolean) {
     if (!this.running || this.finished) return;
     const t = this.run.current;
@@ -206,13 +233,18 @@ export class RaceSystem implements TypingMode {
         this.slowLeft = RACE.typoSec;
         this.noTypoStreak = 0;
       }
-      this.emit('INPUT_WRONG', { typed: value, target: t, hpLoss: 0, timeLoss: 0, forgiven: r.forgiven, shielded: false, snapshot: this.snapshot() });
+      this.applyHp(r.hpDelta);
+      this.emit('INPUT_WRONG', { typed: value, target: t, hpLoss: r.hpDelta < 0 ? -r.hpDelta : 0, timeLoss: 0, forgiven: r.forgiven, shielded: false, snapshot: this.snapshot() });
+      this.wordSec = 0;
+      if (this.playerHp <= 0) { this.fail('hp'); return; }
+      this.run.advance(); // 틀린 낱말은 넘긴다
       this.emit('TARGET_CHANGED', this.snapshot());
       return;
     }
     const combo = this.run.combo;
     const strokes = countStrokes(t.text);
     this.score += calcWordScore(combo, r.perfect, strokes) + r.bonusScore;
+    this.applyHp(r.hpDelta);
     this.boostLeft = RACE.boostSec;
     this.recentCpm.push(this.wordSec > 0 ? (strokes / this.wordSec) * 60 : 0);
     if (this.recentCpm.length > 3) this.recentCpm.shift();
@@ -236,11 +268,18 @@ export class RaceSystem implements TypingMode {
     this.emit('TARGET_CHANGED', this.snapshot());
   }
 
+  private applyHp(delta: number) {
+    if (!delta) return;
+    this.playerHp = Math.max(0, Math.min(this.playerMaxHp, this.playerHp + delta));
+    if (delta < 0) this.emit('PLAYER_HIT', { hpLoss: -delta, hp: this.playerHp });
+    else this.emit('HP_HEAL', { amount: delta, hp: this.playerHp });
+  }
+
   private clear() {
     this.finished = true;
     this.running = false;
     this.run.stats.stop();
-    this.score += Math.round(this.timeLeft) * 5;
+    this.score += Math.round(this.timeLeft) * 5 + Math.round(this.playerHp * RULES.hpClearBonusPerHp);
     this.beatGhost = this.ghost ? this.elapsed < this.ghost.finishSec : undefined;
     this.emit('RACE_FINISH', { elapsed: this.elapsed, beatGhost: this.beatGhost, catches: this.catches });
     this.emit('STAGE_CLEAR', this.snapshot());

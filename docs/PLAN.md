@@ -108,7 +108,50 @@
 - [ ] 캔버스 2차(선택): 배지 아이콘 15종, 홈 장식·변화구·펫 스킬 아이콘 시트, 지도 노드 아이콘 5종, 프롤로그·엔딩 삽화 2장. 오면 이모지 자리 교체.
 - [x] `final-check` 1~2단계 완료 (2026-09-08 밤): `docs/reviews/FINAL-CHECK-20260908.md` — 152/242(63%), **배포 보류**(S4 통신 끊김 중 문장 소실 FAIL, 셋업 패널 버튼 잘림 FAIL). 개선안 승인 대기.
 - [x] final-check 3~4단계 완료 (2026-09-08 심야): 216/242(89%), **조건부 배포 가능**. 조건: about.ts author 표기, CREDITS Suno 라이선스, 실기기 IME·BGM 확인. 2차 이미지 5장 적용(배지·아이템·지도 핀 개별 webp DOM_SHEETS, 삽화 2장). 파일 정리(_unused/), GitHub yelmovie/typing-adventure main 푸시.
+- [x] 피드백 라운드 2 (2026-09-09 새벽): 오답은 반복 없이 다음으로(전 모드), 판정 팝업 겹침 해결(`--stack`), 펫 액티브 = 10콤보마다 + PET_PASSIVE 연출, 캐릭터 살아있는 idle(`setLively`)·jab/hop/dash/sad, 4초 무입력 시 HP 초당 -2(`idleDrain`, IDLE_DRAIN 이벤트), content.json 세계관 문장/이중모음 재생성(129개, 보스 P3 3문장), S1 템포 상향(간격 2.2→1.1, 최대 6마리).
+- [x] 점프·아이템·소탕 (2026-09-09 새벽): **점프** = Tab 키 또는 입력창 옆 `⏭ 점프` 버튼, 판마다 3번(`RULES.skipsPerStage`, `TypingRun.skip()`), 정확도 영향 없이 콤보만 0, 각 모드의 `skip()` 이 오답 경로처럼 다음 목표로. **S1 아이템** = 처치 시 35% 드롭(🪙30/💎80/⭐150, `WAVE.drops`, ITEM_DROP 이벤트, 캐릭터에게 날아가 +점수). **5콤보 소탕** = S1에서 5콤보마다 화면의 적 전멸(`WAVE.sweepEvery`, WAVE_SWEEP → 플래시·문구). **걷는 화면** = WaveScene 배경 tileSprite 2겹 스크롤 + `Player.walking`(동작 후 idle 대신 걷기 복귀). 셀프체크 check-wave 7번.
+- [ ] 지도 수정(디자인 에이전트 끝난 뒤 직접): 점선 경로를 캐릭터 뒤로, 비네트+발밑 글로우, 노드 라벨 대비. 배경 v2 프롬프트 #14 는 캔버스에.
 - [ ] 다음: 실기기 피드백 → 밸런스. 남은 개선: 인라인 style 12곳, 폴드 터치, 캐릭터·펫 시트 선택분만 로딩, 제작기·기능향상기 md(education-content-studio).
 - [ ] 이미지 들어오면: 네온 시티·사막·열차 배경, 그림자 추격자·결정 시트, 밝은 성, 직업 이펙트 4장 → `npm run assets` + asset-map 등록 + 각 씬의 코드 그래픽 교체.
 - [ ] 이후 4장 3~7 순서대로
 - 미정: 펫 액티브 중 '거리 +5'(토끼)·'화염 광역'(드래곤)은 지금 단일 몬스터 25% 피해로 임시 — 모드별 씬에서 다시 정의.
+
+## 7. 재미 3/10 → 11점 계획 (2026-09-09, 사용자 요청)
+
+사용자 평가: "재미 3/10". 원인 진단: 캐릭터를 **조작할 수 없고**, 위험(HP)과 보상(아이템)의 **루프가 약하고**, 화면이 정적이며, UI 가 캐릭터·글자를 가린다.
+
+| # | 항목 | 무엇을 | 담당 |
+|---|---|---|---|
+| 1 | 조작감 | 방향키 ←→ 전진/후진, ↑ 점프, ↓ 앉기. S1: 슬라임은 점프로 뛰어넘고 박쥐는 앉아서 피하면 **회피** (피해 0, +점수, DODGE 연출). 다른 모드도 이동·점프는 연출로 | 코어 |
+| 2 | 위험·보상 루프 | HP 감소: 접촉 -10, 무입력 초당 -2, 오답 제출 -3. 회복: ❤ 하트 +20, 10콤보마다 +5, PERFECT +2, 클리어 시 전부. 아이템 6종(🪙30점·💎80점+코인·⭐150점·❤HP·🛡 다음 접촉 무효·⚡ 3초 적 느려짐) S1 드롭 + 전 모드 변화구로 등장 | 코어 |
+| 3 | 단계별 폭발 | 5콤보 소탕(완료) → 10콤보 펫 스킬 → 20 FEVER. 각 단계 화면 연출·문구가 확실히 다르게 | 코어 |
+| 4 | 웨이브 보스 | S1 마지막 웨이브에 큰 슬라임(4음절, HP 2배, 느림) + 웨이브마다 배경 색 온도 변화(낮→노을) | 코어 |
+| 5 | 걷는 화면 | S1 배경 스크롤 + 걷기 애니(완료). 나머지 모드는 기존 스크롤 유지 | 완료 |
+| 6 | 오늘의 도전 선택 | 단어 / 문장 / 긴 글(≈500자) 를 사용자가 고름 | 코어+UI |
+| 7 | 도감 | 낱말 탭 제거, 나머지(배지·칭호·장식·아이템·몬스터)를 4×4 격자로, 이미지 없으면 CSS 아이콘 | UI |
+| 8 | UX 정리 | 모든 화면 우상단 홈·소리(BGM/효과음 슬라이더)·설정 버튼, 키보드 가이드는 기본 숨김 → 켜면 화면 중앙, 입력란 맨 아랫줄, 셋업 이름 입력 제거, 글자·팝업·캐릭터 겹침 0 | UI |
+
+에이전트 2개 병렬: **코어**(`src/game/systems/**`, `entities/**`, `scenes/**`, `EventBus.ts`, `Game.ts`, `types.ts`, `data/content.json`, `scripts/check-*.ts`) / **UI**(`src/game/ui/**`, `src/styles/**`, `data/*.ts`(content.json 제외), `index.html`). 공유 훅은 미리 넣음: `TypingSystem.onMove` → `BattleScreen` → `TypingMode.move?(dir, pressed)`.
+
+## 8. 다음에 이어서 할 일 (2026-09-09 아침 중단 지점)
+
+> "이어서 해" 라고 하면 **여기부터**. 현재 `npx tsc --noEmit` 통과, `npm run check` 7/7 통과, 커밋 완료(작업 중 체크포인트). 푸시는 아직 안 함.
+
+### 끝난 것
+- 점프(Tab / ⏭ 버튼, 판당 3회), S1 걷는 배경 스크롤, 아이템 드롭, 5콤보 소탕 — §6 참고.
+- 코어: 방향키 조작(`Player.jump/crouch/nudge`, `WaveSystem.move()`, `DODGE` 이벤트 → WaveScene 회피 연출), HP 규칙(`RULES.wrongHp/comboHealEvery/comboHealHp/perfectHealHp`), 아이템 6종(coin·gem·star·heart·shield·bolt, `WAVE.drops`), S1 마지막 웨이브 대장 슬라임(`WAVE.bossHpMul/bossScaleMul/bossSpeedMul`), 오늘의 도전 kind(`DailySystem(…, kind)` + `navigate('battle',{stageId:'daily',dailyKind})`), `scripts/check-daily.ts`.
+- UI: 공통 상단바 `src/game/ui/TopBar.ts`(홈·소리 팝오버·설정) → 홈·지도·소개·결과·셋업에 적용, 셋업 이름 입력 제거, 도감 탭 재구성(몬스터·배지·친구들·아이템·칭호), `src/game/data/items.ts`, 키보드 가이드 토글(`settings.showKeyboardGuide`, 중앙 오버레이).
+
+### 남은 것 (이 순서로)
+1. **전투 화면에도 공통 상단바** — `BattleScreen` 은 아직 `commonTopBar()` 미적용. 전투 중 홈은 "정말 나갈까요?" 확인 후 이동.
+2. **입력란을 하단 패널 맨 아랫줄로** — 지금 `.bb-input-wrap` 위치 확인 필요(키보드 가이드가 중앙 오버레이가 됐으니 하단 재배치).
+3. **도감 4×4 채우기 검증** — 탭별 항목이 16칸을 채우는지, 아이콘 없는 항목 CSS 아이콘인지.
+4. **겹침 최종 확인** — 브라우저(dev 5180)에서 홈·셋업·지도·S1·S3·S4·S5·오늘의 도전·결과 순회하며 글자·팝업·캐릭터 겹침 0 확인. 캐릭터 발끝 y=760 / 하단 패널 y≥830 / HUD ≤94 / 콤보 130~290 기준.
+5. **지도 수정** — 점선 경로를 캐릭터 뒤로, 비네트+발밑 글로우, 노드 라벨 대비 (`WorldMapScene`/`WorldMapScreen`).
+6. 재검증(`npm run check`, `npm run build`) → 커밋 → GitHub `yelmovie/typing-adventure` main 푸시.
+
+### 사용자가 만들어 오기로 한 이미지 (주문서 3차)
+https://claude.ai/code/artifact/77a529d9-2b61-434e-957e-ee1f6526f5de — 14 지도 배경 v2 / 15 대장 슬라임 시트 / 16 캐릭터 점프·앉기 프레임 4명 / 17 아이템 6종 아이콘 / 18 회피·획득 이펙트. 들어오면 `assets/background`·`assets/character` 에 넣고 "이미지 넣었어" → `npm run assets` + `scripts/asset-map.mjs` 등록.
+
+### 남은 사용자 확인 사항 (기존)
+`data/about.ts` 저자 표기명, CREDITS 의 Suno 라이선스 문구, 실기기(태블릿) IME·BGM 확인.

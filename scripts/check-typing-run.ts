@@ -106,4 +106,33 @@ function make(words: ContentUnit[], p = pet()) {
   assert.equal(fast.run.adaptiveOffset, 1);
 }
 
+// 7. 무입력 4초부터 초당 HP 2 감소 (목표가 있을 때만)
+{
+  const { run } = make([unit('가')]);
+  let drained = 0;
+  for (let t = 0; t < 40; t++) drained += run.idleDrain(0.1), run.tick(0.1);
+  assert.equal(drained, 0, '4초까진 안 깎임');
+  for (let t = 0; t < 30; t++) { run.tick(0.1); drained += run.idleDrain(0.1); }
+  assert.ok(drained >= 5 && drained <= 6, `3초 더 방치 → 약 6 (실제 ${drained})`);
+  run.onCommit('가');
+  assert.equal(run.idleDrain(0.1), 0, '입력하면 즉시 멈춤');
+}
+
+// 8. 위험·보상 루프: 오답 hpDelta -3(용서되면 0), PERFECT +2, 10콤보마다 +5(중첩 가능)
+{
+  const { run } = make([unit('가')], pet({ passive: 'strong_bonus', active: 'fire_aoe' }));
+  const wrong = run.submit('X', false)!;
+  assert.equal(wrong.forgiven, false);
+  assert.equal(wrong.hpDelta, -RULES.wrongHp, '오답 hpDelta -3');
+  run.advance();
+  for (let i = 0; i < 9; i++) run.submit('가', false), run.advance();
+  assert.equal(run.combo, 9);
+  const r10 = run.submit('가', false)!;
+  assert.equal(run.combo, 10);
+  assert.equal(r10.hpDelta, RULES.comboHealHp + RULES.perfectHealHp, '10콤보 + PERFECT 동시 회복');
+  run.advance();
+  const r11 = run.submit('가', false)!;
+  assert.equal(r11.hpDelta, RULES.perfectHealHp, '10콤보 아니면 PERFECT만 회복');
+}
+
 console.log('check-typing-run: all passed');

@@ -2,7 +2,7 @@ import type { BattleResult, StageDef, SaveData } from '../types';
 import { evaluateBadges } from '../data/badges';
 import { SaveSystem } from './SaveSystem';
 import { CHARACTERS, PETS, unlockMet } from '../data/characters';
-import { todayKey } from './DailySystem';
+import { todayKey, currentDailyKind } from './DailySystem';
 import { currentTitle, unlockedDecors } from '../data/titles';
 
 export { TypingStats, DAMAGE, calcDamage, calcWordScore } from './TypingStats';
@@ -20,7 +20,9 @@ export function finalizeAndSave(partial: Omit<BattleResult, 'newBadges' | 'isNew
   const save: SaveData = SaveSystem.get();
   if (stage.mode === 'daily') {
     save.records.daily ??= {};
-    const key = todayKey();
+    // word 는 기존 키 그대로(하위 호환: 인증서·모달이 이 키를 읽음), 문장/긴 글은 종류별로 따로 저장
+    const kind = currentDailyKind();
+    const key = kind === 'word' ? todayKey() : `${todayKey()}:${kind}`;
     const prev = save.records.daily[key];
     const mine = { cpm: Math.round(partial.cpm), accuracy: Math.round(partial.accuracy * 10) / 10, score: partial.score, maxCombo: partial.maxCombo };
     const dailyNew = partial.cleared && (!prev || mine.cpm > prev.cpm || (mine.cpm === prev.cpm && mine.accuracy > prev.accuracy));

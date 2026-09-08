@@ -1,5 +1,5 @@
 import { Screen } from '../Screen';
-import { h, uiImg } from '../../util/dom';
+import { h, uiImg, icon } from '../../util/dom';
 import { SaveSystem } from '../../systems/SaveSystem';
 import { navigate } from '../../Game';
 import { CHARACTERS, PETS, portraitUrl } from '../../data/characters';
@@ -8,12 +8,12 @@ import type { Difficulty } from '../../types';
 import { EventBus, Events } from '../../EventBus';
 import { AudioManager } from '../../systems/AudioManager';
 import { storyModal, toast } from '../ModalController';
+import { commonTopBar } from '../TopBar';
 
 export class SetupScreen extends Screen {
   private characterId = 'brown_boy';
   private petId = 'cat';
   private difficulty: Difficulty = 'normal';
-  private nameInput!: HTMLInputElement;
   private previewName!: HTMLElement;
 
   constructor() {
@@ -25,16 +25,6 @@ export class SetupScreen extends Screen {
     this.characterId = save.profile.characterId;
     this.petId = save.profile.petId;
     this.difficulty = save.profile.difficulty;
-
-    this.nameInput = h('input', {
-      class: 'input',
-      type: 'text',
-      maxlength: '8',
-      placeholder: '이름을 입력하세요 (최대 8글자)',
-      value: save.profile.name,
-      autocomplete: 'off',
-      spellcheck: 'false',
-    }) as HTMLInputElement;
 
     const charOpen = new Set(save.collection.charactersUnlocked ?? CHARACTERS.map((c) => c.id));
     const petOpen = new Set(save.collection.petsUnlocked);
@@ -51,12 +41,12 @@ export class SetupScreen extends Screen {
             dataset: { id: c.id },
             role: 'button',
             tabindex: '0',
-            onclick: () => (charOpen.has(c.id) ? this.pickChar(c.id, charGrid) : toast(`🔒 ${c.unlock?.desc ?? '아직 잠겨 있어요'}`)),
+            onclick: () => (charOpen.has(c.id) ? this.pickChar(c.id, charGrid) : toast(`잠김 · ${c.unlock?.desc ?? '아직 잠겨 있어요'}`)),
           },
           h('div', { class: 'card-check' }, '✓'),
           h('img', { class: 'card-img', src: portraitUrl(c.sheet), alt: c.name }),
           h('div', { class: 'card-name' }, c.name),
-          h('div', { class: 'card-desc' }, charOpen.has(c.id) ? c.desc : `🔒 ${c.unlock?.desc ?? ''}`),
+          h('div', { class: 'card-desc' }, charOpen.has(c.id) ? c.desc : [icon('lock'), ` ${c.unlock?.desc ?? ''}`]),
         ),
       ),
     );
@@ -80,11 +70,11 @@ export class SetupScreen extends Screen {
       PETS.map((p) =>
         h(
           'div',
-          { class: `card ${p.id === this.petId ? 'selected' : ''} ${petOpen.has(p.id) ? '' : 'locked'}`, dataset: { id: p.id }, role: 'button', tabindex: '0', onclick: () => (petOpen.has(p.id) ? this.pickPet(p.id, petGrid) : toast(`🔒 ${p.unlock?.desc ?? '아직 잠겨 있어요'}`)) },
+          { class: `card ${p.id === this.petId ? 'selected' : ''} ${petOpen.has(p.id) ? '' : 'locked'}`, dataset: { id: p.id }, role: 'button', tabindex: '0', onclick: () => (petOpen.has(p.id) ? this.pickPet(p.id, petGrid) : toast(`잠김 · ${p.unlock?.desc ?? '아직 잠겨 있어요'}`)) },
           h('div', { class: 'card-check' }, '✓'),
           h('img', { class: 'card-img', src: portraitUrl(p.sheet), alt: p.name }),
           h('div', { class: 'card-name' }, p.name),
-          h('div', { class: 'card-skill' }, petOpen.has(p.id) ? [p.passiveDesc, h('br'), uiImg(`item_${p.active}`), ' ', p.activeDesc] : `🔒 ${p.unlock?.desc ?? ''}`),
+          h('div', { class: 'card-skill', title: petOpen.has(p.id) ? `${p.passiveDesc} · ${p.activeDesc}` : '' }, petOpen.has(p.id) ? [uiImg(`item_${p.active}`), p.activeDesc] : [icon('lock'), ` ${p.unlock?.desc ?? ''}`]),
         ),
       ),
     );
@@ -92,16 +82,15 @@ export class SetupScreen extends Screen {
     const panel = h(
       'div',
       { class: 'panel setup-panel' },
-      h('div', { class: 'panel-title' }, '🎒 모험 준비'),
-      h('div', {}, this.sectionTitle(1, '모험가의 이름'), h('div', { class: 'setup-name-row' }, this.nameInput, h('span', { class: 'hint' }, '이름은 이 기기에만 저장돼요'))),
-      h('div', {}, this.sectionTitle(2, '캐릭터 선택'), charGrid),
-      h('div', {}, this.sectionTitle(3, '난이도'), diffRow),
-      h('div', {}, this.sectionTitle(4, '함께할 친구(펫)'), petGrid),
+      h('div', { class: 'panel-title' }, '모험 준비'),
+      h('div', {}, this.sectionTitle(1, '캐릭터 선택'), charGrid),
+      h('div', {}, this.sectionTitle(2, '난이도'), diffRow),
+      h('div', {}, this.sectionTitle(3, '함께할 친구(펫)'), petGrid),
       h(
         'div',
         { class: 'setup-footer' },
-        h('button', { class: 'btn btn-gray btn-md', onclick: () => { AudioManager.sfx('click'); void navigate('home'); } }, '← 뒤로'),
-        h('button', { class: 'btn btn-primary btn-lg', onclick: () => this.done() }, '준비 완료! 모험 지도로 →'),
+        h('button', { class: 'btn btn-gray btn-md', onclick: () => { AudioManager.sfx('click'); void navigate('home'); } }, icon('home'), ' 뒤로'),
+        h('button', { class: 'btn btn-primary btn-lg', onclick: () => this.done() }, '준비 완료 · 모험 지도로'),
       ),
     );
     this.el.append(panel);
@@ -109,7 +98,7 @@ export class SetupScreen extends Screen {
     this.previewName = h('div', { class: 'panel panel-glass setup-preview-name' });
     this.el.append(this.previewName);
     this.updatePreviewName();
-    window.setTimeout(() => this.nameInput.focus(), 350);
+    this.el.append(commonTopBar());
   }
 
   private sectionTitle(n: number, text: string) {
@@ -145,16 +134,13 @@ export class SetupScreen extends Screen {
   }
 
   private done() {
-    const name = this.nameInput.value.trim().normalize('NFC');
-    if (!name) {
-      toast('모험가의 이름을 먼저 정해 주세요!');
-      this.nameInput.focus();
-      this.nameInput.classList.add('anim-shake');
-      window.setTimeout(() => this.nameInput.classList.remove('anim-shake'), 500);
-      return;
-    }
+    // 이름 입력란 없음: 기존 세이브 이름을 유지하고, 없으면 선택한 캐릭터 이름을 기본값으로 쓴다
+    const existing = SaveSystem.get().profile.name?.trim();
+    const name = existing || CHARACTERS.find((c) => c.id === this.characterId)!.name;
     AudioManager.sfx('perfect');
     SaveSystem.setProfile(name, this.characterId, this.petId, this.difficulty);
+    // 셋업 화면은 항상 새 모험(reset 직후)에만 오므로, 키보드 가이드는 매 새 모험마다 기본 숨김으로 시작한다
+    SaveSystem.setSettings({ showKeyboardGuide: false });
     if (!SaveSystem.get().settings.prologueSeen) {
       SaveSystem.setSettings({ prologueSeen: true });
       storyModal('prologue', () => void navigate('worldmap'));

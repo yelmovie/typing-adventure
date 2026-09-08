@@ -195,11 +195,15 @@
 .card.selected .card-name { text-shadow: none; }
 .card.locked { filter: grayscale(0.7) brightness(0.65); cursor: not-allowed; }
 .card.locked::after {
-  content: '🔒';
+  /* 픽셀 자물쇠 아이콘 (이모지 대체) */
+  content: '';
   position: absolute;
-  right: 10px;
+  right: 8px;
   top: 8px;
-  font-size: 26px;
+  width: 30px;
+  height: 30px;
+  background: url('/assets/ui/icon_lock.webp') center / contain no-repeat;
+  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.5));
 }
 .card-img {
   width: 128px;
@@ -285,7 +289,13 @@
   padding: 56px 48px 40px;
   animation: ta-pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
 }
-.modal-body { font-size: 24px; line-height: 1.55; text-align: center; }
+.modal-sm { width: 680px; }
+.modal-md { width: 860px; }
+.modal-lg { width: 900px; }
+.modal-xl { width: 1000px; }
+.modal-body { font-size: 24px; line-height: 1.55; text-align: center; white-space: pre-line; }
+.modal .panel-title .ui-icon { width: 30px; height: 30px; vertical-align: -6px; margin-right: 4px; }
+.settings-body { padding: 0 10px; }
 .modal-actions { display: flex; gap: 20px; justify-content: center; margin-top: 32px; flex-wrap: wrap; }
 .modal-close {
   position: absolute;
@@ -440,6 +450,24 @@
 }
 .icon-btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
 .icon-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--outline); }
+
+/* ---------- 공통 우상단 바(홈·소리·설정) ---------- */
+.topbar-common { position: absolute; top: 24px; right: 32px; display: flex; align-items: center; gap: 14px; z-index: 20; }
+.sound-pop-wrap { position: relative; }
+.sound-popover {
+  position: absolute;
+  top: 84px;
+  right: 0;
+  width: 320px;
+  padding: 14px 18px;
+  display: none;
+  z-index: 30;
+}
+.sound-popover.open { display: block; }
+.sound-popover .sp-row { padding: 10px 4px; font-size: 20px; }
+.sound-popover .sp-row .vol { width: 150px; }
+.sound-popover .sp-row .btn { min-height: 44px; font-size: 16px; padding: 0 14px; }
+.sound-popover .sp-row .btn .ui-icon { width: 22px; height: 22px; }
 
 /* 설정: 볼륨 막대·링크·가이드·이야기·정보 */
 .vol-wrap { display: flex; align-items: center; gap: 12px; }
