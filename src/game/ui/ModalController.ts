@@ -284,7 +284,13 @@ export function collectionModal() {
         h(
           'div',
           { class: 'coll-grid' },
-          ITEMS.map((it) => h('div', { class: 'coll-item' }, h('div', { class: 'coll-icon' }, uiImg(`item_${it.id}`, 'xl', it.name.slice(0, 1))), h('div', { class: 'n' }, it.name), h('div', { class: 'coll-desc' }, it.desc))),
+          ITEMS.map((it) => h(
+            'div',
+            { class: 'coll-item' },
+            h('div', { class: 'coll-icon' }, it.img ? uiImg(it.img, 'xl', it.name.slice(0, 1)) : h('span', { class: `css-icon ci-${it.cssIcon}` })),
+            h('div', { class: 'n' }, it.name),
+            h('div', { class: 'coll-desc' }, it.desc),
+          )),
         ),
       );
     } else {

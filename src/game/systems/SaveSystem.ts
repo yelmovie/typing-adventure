@@ -11,7 +11,7 @@ function defaultSave(): SaveData {
     progress: { unlockedStage: 1, stageStars: {}, clearedStages: [], coins: 0, fails: {}, assist: {} },
     records: { bestCpm: 0, bestAccuracy: 0, bestCombo: 0, bestScoreByStage: {}, ghosts: {}, daily: {} },
     collection: { badges: [], wordsSeen: [], petsUnlocked: ['cat', 'rabbit'], charactersUnlocked: ['brown_boy', 'pink_girl', 'glasses_boy'], enemiesSeen: [] },
-    settings: { bgm: true, sfx: true, screenShake: true, showKeyboardGuide: true, bgmVolume: 0.7, sfxVolume: 0.9, prologueSeen: false },
+    settings: { bgm: true, sfx: true, screenShake: true, showKeyboardGuide: false, bgmVolume: 0.7, sfxVolume: 0.9, prologueSeen: false },
     stats: { totalClears: 0, totalWords: 0, totalPlaySec: 0 },
     updatedAt: new Date().toISOString(),
   };

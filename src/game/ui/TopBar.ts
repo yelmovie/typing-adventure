@@ -70,7 +70,7 @@ export function refreshSoundIcon(wrap: HTMLElement) {
  * 모든 화면 우상단 공통 바: 홈 + 소리 + 설정.
  * 전투처럼 나가기 전 확인이 필요한 화면은 onHome 에 직접 confirmModal → navigate 로직을 넘긴다.
  */
-export function commonTopBar(opts: { onHome?: () => void; onReset?: () => void } = {}): HTMLElement {
+export function commonTopBar(opts: { onHome?: () => void; onReset?: () => void; hideHome?: boolean } = {}): HTMLElement {
   const homeBtn = h('button', { class: 'icon-btn', title: '홈으로', onclick: () => {
     AudioManager.sfx('click');
     if (opts.onHome) opts.onHome();
@@ -82,5 +82,5 @@ export function commonTopBar(opts: { onHome?: () => void; onReset?: () => void }
     settingsModal({ onReset: opts.onReset });
   } }, icon('settings'));
 
-  return h('div', { class: 'topbar-common' }, homeBtn, soundButton(), settingsBtn);
+  return h('div', { class: 'topbar-common' }, ...(opts.hideHome ? [] : [homeBtn]), soundButton(), settingsBtn);
 }

@@ -142,13 +142,19 @@
 - 코어: 방향키 조작(`Player.jump/crouch/nudge`, `WaveSystem.move()`, `DODGE` 이벤트 → WaveScene 회피 연출), HP 규칙(`RULES.wrongHp/comboHealEvery/comboHealHp/perfectHealHp`), 아이템 6종(coin·gem·star·heart·shield·bolt, `WAVE.drops`), S1 마지막 웨이브 대장 슬라임(`WAVE.bossHpMul/bossScaleMul/bossSpeedMul`), 오늘의 도전 kind(`DailySystem(…, kind)` + `navigate('battle',{stageId:'daily',dailyKind})`), `scripts/check-daily.ts`.
 - UI: 공통 상단바 `src/game/ui/TopBar.ts`(홈·소리 팝오버·설정) → 홈·지도·소개·결과·셋업에 적용, 셋업 이름 입력 제거, 도감 탭 재구성(몬스터·배지·친구들·아이템·칭호), `src/game/data/items.ts`, 키보드 가이드 토글(`settings.showKeyboardGuide`, 중앙 오버레이).
 
-### 남은 것 (이 순서로)
-1. **전투 화면에도 공통 상단바** — `BattleScreen` 은 아직 `commonTopBar()` 미적용. 전투 중 홈은 "정말 나갈까요?" 확인 후 이동.
-2. **입력란을 하단 패널 맨 아랫줄로** — 지금 `.bb-input-wrap` 위치 확인 필요(키보드 가이드가 중앙 오버레이가 됐으니 하단 재배치).
-3. **도감 4×4 채우기 검증** — 탭별 항목이 16칸을 채우는지, 아이콘 없는 항목 CSS 아이콘인지.
-4. **겹침 최종 확인** — 브라우저(dev 5180)에서 홈·셋업·지도·S1·S3·S4·S5·오늘의 도전·결과 순회하며 글자·팝업·캐릭터 겹침 0 확인. 캐릭터 발끝 y=760 / 하단 패널 y≥830 / HUD ≤94 / 콤보 130~290 기준.
-5. **지도 수정** — 점선 경로를 캐릭터 뒤로, 비네트+발밑 글로우, 노드 라벨 대비 (`WorldMapScene`/`WorldMapScreen`).
-6. 재검증(`npm run check`, `npm run build`) → 커밋 → GitHub `yelmovie/typing-adventure` main 푸시.
+### 8장 진행 결과 (2026-09-09 오전, 두 번째 중단)
+- [x] 1 전투 상단바 — HUD 에 이미 홈·소리·설정 다 있었음. 홈은 `homeMenu()` 로 "정말 나갈까요?" 확인 후 이동. 추가 작업 없음.
+- [x] 2 입력란 맨 아랫줄 — `.bb-main` 의 마지막 행이 `.bb-input-wrap`(입력창 + Enter 아이콘 + 점프 버튼). 이미 충족.
+- [x] 3 도감 — 4열 격자(`.coll-grid`), 낱말 탭 없음, 탭 = 몬스터(17종)·배지(16)·친구들·아이템(6)·칭호·장식. 아이템 아이콘을 실제 이미지로 연결(`items.ts` 의 `img`: icon_coin·item_star·item_heart·item_shield·icon_bolt), 보석만 CSS 아이콘(`.ci-gem` 마름모 그라데이션).
+- [x] 5 지도 — 점선 길을 DOM SVG → **Phaser Graphics(depth 1)** 로 옮겨 캐릭터(depth 10) 뒤로. 가장자리 비네트, 발밑 빛무리(맥동) 추가, 노드 라벨 text-shadow·테두리 강화. `WorldMapScreen` 의 SVG 생성 코드 제거.
+- [x] 키보드 가이드 기본값 off (`SaveSystem` 새 세이브 `showKeyboardGuide: false`) — 켤 때만 화면 중앙 오버레이.
+- [x] 홈·결과 화면의 중복 '홈으로' 버튼 제거(`commonTopBar({ hideHome: true })`).
+
+### 남은 것 (다음에 이어서)
+1. **겹침 최종 확인 나머지 화면** — 홈·지도·S1·도감·아이템 탭은 브라우저로 확인 완료. **셋업·S2·S3·S4·S5·오늘의 도전 모달·결과**는 아직 안 봤음. 기준: 캐릭터 발끝 y=760 / 하단 패널 y≥830 / HUD ≤94 / 콤보 130~290.
+2. **플레이 검증** — 방향키 이동·점프·앉기 회피, 아이템 드롭·획득, 5콤보 소탕, 대장 슬라임을 실제로 쳐보며 확인(아직 코드·테스트로만 확인됨).
+3. **무입력 HP 감소 밸런스** — 화면 확인만 하고 40초쯤 가만히 뒀더니 HP 0 으로 실패했다. 초당 -2 는 초등학생이 생각하는 시간엔 가혹할 수 있으니 실기기 테스트 후 조정 검토(`RULES.drainHpPerSec`).
+4. `npm run build` → 커밋 → 푸시.
 
 ### 사용자가 만들어 오기로 한 이미지 (주문서 3차)
 https://claude.ai/code/artifact/77a529d9-2b61-434e-957e-ee1f6526f5de — 14 지도 배경 v2 / 15 대장 슬라임 시트 / 16 캐릭터 점프·앉기 프레임 4명 / 17 아이템 6종 아이콘 / 18 회피·획득 이펙트. 들어오면 `assets/background`·`assets/character` 에 넣고 "이미지 넣었어" → `npm run assets` + `scripts/asset-map.mjs` 등록.

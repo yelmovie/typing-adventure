@@ -237,6 +237,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  text-shadow: 0 2px 0 rgba(11, 14, 35, 0.55);
+  box-shadow: 0 4px 0 rgba(11, 14, 35, 0.45), 0 0 0 2px rgba(255, 242, 176, 0.35);
 }
 .node-label .node-num {
   width: 28px;
@@ -919,3 +921,11 @@
 .bb-input { padding-right: 240px; }
 .bb-skip .skip-count { display: inline-block; min-width: 26px; margin-left: 4px; padding: 0 8px; border-radius: 999px; background: rgba(0, 0, 0, 0.35); }
 .bb-skip.disabled { opacity: 0.45; }
+
+/* 전용 이미지가 없는 아이템의 CSS 아이콘 */
+.css-icon { display: inline-block; width: 64px; height: 64px; }
+.ci-gem {
+  background: linear-gradient(160deg, #bdf0ff 0%, #56c8f5 40%, #2b7fc4 100%);
+  clip-path: polygon(50% 0, 100% 36%, 50% 100%, 0 36%);
+  filter: drop-shadow(0 3px 0 rgba(11, 14, 35, 0.5)) drop-shadow(0 0 10px rgba(86, 200, 245, 0.6));
+}

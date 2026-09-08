@@ -70,7 +70,7 @@ export class ResultScreen extends Screen<{ result: BattleResult }> {
       ),
     );
     this.el.append(h('div', { class: 'result-wrap' }, panel));
-    this.el.append(commonTopBar());
+    this.el.append(commonTopBar({ hideHome: true }));
 
     // 별 순차 점등
     const starEls = stars.querySelectorAll<HTMLElement>('.star');

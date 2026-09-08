@@ -76,7 +76,7 @@ export class HomeScreen extends Screen {
       this.btn(icon('trophy'), '인증서', 'btn-gold btn-md', () => certificateModal()),
     );
     this.el.append(menu);
-    this.el.append(commonTopBar({ onReset: () => this.show({}) }));
+    this.el.append(commonTopBar({ hideHome: true, onReset: () => this.show({}) }));
     this.el.append(h('div', { class: 'home-tip' }, has ? `${save.profile.name} 모험가, 다시 만나서 반가워요!` : '모험 시작을 눌러 이름과 캐릭터를 정해 보세요'));
     this.el.append(h('div', { class: 'home-version' }, `${ABOUT.version} · 기록은 이 기기에만 저장돼요 · © ${ABOUT.year} ${ABOUT.author}`));
   }

@@ -8,7 +8,6 @@ import { AudioManager } from '../../systems/AudioManager';
 import { toast } from '../ModalController';
 import { commonTopBar } from '../TopBar';
 
-const SVG_NS = 'http://www.w3.org/2000/svg';
 
 export class WorldMapScreen extends Screen {
   private busy = false;
@@ -22,41 +21,7 @@ export class WorldMapScreen extends Screen {
     const save = SaveSystem.get();
     const unlocked = save.progress.unlockedStage;
 
-    // 점선 길 (SVG)
-    const svg = document.createElementNS(SVG_NS, 'svg');
-    svg.setAttribute('class', 'map-svg');
-    svg.setAttribute('viewBox', '0 0 1920 1080');
-    const pts = STAGES.map((s) => `${s.map.x + 60},${s.map.y + 30}`);
-    const pathD = STAGES.map((s, i) => {
-      if (i === 0) return `M ${s.map.x + 60} ${s.map.y + 30}`;
-      const p = STAGES[i - 1];
-      const cx = (p.map.x + s.map.x) / 2 + 60;
-      const cy = Math.min(p.map.y, s.map.y) + 30 - 60;
-      return `Q ${cx} ${cy} ${s.map.x + 60} ${s.map.y + 30}`;
-    }).join(' ');
-    void pts;
-    const glow = document.createElementNS(SVG_NS, 'path');
-    glow.setAttribute('d', pathD);
-    glow.setAttribute('fill', 'none');
-    glow.setAttribute('stroke', 'rgba(255, 229, 154, 0.35)');
-    glow.setAttribute('stroke-width', '26');
-    glow.setAttribute('stroke-linecap', 'round');
-    const line = document.createElementNS(SVG_NS, 'path');
-    line.setAttribute('d', pathD);
-    line.setAttribute('fill', 'none');
-    line.setAttribute('stroke', '#fff2b0');
-    line.setAttribute('stroke-width', '8');
-    line.setAttribute('stroke-dasharray', '4 22');
-    line.setAttribute('stroke-linecap', 'round');
-    const outline = document.createElementNS(SVG_NS, 'path');
-    outline.setAttribute('d', pathD);
-    outline.setAttribute('fill', 'none');
-    outline.setAttribute('stroke', 'rgba(26, 31, 74, 0.7)');
-    outline.setAttribute('stroke-width', '14');
-    outline.setAttribute('stroke-dasharray', '4 22');
-    outline.setAttribute('stroke-linecap', 'round');
-    svg.append(glow, outline, line);
-    this.el.append(svg);
+    // 점선 길은 WorldMapScene(Phaser) 에서 캐릭터 아래 깊이로 그린다 — DOM 으로 그리면 캐릭터를 덮었다
 
     const allClear = save.progress.clearedStages.length >= 5;
     this.el.classList.toggle('all-clear', allClear);
