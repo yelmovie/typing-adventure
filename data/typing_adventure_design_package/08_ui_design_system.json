@@ -1,0 +1,49 @@
+{
+  "meta": {
+    "project_name_ko": "타이핑 어드벤처",
+    "project_name_en": "Typing Adventure",
+    "version": "1.0.0",
+    "document_date": "2026-09-08",
+    "target": "초등학생용 한글 타자 연습 판타지 웹게임",
+    "platform": [
+      "desktop_web",
+      "tablet_landscape"
+    ],
+    "backend": false,
+    "storage": "localStorage",
+    "network_features": false,
+    "class_ranking": false,
+    "online_account": false
+  },
+  "design_tokens": {
+    "font": "Noto Sans KR 또는 프로젝트 내 라이선스 확인된 한글 가독성 폰트",
+    "radius": {
+      "small": 8,
+      "medium": 14,
+      "large": 22
+    },
+    "shadow": "pixel-like soft shadow",
+    "outline": "2~4px dark navy",
+    "panel": "deep navy + parchment cream",
+    "accent": [
+      "gold",
+      "sky blue",
+      "green",
+      "purple",
+      "coral"
+    ]
+  },
+  "css_files": [
+    "src/styles/design-tokens.css",
+    "src/styles/components.css",
+    "src/styles/animations.css",
+    "src/styles/responsive.css"
+  ],
+  "component_rules": [
+    "버튼은 이미지가 아니라 CSS 기본 구현, 생성 이미지 에셋은 장식/참조용",
+    "hover/pressed/disabled 상태를 CSS 클래스로 분리",
+    "HUD는 DOM으로 구현하여 해상도 변화에도 선명하게 유지",
+    "배경과 캐릭터/몬스터는 Phaser Canvas",
+    "입력창은 실제 DOM input 사용"
+  ]
+}

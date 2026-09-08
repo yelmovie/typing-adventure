@@ -1,0 +1,147 @@
+{
+  "meta": {
+    "project_name_ko": "타이핑 어드벤처",
+    "project_name_en": "Typing Adventure",
+    "version": "1.0.0",
+    "document_date": "2026-09-08",
+    "target": "초등학생용 한글 타자 연습 판타지 웹게임",
+    "platform": [
+      "desktop_web",
+      "tablet_landscape"
+    ],
+    "backend": false,
+    "storage": "localStorage",
+    "network_features": false,
+    "class_ranking": false,
+    "online_account": false
+  },
+  "recommended_stack": {
+    "runtime": "Web",
+    "language": "TypeScript",
+    "bundler": "Vite",
+    "game_engine": "Phaser 3",
+    "ui": "Phaser Canvas + DOM Overlay",
+    "styles": "CSS variables + component classes",
+    "storage": "window.localStorage",
+    "deployment": [
+      "GitHub",
+      "Vercel"
+    ]
+  },
+  "architecture": {
+    "layers": [
+      {
+        "name": "Game Scene Layer",
+        "responsibility": "맵, 캐릭터, 몬스터, 전투, 파티클, 애니메이션"
+      },
+      {
+        "name": "DOM UI Layer",
+        "responsibility": "한글 입력창, 설정, 모달, 접근성 높은 버튼"
+      },
+      {
+        "name": "Game State Layer",
+        "responsibility": "현재 스테이지/HP/콤보/점수/진행도"
+      },
+      {
+        "name": "Content Layer",
+        "responsibility": "단어, 문장, 난이도, 몬스터/스테이지 설정 JSON"
+      },
+      {
+        "name": "Persistence Layer",
+        "responsibility": "localStorage 읽기/쓰기/마이그레이션"
+      },
+      {
+        "name": "Asset Layer",
+        "responsibility": "배경, 스프라이트, UI, 효과, 사운드"
+      }
+    ],
+    "event_bus": [
+      "BATTLE_START",
+      "TARGET_CHANGED",
+      "INPUT_CORRECT",
+      "INPUT_WRONG",
+      "COMBO_CHANGED",
+      "PLAYER_HIT",
+      "ENEMY_HIT",
+      "ENEMY_DEFEATED",
+      "STAGE_CLEAR",
+      "STAGE_FAILED",
+      "SAVE_UPDATED"
+    ]
+  },
+  "korean_input": {
+    "rule": "한글 조합은 브라우저 IME에 맡기고 게임이 직접 자모 조합하지 않는다.",
+    "implementation": [
+      "battle 화면에 실제 DOM input 또는 textarea 사용",
+      "compositionstart 시 composing=true",
+      "compositionupdate 동안 정답 판정 보류",
+      "compositionend 후 최종 문자열을 판정",
+      "input 이벤트로 일반 입력 처리",
+      "비교 전 Unicode NFC 정규화",
+      "문장 모드에서는 공백과 문장부호를 그대로 비교",
+      "백스페이스/수정 허용 정책은 난이도별 설정"
+    ]
+  },
+  "typing_metrics": {
+    "accuracy_formula": "correct_keystrokes / max(total_keystrokes, 1) * 100",
+    "combo": "연속 정답 입력 단위 누적, 오입력 시 0으로 리셋",
+    "score_example": "base_score + accuracy_bonus + combo_bonus + time_bonus",
+    "speed_metric": "Korean CPM 또는 서비스 표시용 '타/분'으로 계산하되 한 프로젝트 내에서 동일 정의 유지"
+  },
+  "battle_system": {
+    "correct_input": [
+      "정답 판정",
+      "플레이어 공격 애니메이션",
+      "한글 글자 탄환/타자 빔",
+      "몬스터 HP 감소",
+      "콤보 증가",
+      "점수 증가"
+    ],
+    "wrong_input": [
+      "오답 강조",
+      "콤보 초기화",
+      "난이도에 따라 플레이어 HP 감소 또는 시간 패널티",
+      "짧은 피격 이펙트"
+    ],
+    "enemy_defeat": "HP <= 0이면 쓰러짐/소멸 애니메이션 후 다음 타깃",
+    "boss": "키보드 골렘은 페이즈 기반 HP와 긴 문장 타깃 사용"
+  },
+  "save_policy": {
+    "autosave": [
+      "스테이지 클리어",
+      "배지 해금",
+      "캐릭터/펫 변경",
+      "설정 변경",
+      "개인 최고 기록 갱신"
+    ],
+    "never_store": [
+      "민감 개인정보",
+      "친구 기록",
+      "학급 데이터",
+      "서버 전송 데이터"
+    ]
+  },
+  "performance": {
+    "target_fps": 60,
+    "asset_recommendations": [
+      "배경 WebP",
+      "투명 스프라이트 PNG/WebP",
+      "큰 스프라이트 시트는 texture atlas 사용",
+      "화면 밖 파티클 즉시 정리",
+      "동일 효과 object pooling 권장"
+    ]
+  },
+  "responsive": {
+    "primary_ratio": "16:9",
+    "min_width": 1024,
+    "strategy": "게임 캔버스 contain 스케일 + DOM HUD 상대좌표",
+    "tablet": "가로형 우선"
+  },
+  "accessibility": [
+    "색상만으로 상태를 구분하지 않기",
+    "텍스트 대비 확보",
+    "BGM/효과음 개별 토글",
+    "화면 흔들림 강도 낮춤 옵션",
+    "타이핑 실패 시 과도한 벌점 금지"
+  ]
+}

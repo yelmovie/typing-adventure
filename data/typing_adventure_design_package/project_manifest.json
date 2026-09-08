@@ -1,0 +1,44 @@
+{
+  "meta": {
+    "project_name_ko": "타이핑 어드벤처",
+    "project_name_en": "Typing Adventure",
+    "version": "1.0.0",
+    "document_date": "2026-09-08",
+    "target": "초등학생용 한글 타자 연습 판타지 웹게임",
+    "platform": [
+      "desktop_web",
+      "tablet_landscape"
+    ],
+    "backend": false,
+    "storage": "localStorage",
+    "network_features": false,
+    "class_ranking": false,
+    "online_account": false
+  },
+  "files": [
+    "01_prd.json",
+    "02_trd.json",
+    "03_screen_flow.json",
+    "04_game_balance.json",
+    "05_asset_manifest.json",
+    "06_local_save_schema.json",
+    "07_content_schema.json",
+    "08_ui_design_system.json",
+    "09_claude_code_implementation_prompt.json",
+    "10_acceptance_test_checklist.json",
+    "README.md",
+    "project_manifest.json"
+  ],
+  "recommended_build_order": [
+    "01_prd.json",
+    "02_trd.json",
+    "06_local_save_schema.json",
+    "07_content_schema.json",
+    "03_screen_flow.json",
+    "08_ui_design_system.json",
+    "05_asset_manifest.json",
+    "04_game_balance.json",
+    "09_claude_code_implementation_prompt.json",
+    "10_acceptance_test_checklist.json"
+  ]
+}

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#141a3d" />
+    <meta name="description" content="한글 타자로 몬스터를 물리치는 초등학생용 판타지 타자 모험 게임" />
+    <title>타이핑 어드벤처</title>
+  </head>
+  <body>
+    <div id="viewport">
+      <div id="game-root"></div>
+      <div id="ui-stage">
+        <div id="ui-root"></div>
+        <div id="modal-root"></div>
+        <div id="toast-root"></div>
+        <div id="fade"></div>
+      </div>
+      <div id="loading">
+        <div class="loading-box">
+          <img class="loading-logo" src="./assets/ui/logo.webp" alt="타이핑 어드벤처" draggable="false" />
+          <div class="loading-sub">TYPING ADVENTURE</div>
+          <div class="loading-bar"><div class="loading-fill" id="loading-fill"></div></div>
+          <div class="loading-text" id="loading-text">모험 준비 중...</div>
+        </div>
+      </div>
+      <div id="rotate-hint">
+        <div>태블릿을 가로로 돌려 주세요</div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

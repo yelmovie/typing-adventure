@@ -1,0 +1,51 @@
+{
+  "project": {
+    "name": "타이핑 어드벤처",
+    "version": "1.0.0",
+    "date": "2026-09-08",
+    "description": "초등학생용 한글 타자 판타지 모험 웹게임"
+  },
+  "fixed_rules": [
+    "백엔드 없음",
+    "회원가입/로그인 없음",
+    "우리 반 기록/친구 랭킹 없음",
+    "서버 DB 없음",
+    "모든 저장은 localStorage",
+    "PC/태블릿 가로형 우선",
+    "Phaser 3 + TypeScript + Vite 권장",
+    "한글 입력은 DOM input + 브라우저 IME",
+    "compositionstart/compositionend 처리",
+    "문자열 비교 전 Unicode NFC 정규화"
+  ],
+  "stages": [
+    "연습의 숲",
+    "단어의 호수",
+    "문장의 산",
+    "실력의 성",
+    "최종 보스"
+  ],
+  "implementation_order": [
+    "프로젝트 뼈대",
+    "로컬 저장",
+    "한글 IME 입력",
+    "홈/월드맵",
+    "Stage 1 vertical slice",
+    "Stage 2~5",
+    "도감/배지/개인 인증서",
+    "사운드/연출",
+    "반응형/검수",
+    "Vercel 배포"
+  ],
+  "read_first": [
+    "01_prd.json",
+    "02_trd.json",
+    "06_local_save_schema.json",
+    "07_content_schema.json",
+    "03_screen_flow.json",
+    "08_ui_design_system.json",
+    "05_asset_manifest.json",
+    "04_game_balance.json",
+    "09_claude_code_implementation_prompt.json",
+    "10_acceptance_test_checklist.json"
+  ]
+}

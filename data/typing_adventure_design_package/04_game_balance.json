@@ -1,0 +1,62 @@
+{
+  "meta": {
+    "project_name_ko": "타이핑 어드벤처",
+    "project_name_en": "Typing Adventure",
+    "version": "1.0.0",
+    "document_date": "2026-09-08",
+    "target": "초등학생용 한글 타자 연습 판타지 웹게임",
+    "platform": [
+      "desktop_web",
+      "tablet_landscape"
+    ],
+    "backend": false,
+    "storage": "localStorage",
+    "network_features": false,
+    "class_ranking": false,
+    "online_account": false
+  },
+  "star_rules": {
+    "1_star": "스테이지 클리어",
+    "2_star": "정확도 90% 이상",
+    "3_star": "정확도 95% 이상 + 목표 시간/콤보 중 하나 달성"
+  },
+  "stage_defaults": {
+    "stage_1": {
+      "targets": 15,
+      "enemy_hp": 100,
+      "time_limit_sec": 180
+    },
+    "stage_2": {
+      "targets": 18,
+      "enemy_hp": 140,
+      "time_limit_sec": 180
+    },
+    "stage_3": {
+      "targets": 12,
+      "enemy_hp": 200,
+      "time_limit_sec": 210
+    },
+    "stage_4": {
+      "targets": 15,
+      "enemy_hp": 260,
+      "time_limit_sec": 180
+    },
+    "stage_5": {
+      "targets": 20,
+      "boss_hp": 1200,
+      "time_limit_sec": 300
+    }
+  },
+  "damage": {
+    "base": 10,
+    "accuracy_100_bonus": 5,
+    "combo_5_bonus": 2,
+    "combo_10_bonus": 5,
+    "critical_condition": "정답 문자열을 오타 수정 없이 즉시 완료"
+  },
+  "wrong_input_penalty": {
+    "beginner": "콤보만 초기화",
+    "normal": "콤보 초기화 + HP 소량 감소",
+    "challenge": "콤보 초기화 + HP/시간 패널티"
+  }
+}

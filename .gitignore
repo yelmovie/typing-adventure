@@ -1,0 +1,10 @@
+node_modules/
+dist/
+_unused/
+assets/_unused/
+tmp/
+.vite/
+*.log
+.DS_Store
+Thumbs.db
+.claude/settings.local.json

@@ -1,0 +1,75 @@
+{
+  "meta": {
+    "project_name_ko": "타이핑 어드벤처",
+    "project_name_en": "Typing Adventure",
+    "version": "1.0.0",
+    "document_date": "2026-09-08",
+    "target": "초등학생용 한글 타자 연습 판타지 웹게임",
+    "platform": [
+      "desktop_web",
+      "tablet_landscape"
+    ],
+    "backend": false,
+    "storage": "localStorage",
+    "network_features": false,
+    "class_ranking": false,
+    "online_account": false
+  },
+  "target_unit": {
+    "id": "string",
+    "stage": "stage_1|stage_2|stage_3|stage_4|stage_5",
+    "type": "word|sentence",
+    "text": "string",
+    "difficulty": 1,
+    "tags": [
+      "받침",
+      "이중모음",
+      "띄어쓰기"
+    ],
+    "weight": 1
+  },
+  "sample_content": [
+    {
+      "id": "w001",
+      "stage": "stage_1",
+      "type": "word",
+      "text": "학교",
+      "difficulty": 1,
+      "tags": [
+        "기본"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "w002",
+      "stage": "stage_2",
+      "type": "word",
+      "text": "과일",
+      "difficulty": 2,
+      "tags": [
+        "이중모음"
+      ],
+      "weight": 1
+    },
+    {
+      "id": "s001",
+      "stage": "stage_3",
+      "type": "sentence",
+      "text": "나는 오늘도 차근차근 타자를 연습한다.",
+      "difficulty": 3,
+      "tags": [
+        "문장",
+        "띄어쓰기",
+        "마침표"
+      ],
+      "weight": 1
+    }
+  ],
+  "content_rules": [
+    "초등학생에게 부적절한 표현 금지",
+    "초반에는 2~4음절 단어 중심",
+    "받침/이중모음은 stage_2부터 점진적으로 증가",
+    "문장부호는 stage_3부터 본격 적용",
+    "보스전은 이전 스테이지 요소를 혼합"
+  ]
+}

@@ -1,0 +1,147 @@
+{
+  "meta": {
+    "project_name_ko": "타이핑 어드벤처",
+    "project_name_en": "Typing Adventure",
+    "version": "1.0.0",
+    "document_date": "2026-09-08",
+    "target": "초등학생용 한글 타자 연습 판타지 웹게임",
+    "platform": [
+      "desktop_web",
+      "tablet_landscape"
+    ],
+    "backend": false,
+    "storage": "localStorage",
+    "network_features": false,
+    "class_ranking": false,
+    "online_account": false
+  },
+  "flow": [
+    {
+      "from": "splash",
+      "to": "home",
+      "action": "앱 시작"
+    },
+    {
+      "from": "home",
+      "to": "setup",
+      "action": "모험 시작"
+    },
+    {
+      "from": "home",
+      "to": "world_map",
+      "action": "이어하기",
+      "condition": "save_exists"
+    },
+    {
+      "from": "setup",
+      "to": "world_map",
+      "action": "준비 완료"
+    },
+    {
+      "from": "world_map",
+      "to": "stage_intro",
+      "action": "스테이지 선택"
+    },
+    {
+      "from": "stage_intro",
+      "to": "battle",
+      "action": "시작하기"
+    },
+    {
+      "from": "battle",
+      "to": "stage_clear",
+      "action": "스테이지 성공"
+    },
+    {
+      "from": "battle",
+      "to": "stage_intro",
+      "action": "재도전"
+    },
+    {
+      "from": "stage_clear",
+      "to": "world_map",
+      "action": "다음 스테이지"
+    },
+    {
+      "from": "home",
+      "to": "collection",
+      "action": "도감"
+    },
+    {
+      "from": "home",
+      "to": "character_growth",
+      "action": "캐릭터"
+    },
+    {
+      "from": "home",
+      "to": "personal_certificate",
+      "action": "오늘의 인증서"
+    }
+  ],
+  "screen_specs": {
+    "home": [
+      "로고",
+      "모험 시작",
+      "이어하기",
+      "도감",
+      "오늘의 인증서",
+      "설정"
+    ],
+    "setup": [
+      "이름 입력",
+      "캐릭터 선택",
+      "난이도 선택",
+      "펫 선택"
+    ],
+    "world_map": [
+      "5개 스테이지",
+      "잠금 상태",
+      "별",
+      "현재 위치",
+      "진행도"
+    ],
+    "stage_intro": [
+      "스테이지 이름",
+      "미션",
+      "추천 난이도",
+      "보상",
+      "시작"
+    ],
+    "battle": [
+      "플레이어",
+      "몬스터",
+      "타깃 단어/문장",
+      "실제 입력창",
+      "HP",
+      "타수",
+      "정확도",
+      "콤보",
+      "시간",
+      "점수"
+    ],
+    "stage_clear": [
+      "별 1~3",
+      "타수",
+      "정확도",
+      "최대 콤보",
+      "점수",
+      "획득 배지",
+      "다시 도전",
+      "다음 스테이지"
+    ],
+    "collection": [
+      "단어/문장 도감",
+      "배지",
+      "펫",
+      "해금 상태"
+    ],
+    "personal_certificate": [
+      "오늘 날짜",
+      "개인 이름",
+      "평균 타수",
+      "정확도",
+      "한 줄 칭찬",
+      "이미지 저장"
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "meta": {
+    "project_name_ko": "타이핑 어드벤처",
+    "project_name_en": "Typing Adventure",
+    "version": "1.0.0",
+    "document_date": "2026-09-08",
+    "target": "초등학생용 한글 타자 연습 판타지 웹게임",
+    "platform": [
+      "desktop_web",
+      "tablet_landscape"
+    ],
+    "backend": false,
+    "storage": "localStorage",
+    "network_features": false,
+    "class_ranking": false,
+    "online_account": false
+  },
+  "role": "Claude Code implementation instruction",
+  "prompt": "타이핑 어드벤처 웹게임을 구현한다.\n\n핵심 제약:\n1. 백엔드/DB/로그인/우리 반 랭킹/친구 기록 기능은 만들지 않는다.\n2. 모든 진행 기록은 localStorage에만 저장한다.\n3. Phaser 3 + TypeScript + Vite 구조로 만든다.\n4. 한글 입력은 DOM input과 브라우저 IME를 사용한다.\n5. compositionstart/compositionend를 처리하여 한글 조합 중간 상태를 오답으로 판정하지 않는다.\n6. 입력 비교 전 문자열을 Unicode NFC로 정규화한다.\n7. 게임 캔버스는 16:9, 태블릿 가로형과 PC를 우선한다.\n8. 버튼/게이지/모달은 공통 CSS 컴포넌트로 만들고, 캐릭터/몬스터/배경/이펙트는 제공된 이미지 에셋을 사용한다.\n9. EventBus로 Phaser와 DOM UI를 연결한다.\n10. 스테이지는 연습의 숲 → 단어의 호수 → 문장의 산 → 실력의 성 → 최종 보스 순서다.\n\n구현 우선순위:\nP0: 부팅/홈/설정/월드맵/전투/결과/로컬저장\nP1: 도감/배지/펫/캐릭터 성장/오늘의 인증서\nP2: 연출 고도화/약점 분석/추가 난이도\n\n반드시 먼저:\n- 문서 JSON을 읽고 타입 정의 생성\n- assets 폴더 매핑\n- save schema 구현\n- Korean IME 입력 테스트\n- stage_1을 완성형 vertical slice로 만든 뒤 나머지 스테이지를 확장\n\n완료 기준:\n- 새로고침 후 이어하기 정상\n- 한글 조합 입력 오판정 없음\n- 오답/정답/콤보/HP/점수 연동\n- 몬스터 공격/피격/쓰러짐 애니메이션\n- stage clear 후 별/기록 저장\n- backend 요청이 네트워크 탭에 존재하지 않음"
+}

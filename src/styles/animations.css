@@ -1,0 +1,95 @@
+/* 공통 애니메이션 */
+@keyframes ta-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+@keyframes ta-pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  60% { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes ta-pop-in {
+  0% { transform: scale(0.85); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes ta-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes ta-slide-up {
+  from { transform: translateY(40px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes ta-slide-down {
+  from { transform: translateY(-40px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes ta-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-10px); }
+  40% { transform: translateX(10px); }
+  60% { transform: translateX(-7px); }
+  80% { transform: translateX(7px); }
+}
+@keyframes ta-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+@keyframes ta-glow-pulse {
+  0%, 100% { box-shadow: 0 0 12px rgba(247, 207, 90, 0.35); }
+  50% { box-shadow: 0 0 28px rgba(247, 207, 90, 0.8); }
+}
+@keyframes ta-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+@keyframes ta-star-in {
+  0% { transform: scale(0) rotate(-40deg); opacity: 0; }
+  70% { transform: scale(1.35) rotate(8deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+@keyframes ta-combo-bump {
+  0% { transform: scale(1.5); }
+  100% { transform: scale(1); }
+}
+@keyframes ta-hp-flash {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.8); }
+}
+@keyframes ta-marker-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-14px); }
+}
+@keyframes ta-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes ta-shine {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes ta-toast {
+  0% { transform: translate(-50%, -30px); opacity: 0; }
+  12% { transform: translate(-50%, 0); opacity: 1; }
+  85% { transform: translate(-50%, 0); opacity: 1; }
+  100% { transform: translate(-50%, -20px); opacity: 0; }
+}
+@keyframes ta-judge {
+  0% { transform: translate(-50%, 0) scale(0.5); opacity: 0; }
+  20% { transform: translate(-50%, -10px) scale(1.2); opacity: 1; }
+  70% { transform: translate(-50%, -30px) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -60px) scale(0.9); opacity: 0; }
+}
+
+.anim-float { animation: ta-float 3s ease-in-out infinite; }
+.anim-pop { animation: ta-pop 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.3) both; }
+.anim-pop-in { animation: ta-pop-in 0.3s ease-out both; }
+.anim-fade-in { animation: ta-fade-in 0.35s ease-out both; }
+.anim-slide-up { animation: ta-slide-up 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.anim-slide-down { animation: ta-slide-down 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.anim-shake { animation: ta-shake 0.4s ease-in-out; }
+.anim-pulse { animation: ta-pulse 1.4s ease-in-out infinite; }
+.anim-blink { animation: ta-blink 1s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-float, .anim-pulse, .anim-blink { animation: none; }
+}

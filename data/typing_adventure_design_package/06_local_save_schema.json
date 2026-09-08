@@ -1,0 +1,65 @@
+{
+  "meta": {
+    "project_name_ko": "타이핑 어드벤처",
+    "project_name_en": "Typing Adventure",
+    "version": "1.0.0",
+    "document_date": "2026-09-08",
+    "target": "초등학생용 한글 타자 연습 판타지 웹게임",
+    "platform": [
+      "desktop_web",
+      "tablet_landscape"
+    ],
+    "backend": false,
+    "storage": "localStorage",
+    "network_features": false,
+    "class_ranking": false,
+    "online_account": false
+  },
+  "storage_key": "typing_adventure_save_v1",
+  "schema": {
+    "version": "1",
+    "profile": {
+      "name": "string",
+      "characterId": "string",
+      "petId": "string",
+      "difficulty": "beginner|normal|challenge"
+    },
+    "progress": {
+      "unlockedStage": "number",
+      "stageStars": {
+        "stageId": "0|1|2|3"
+      },
+      "clearedStages": [
+        "stageId"
+      ]
+    },
+    "records": {
+      "bestCpm": "number",
+      "bestAccuracy": "number",
+      "bestCombo": "number",
+      "bestScoreByStage": {
+        "stageId": "number"
+      }
+    },
+    "collection": {
+      "badges": [
+        "badgeId"
+      ],
+      "wordsSeen": [
+        "contentId"
+      ],
+      "petsUnlocked": [
+        "petId"
+      ]
+    },
+    "settings": {
+      "bgm": "boolean",
+      "sfx": "boolean",
+      "screenShake": "boolean",
+      "showKeyboardGuide": "boolean"
+    },
+    "updatedAt": "ISO-8601"
+  },
+  "migration_policy": "version 값에 따라 순차 마이그레이션 함수 실행",
+  "reset": "설정 화면에서 사용자 명시 동의 후 전체 초기화"
+}

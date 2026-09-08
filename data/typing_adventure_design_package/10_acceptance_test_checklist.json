@@ -1,0 +1,37 @@
+{
+  "meta": {
+    "project_name_ko": "타이핑 어드벤처",
+    "project_name_en": "Typing Adventure",
+    "version": "1.0.0",
+    "document_date": "2026-09-08",
+    "target": "초등학생용 한글 타자 연습 판타지 웹게임",
+    "platform": [
+      "desktop_web",
+      "tablet_landscape"
+    ],
+    "backend": false,
+    "storage": "localStorage",
+    "network_features": false,
+    "class_ranking": false,
+    "online_account": false
+  },
+  "p0_tests": [
+    "첫 실행 시 저장 데이터가 없어도 홈이 정상 표시된다.",
+    "이름/캐릭터/난이도 선택 후 월드맵으로 이동한다.",
+    "한글 '학교'를 입력할 때 composition 중간 단계가 오답으로 처리되지 않는다.",
+    "정답 입력 시 공격 이펙트와 몬스터 HP 감소가 동시에 발생한다.",
+    "오답 입력 시 설정된 패널티만 적용된다.",
+    "스테이지 클리어 후 별/점수/최고 기록이 localStorage에 저장된다.",
+    "새로고침 후 이어하기로 동일 진행도를 복구한다.",
+    "스테이지 2~5는 잠금/해금 상태가 저장 데이터와 일치한다.",
+    "우리 반 랭킹/서버 API/로그인 UI가 존재하지 않는다.",
+    "PC와 태블릿 가로 화면에서 주요 버튼이 겹치지 않는다."
+  ],
+  "asset_tests": [
+    "스프라이트 시트 셀 간 겹침 없음",
+    "투명 배경 유지",
+    "애니메이션 프레임 순서 일관",
+    "몬스터 방향 전/후/좌/우 프레임 정상",
+    "피격/성공/소멸 효과가 배경과 구분됨"
+  ]
+}

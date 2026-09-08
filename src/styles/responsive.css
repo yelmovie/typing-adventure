@@ -1,0 +1,123 @@
+/* 16:9 스테이지 스케일링. #ui-stage는 1920x1080 디자인 좌표를 JS가 transform: scale()로 맞춘다. */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--navy-900);
+  font-family: var(--font-body);
+  color: var(--text-light);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  word-break: keep-all; /* 한글 어절 단위 줄바꿈 */
+  overflow-wrap: anywhere;
+}
+* { box-sizing: border-box; }
+
+#viewport {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: radial-gradient(ellipse at center, #1b2358 0%, #0b0e28 70%);
+}
+#game-root {
+  position: absolute;
+  inset: 0;
+}
+#game-root canvas {
+  display: block;
+  image-rendering: auto;
+}
+#ui-stage {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--stage-w);
+  height: var(--stage-h);
+  transform-origin: 0 0;
+  /* transform은 JS에서 설정 */
+  pointer-events: none;
+}
+#ui-root, #modal-root, #toast-root {
+  position: absolute;
+  inset: 0;
+}
+#ui-root > .screen { pointer-events: auto; }
+#modal-root:empty { display: none; }
+#modal-root { pointer-events: auto; z-index: 50; }
+#modal-root:empty { pointer-events: none; }
+#toast-root { z-index: 60; pointer-events: none; }
+#fade {
+  position: absolute;
+  inset: 0;
+  background: #070a1e;
+  opacity: 0;
+  transition: opacity 0.28s ease;
+  pointer-events: none;
+  z-index: 100;
+}
+#fade.on { opacity: 1; pointer-events: auto; }
+
+/* 로딩 */
+#loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at center, rgba(38, 48, 122, 0.55) 0%, rgba(12, 16, 48, 0.85) 75%), url('/assets/backgrounds/bg_main_gate_blur.webp') center / cover no-repeat, #0c1030;
+  z-index: 200;
+  transition: opacity 0.4s ease;
+}
+#loading.hide { opacity: 0; pointer-events: none; }
+.loading-box { text-align: center; width: min(560px, 82vw); }
+.loading-logo { width: min(520px, 78vw); height: auto; display: block; margin: 0 auto 6px; filter: drop-shadow(0 8px 0 rgba(10, 14, 42, 0.6)) drop-shadow(0 0 28px rgba(255, 210, 90, 0.5)); animation: ta-float 3s ease-in-out infinite; }
+.loading-sub { font-family: var(--font-title); font-size: clamp(16px, 2vw, 24px); letter-spacing: 10px; color: var(--sky-300); text-shadow: 0 3px 0 var(--outline), 0 0 14px rgba(79, 195, 247, 0.6); margin-bottom: 26px; }
+.loading-title {
+  font-family: var(--font-title);
+  font-size: clamp(36px, 5vw, 64px);
+  color: var(--gold-400);
+  text-shadow: 0 4px 0 var(--outline), 0 0 24px rgba(247, 207, 90, 0.5);
+  margin-bottom: 28px;
+  letter-spacing: 2px;
+}
+.loading-bar {
+  height: 22px;
+  border: 3px solid var(--outline);
+  border-radius: 12px;
+  background: #0e1235;
+  overflow: hidden;
+  box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.5);
+}
+.loading-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--sky-400), var(--purple-400), var(--gold-400));
+  background-size: 200% 100%;
+  animation: ta-shine 1.5s linear infinite;
+  transition: width 0.2s ease;
+}
+.loading-text { margin-top: 14px; font-size: 18px; color: var(--sky-300); }
+
+/* 세로 화면 안내 */
+#rotate-hint {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 10, 30, 0.92);
+  z-index: 300;
+  font-family: var(--font-title);
+  font-size: 32px;
+  color: var(--gold-400);
+  text-align: center;
+}
+@media (orientation: portrait) and (max-width: 1100px) {
+  #rotate-hint { display: flex; }
+}

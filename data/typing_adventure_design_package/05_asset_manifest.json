@@ -1,0 +1,178 @@
+{
+  "meta": {
+    "project_name_ko": "타이핑 어드벤처",
+    "project_name_en": "Typing Adventure",
+    "version": "1.0.0",
+    "document_date": "2026-09-08",
+    "target": "초등학생용 한글 타자 연습 판타지 웹게임",
+    "platform": [
+      "desktop_web",
+      "tablet_landscape"
+    ],
+    "backend": false,
+    "storage": "localStorage",
+    "network_features": false,
+    "class_ranking": false,
+    "online_account": false
+  },
+  "folders": {
+    "backgrounds": "public/assets/backgrounds/",
+    "characters": "public/assets/characters/",
+    "pets": "public/assets/pets/",
+    "monsters": "public/assets/monsters/",
+    "effects": "public/assets/effects/",
+    "ui": "public/assets/ui/",
+    "logos": "public/assets/logos/",
+    "audio": "public/assets/audio/"
+  },
+  "required_assets": [
+    {
+      "id": "logo_main",
+      "type": "logo",
+      "name": "타이핑 어드벤처",
+      "transparent": true
+    },
+    {
+      "id": "stage_sign_1",
+      "type": "sign",
+      "name": "연습의 숲",
+      "transparent": true
+    },
+    {
+      "id": "stage_sign_2",
+      "type": "sign",
+      "name": "단어의 호수",
+      "transparent": true
+    },
+    {
+      "id": "stage_sign_3",
+      "type": "sign",
+      "name": "문장의 산",
+      "transparent": true
+    },
+    {
+      "id": "stage_sign_4",
+      "type": "sign",
+      "name": "실력의 성",
+      "transparent": true
+    },
+    {
+      "id": "stage_sign_5",
+      "type": "sign",
+      "name": "최종 보스",
+      "transparent": true
+    },
+    {
+      "id": "portal_sheet",
+      "type": "spritesheet",
+      "grid": "5x2",
+      "transparent": true
+    },
+    {
+      "id": "attack_fx_sheet",
+      "type": "spritesheet",
+      "grid": "5x6",
+      "transparent": true
+    },
+    {
+      "id": "korean_keyboard_sheet",
+      "type": "spritesheet",
+      "transparent": true,
+      "note": "두벌식 자판 + Shift 조합 + 특수문자 포함"
+    },
+    {
+      "id": "item_sheet",
+      "type": "spritesheet",
+      "grid": "5x5",
+      "transparent": true
+    },
+    {
+      "id": "badge_sheet",
+      "type": "spritesheet",
+      "grid": "5x5",
+      "transparent": true
+    },
+    {
+      "id": "pet_icons",
+      "type": "spritesheet",
+      "grid": "4x2",
+      "transparent": true
+    },
+    {
+      "id": "character_portraits",
+      "type": "spritesheet",
+      "transparent": true
+    },
+    {
+      "id": "boss_hp_frame",
+      "type": "ui",
+      "transparent": true
+    },
+    {
+      "id": "ui_buttons",
+      "type": "spritesheet",
+      "transparent": true
+    },
+    {
+      "id": "dialog_bubbles",
+      "type": "spritesheet",
+      "transparent": true
+    },
+    {
+      "id": "number_symbol_sheet",
+      "type": "spritesheet",
+      "transparent": true
+    },
+    {
+      "id": "cursor_sheet",
+      "type": "spritesheet",
+      "transparent": true
+    },
+    {
+      "id": "map_marker_sheet",
+      "type": "spritesheet",
+      "transparent": true
+    },
+    {
+      "id": "loading_transition_sheet",
+      "type": "spritesheet",
+      "transparent": true
+    }
+  ],
+  "character_sheets": [
+    "brown_boy_red_scarf",
+    "pink_girl",
+    "glasses_boy",
+    "blond_explorer_boy"
+  ],
+  "pet_sheets": [
+    "cat_red_scarf",
+    "rabbit",
+    "blue_dragon",
+    "forest_squirrel"
+  ],
+  "monster_sheets": [
+    "green_slime",
+    "letter_bat",
+    "ink_slime",
+    "sentence_ghost",
+    "keycap_knight",
+    "keyboard_golem_boss"
+  ],
+  "background_set": {
+    "count": 10,
+    "ratio": "16:9",
+    "usage": [
+      "main_gate",
+      "adventure_room",
+      "world_map",
+      "practice_forest",
+      "forest_battle",
+      "word_lake",
+      "sentence_mountain",
+      "skill_castle",
+      "library_or_collection",
+      "final_boss_area"
+    ]
+  }
+}
