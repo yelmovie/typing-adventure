@@ -55,6 +55,7 @@ export const WAVE = {
   ] as { item: string; score: number; w: number }[],
   boltSec: 3,
   dodgeScore: 30, // 점프/앉기 회피 성공 보너스
+  jumpSec: 0.42, // Player.jump 의 착지 시간과 같게 — 키를 눌러도 이 시간이 지나면 회피 판정이 끝난다
   pushStunSec: 0.8,
   // 웨이브별 구성 [슬라임, 박쥐]. 마지막 웨이브의 마지막 한 마리는 대장 슬라임으로 교체된다
   mix: [[5, 0], [3, 2], [2, 3], [1, 4]] as [number, number][], // 웨이브가 갈수록 빠른 박쥐 비중 ↑
@@ -89,6 +90,9 @@ export class WaveSystem {
   /** 방향키 상태: 점프중이면 슬라임을, 앉기중이면 박쥐를 접촉 순간 회피 */
   jumping = false;
   crouching = false;
+  /** 점프 회피 판정 남은 시간(초) · ↑ 키를 실제로 뗐는지(꾹 눌러 연타되는 keydown 무시) */
+  private jumpLeft = 0;
+  private upHeld = false;
   /** 아이템: 방패(다음 접촉 무효) 남은 횟수, 번개(적 이동 절반) 남은 시간(초) */
   itemShieldCharges = 0;
   itemSlowLeft = 0;
@@ -198,6 +202,10 @@ export class WaveSystem {
   tick(dt: number) {
     if (!this.running || this.finished) return;
     this.timeLeft = Math.max(0, this.timeLeft - dt);
+    if (this.jumping) {
+      this.jumpLeft -= dt;
+      if (this.jumpLeft <= 0) this.jumping = false;
+    }
     // 등장
     if (this.spawnQueue.length > 0) {
       this.spawnTimer -= dt;
@@ -243,11 +251,23 @@ export class WaveSystem {
     if (this.timeLeft <= 0) this.fail('time');
   }
 
-  /** 방향키 이동/점프/앉기 — 슬라임은 점프로, 박쥐는 앉기로 접촉 순간 회피 가능 */
+  /**
+   * 방향키 이동/점프/앉기 — 슬라임은 점프로, 박쥐는 앉기로 접촉 순간 회피 가능.
+   * 점프는 한 번 누를 때 jumpSec 만큼만 유효하다. 키를 누르고 있어도 캐릭터는 420ms 뒤 착지하므로
+   * 판정만 계속 살아 있으면 화면과 어긋나고 ↑ 를 꾹 누른 채 슬라임 무적이 된다.
+   */
   move(dir: 'left' | 'right' | 'up' | 'down', pressed: boolean) {
     if (!this.running || this.finished) return;
-    if (dir === 'up') this.jumping = pressed;
-    else if (dir === 'down') this.crouching = pressed;
+    if (dir === 'up') {
+      if (!pressed) this.upHeld = false;
+      else if (!this.upHeld) {
+        this.upHeld = true;
+        if (!this.jumping) {
+          this.jumping = true;
+          this.jumpLeft = WAVE.jumpSec;
+        }
+      }
+    } else if (dir === 'down') this.crouching = pressed;
     this.emit('PLAYER_MOVE', { dir, pressed, jumping: this.jumping, crouching: this.crouching });
   }
 

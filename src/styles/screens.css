@@ -354,11 +354,24 @@
 .stat-box .val.warn { color: var(--red-400); animation: ta-blink 0.8s infinite; }
 .stat-box .val small { font-size: 16px; opacity: 0.8; }
 
-/* 좌측 플레이어 패널: 축소형(초상 64 + 이름/HP 한 덩어리 + 펫 한 줄) — 캐릭터 무대(y≥480)를 가리지 않게 270 안에서 끝낸다 */
-.battle-left {
+/* 좌측 열: 플레이어 패널 + 모드별 패널(트랙·전보·보스HP)을 흐름으로 쌓는다.
+   절대좌표로 각각 두면 패널 내용이 길어질 때(펫 스킬 줄, compact 큰 글씨) 서로 겹쳐서 가려진다. */
+.battle-left-col {
   position: absolute;
   left: 30px;
   top: 130px;
+  width: 460px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  pointer-events: none;
+}
+.battle-left-col > * { pointer-events: auto; }
+
+/* 좌측 플레이어 패널: 축소형(초상 64 + 이름/HP 한 덩어리 + 펫 한 줄) */
+.battle-left {
+  position: relative;
   width: 300px;
   padding: 12px 14px 10px;
   display: flex;
@@ -439,6 +452,8 @@
   white-space: nowrap;
   z-index: 5;
 }
+/* 편지 스테이지는 BattleScreen 이 팝을 큐로 하나씩 보여주므로 위로 쌓지 않는다(양피지 본문을 덮지 않게) */
+.screen.mode-letter .judge-pop { bottom: var(--judge-bottom); }
 .judge-pop .jp-text { display: block; position: relative; }
 /* PERFECT: 금색 도장 + 뒤 광선. 크게 찍혀서(가속) 살짝 되튐 → 감속 → 페이드 */
 .judge-pop.perfect { animation: ta-judge-stamp 0.85s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
@@ -532,11 +547,11 @@
   font-family: var(--font-body);
   font-weight: 900;
   font-size: 64px;
-  line-height: 1.2;
+  line-height: 1;
   color: #fff;
   text-shadow: 0 4px 0 var(--outline), 0 0 16px rgba(79, 195, 247, 0.4);
   letter-spacing: 2px;
-  min-height: 78px;
+  min-height: 64px;
   white-space: nowrap;
   overflow: hidden;
 }
@@ -550,7 +565,7 @@
 .bb-input {
   font-size: 40px;
   font-weight: 900;
-  padding: 6px 60px 6px 22px;
+  padding: 2px 60px 2px 22px;
   letter-spacing: 2px;
 }
 .bb-input.long { font-size: 32px; letter-spacing: 0; }
@@ -780,7 +795,7 @@
 .bb-variant.heart { display: inline-block; background: linear-gradient(180deg, #ffd0e0, var(--pink-400)); color: #6a1030; }
 .bb-variant.bomb { display: inline-block; background: linear-gradient(180deg, #ffb3b3, var(--red-400)); color: #fff; text-shadow: 0 2px 0 #7a1a1a; }
 .bb-variant.bomb.urgent { animation: ta-blink 0.35s infinite; }
-.bb-hint { font-family: var(--font-title); font-size: 18px; color: var(--sky-300); min-height: 22px; }
+.bb-hint { font-family: var(--font-title); font-size: 18px; color: var(--sky-300); min-height: 18px; }
 .bb-target span { display: inline-block; }
 .bb-target .shake { animation: ta-shake 0.35s ease-in-out; color: var(--red-400); }
 
@@ -805,8 +820,8 @@
 .stat-box .lbl .best { color: var(--gold-300); font-size: 13px; }
 
 /* ===== 스테이지 2 레이스 트랙 ===== */
-/* 레이스 트랙: 좌측 플레이어 패널 아래(30,290~), 캐릭터 무대(x≥370·y≥480)와 안 겹침 */
-.race-track { position: absolute; left: 30px; width: 460px; top: 292px; padding: 8px 16px 12px; border-radius: 16px; }
+/* 레이스 트랙: .battle-left-col 안에서 플레이어 패널 바로 아래로 흐른다 */
+.race-track { position: relative; width: 460px; padding: 8px 16px 12px; border-radius: 16px; }
 .race-track.hidden { display: none; }
 .race-track .tk-row { display: flex; justify-content: space-between; align-items: center; font-family: var(--font-title); font-size: 17px; color: var(--sky-300); margin-bottom: 8px; }
 .race-track .tk-row .ui-icon { width: 20px; height: 20px; }
@@ -824,10 +839,10 @@
 
 .battle-enemy-hp.hidden { display: none; }
 /* 보스전: 결정 5개가 보스 머리 위 아크(우상단)에 뜨므로 보스 HP 패널은 좌측 열(플레이어 아래)로 */
-.screen.mode-boss .battle-enemy-hp { right: auto; left: 30px; top: 292px; width: 460px; }
+.screen.mode-boss .battle-enemy-hp { position: relative; right: auto; left: auto; top: auto; width: 460px; }
 
-/* ===== 스테이지 4 전보 패널: 좌측 패널 아래(30,292~), 열차 갑판(x≥370)과 안 겹침 ===== */
-.tele-panel { position: absolute; left: 30px; width: 460px; top: 292px; padding: 8px 16px 10px; border-radius: 16px; display: grid; gap: 4px; }
+/* ===== 스테이지 4 전보 패널: .battle-left-col 안에서 플레이어 패널 아래로 흐른다 ===== */
+.tele-panel { position: relative; width: 460px; padding: 8px 16px 10px; border-radius: 16px; display: grid; gap: 4px; }
 .tele-panel.hidden { display: none; }
 .tele-panel .td-row { display: grid; grid-template-columns: 130px 1fr; align-items: center; gap: 10px; font-family: var(--font-title); font-size: 18px; color: var(--sky-300); }
 .tele-panel .td-row.small { font-size: 15px; }
@@ -865,8 +880,7 @@
 #ui-stage.compact .battle-left .pl-pet { font-size: 24px; }
 #ui-stage.compact .battle-left { width: 340px; }
 #ui-stage.compact .battle-left .pl-pet-skill { white-space: normal; }
-#ui-stage.compact .race-track, #ui-stage.compact .tele-panel { top: 330px; }
-#ui-stage.compact .battle-bottom { min-height: 240px; bottom: 14px; padding-top: 12px; padding-bottom: 10px; }
+#ui-stage.compact .battle-bottom { min-height: 226px; bottom: 14px; padding-top: 12px; padding-bottom: 10px; }
 #ui-stage.compact .judge-pop { --judge-bottom: 296px; }
 #ui-stage.compact .battle-top .icon-btn { width: 72px; height: 72px; }
 #ui-stage.compact .bb-kbd-toggle { min-height: 52px; font-size: 22px; }
@@ -883,7 +897,8 @@
 #ui-stage.compact .key.space { width: 300px; font-size: 18px; padding-top: 0; }
 #ui-stage.compact .kbd-row { gap: 5px; }
 #ui-stage.compact .bb-hint, #ui-stage.compact .bb-variant { font-size: 24px; }
-#ui-stage.compact .bb-hint { min-height: 30px; }
+/* line-height 를 고정해야 힌트가 있든 없든 높이가 같아 하단 패널이 830 선을 지킨다 */
+#ui-stage.compact .bb-hint { min-height: 24px; line-height: 1; }
 #ui-stage.compact .bb-input-hint { font-size: 24px; }
 #ui-stage.compact .race-track .tk-row, #ui-stage.compact .race-track .tk-mark, #ui-stage.compact .tele-panel .td-row.small { font-size: 24px; }
 #ui-stage.compact .toast { font-size: 26px; }
@@ -895,6 +910,8 @@
 #ui-stage.compact .toggle.on::after { left: 69px; }
 #ui-stage.compact .modal-close { width: 76px; height: 76px; font-size: 34px; }
 #ui-stage.compact .icon-btn { width: 80px; height: 80px; }
+/* 가이드 토글은 위 .btn-sm(76px)에 먹히면 목표 라벨 행이 76px 로 부풀어 하단 패널이 830 선을 넘는다 → 특이도를 올려 52px 로 고정(터치 최소 44px 이상) */
+#ui-stage.compact .bb-target-lbl .bb-kbd-toggle { min-height: 52px; }
 
 /* ===== 2차 아이콘·삽화 ===== */
 .ui-icon.xl { width: 72px; height: 72px; }

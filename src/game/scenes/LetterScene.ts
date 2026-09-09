@@ -12,7 +12,9 @@ import type { StageId } from '../types';
 import type { BattleSnapshot } from '../systems/BattleSystem';
 import { LETTER } from '../systems/LetterSystem';
 
-const PAPER = { x: 800, y: 520, w: 880, h: 360 }; // 콤보(y≤290) 아래 · 좌측 패널(x≤330)/캐릭터(x≤260) 오른쪽 · 룬 줄(≈746)까지 하단 패널(830) 위
+// 콤보(y≤290) 아래 · 룬 줄(≈746)까지 하단 패널(830) 위.
+// x=840 인 이유: compact 에서 좌측 패널이 340px 로 넓어져 오른쪽 끝이 370 이라, 폭을 유지한 채 양피지를 오른쪽으로 밀어 겹침을 피한다(양피지 400~1280).
+const PAPER = { x: 840, y: 520, w: 880, h: 360 };
 const GATE = { x: 1560, y: 470 };
 
 /**

@@ -73,6 +73,13 @@
   85% { transform: translate(-50%, 0); opacity: 1; }
   100% { transform: translate(-50%, -20px); opacity: 0; }
 }
+/* .toast.toast-side 용: 가로 가운데 정렬을 하지 않으므로 translateX 를 빼야 한다 */
+@keyframes ta-toast-side {
+  0% { transform: translateY(-30px); opacity: 0; }
+  12% { transform: translateY(0); opacity: 1; }
+  85% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(-20px); opacity: 0; }
+}
 /* 판정 팝 4종: 스케일 팝 → 감속 → 페이드 */
 @keyframes ta-judge-stamp {
   0% { transform: translate(-50%, 0) scale(1.7); opacity: 0; }

@@ -48,6 +48,9 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
   private paused = false;
   private currentTarget: ContentUnit | null = null;
   private feverOverlay?: HTMLElement;
+  /** 편지 모드 전용 판정 팝 큐 (동시에 뜬 팝이 쌓여 본문을 덮지 않게 순서대로) */
+  private judgeQueue: [string, string][] = [];
+  private judgeTimer = 0;
 
   constructor() {
     super('battle');
@@ -151,17 +154,12 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
     );
 
     this.feverOverlay = h('div', { class: 'fever-overlay' });
-    this.el.append(
-      this.feverOverlay,
-      this.hud.top,
-      this.hud.left,
-      this.hud.enemyPanel,
-      this.hud.combo,
-      this.hud.track,
-      this.hud.tele,
-      this.bottom,
-      this.kbd.el,
-    );
+    // 좌측은 한 열로 쌓는다(플레이어 → 모드 패널). 보스전만 적 HP도 이 열에 들어간다.
+    const isBoss = st.mode === 'boss';
+    const leftCol = h('div', { class: 'battle-left-col' }, this.hud.left, isBoss ? this.hud.enemyPanel : null, this.hud.track, this.hud.tele);
+    this.el.append(this.feverOverlay, this.hud.top, leftCol);
+    if (!isBoss) this.el.append(this.hud.enemyPanel);
+    this.el.append(this.hud.combo, this.bottom, this.kbd.el);
     this.el.classList.add(`mode-${st.mode}`);
 
     this.typing = new TypingSystem(this.inputEl, {
@@ -325,7 +323,32 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
     window.setTimeout(() => b.classList.remove(cls), 420);
   }
 
+  /**
+   * S3(편지)는 문장 하나를 맞힐 때 PERFECT·자물쇠 해제·비밀방 발견이 같은 프레임에 떠서 3단으로 쌓이는데,
+   * 그러면 리본이 양피지 본문 줄까지 올라와 읽던 문장을 덮는다. 편지 모드에서만 큐에 넣어 한 번에 하나씩 보여준다.
+   */
   private judge(text: string, cls: string) {
+    if (this.el.classList.contains('mode-letter')) {
+      this.judgeQueue.push([text, cls]);
+      this.pumpJudge();
+      return;
+    }
+    this.showJudge(text, cls);
+  }
+
+  private pumpJudge() {
+    if (this.judgeTimer) return;
+    const next = this.judgeQueue.shift();
+    if (!next) return;
+    for (const old of this.el.querySelectorAll<HTMLElement>('.judge-pop')) old.remove();
+    this.showJudge(next[0], next[1]);
+    this.judgeTimer = window.setTimeout(() => {
+      this.judgeTimer = 0;
+      this.pumpJudge();
+    }, 700);
+  }
+
+  private showJudge(text: string, cls: string) {
     // 같은 종류(PERFECT/GOOD/MISS)는 이전 것을 바로 교체, 다른 종류는 위로 쌓아서 겹치지 않게. 위치는 입력 패널 바로 위 띠(CSS .judge-pop)
     const kind = cls.split(' ')[0];
     const live = [...this.el.querySelectorAll<HTMLElement>('.judge-pop')];
@@ -400,6 +423,9 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
 
   protected onHide() {
     window.clearInterval(this.tickTimer);
+    window.clearTimeout(this.judgeTimer);
+    this.judgeTimer = 0;
+    this.judgeQueue.length = 0;
     AudioManager.setRate(1);
     closeModal();
     for (const [ev, fn] of this.handlers) EventBus.off(ev, fn);

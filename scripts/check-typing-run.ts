@@ -106,14 +106,14 @@ function make(words: ContentUnit[], p = pet()) {
   assert.equal(fast.run.adaptiveOffset, 1);
 }
 
-// 7. 무입력 4초부터 초당 HP 2 감소 (목표가 있을 때만)
+// 7. 무입력 8초부터 초당 HP 1 감소 (목표가 있을 때만)
 {
   const { run } = make([unit('가')]);
   let drained = 0;
-  for (let t = 0; t < 40; t++) drained += run.idleDrain(0.1), run.tick(0.1);
-  assert.equal(drained, 0, '4초까진 안 깎임');
-  for (let t = 0; t < 30; t++) { run.tick(0.1); drained += run.idleDrain(0.1); }
-  assert.ok(drained >= 5 && drained <= 6, `3초 더 방치 → 약 6 (실제 ${drained})`);
+  for (let t = 0; t < 80; t++) drained += run.idleDrain(0.1), run.tick(0.1);
+  assert.equal(drained, 0, '8초까진 안 깎임');
+  for (let t = 0; t < 60; t++) { run.tick(0.1); drained += run.idleDrain(0.1); }
+  assert.ok(drained >= 5 && drained <= 6, `6초 더 방치 → 약 6 (실제 ${drained})`);
   run.onCommit('가');
   assert.equal(run.idleDrain(0.1), 0, '입력하면 즉시 멈춤');
 }

@@ -23,8 +23,9 @@ export const RULES = {
   finalSec: 10,
   feverMult: [1, 1.5, 2, 3] as const,
   idleSec: 3,
-  drainAfterSec: 4, // 무입력 4초부터
-  drainHpPerSec: 2, // 초당 HP -2
+  // 초등학생은 낱말을 읽고 손가락을 찾는 데 몇 초씩 걸린다. 생각하는 시간까지 벌주지 않게 여유를 둔다.
+  drainAfterSec: 8, // 무입력 8초부터
+  drainHpPerSec: 1, // 초당 HP -1 (가만히 두면 108초 만에 실패)
   bombSec: 5,
   bombPetBonusSec: 2,
   shieldSec: 5,

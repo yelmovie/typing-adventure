@@ -372,6 +372,12 @@
   animation: ta-toast 2.4s ease forwards;
   white-space: nowrap;
 }
+/* 결과 화면처럼 가운데 위쪽에 배너가 있는 화면에서는 토스트를 왼쪽으로 비킨다 */
+.toast.toast-side {
+  left: 24px;
+  transform: none;
+  animation-name: ta-toast-side;
+}
 
 /* ---------- 별 ---------- */
 .stars { display: inline-flex; gap: 6px; }

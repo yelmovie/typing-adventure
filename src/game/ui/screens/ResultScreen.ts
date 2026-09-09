@@ -82,7 +82,8 @@ export class ResultScreen extends Screen<{ result: BattleResult }> {
     }
     if (unlockedNext && !SaveSystem.get().progress.clearedStages.includes(next!.id)) {
       window.setTimeout(() => {
-        const t = h('div', { class: 'toast' }, icon('unlock'), ` ${next!.name} 해금!`);
+        // 결과 배너가 화면 위 가운데를 쓰므로 토스트는 왼쪽으로 비킨다
+        const t = h('div', { class: 'toast toast-side' }, icon('unlock'), ` ${next!.name} 해금!`);
         document.getElementById('toast-root')!.append(t);
         window.setTimeout(() => t.remove(), 2500);
       }, 1600);

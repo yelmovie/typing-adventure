@@ -99,6 +99,16 @@ assert.equal(count('STAGE_CLEAR'), 1);
   assert.equal(c3('DODGE'), 1, '점프 중 슬라임 접촉 → 회피');
   assert.equal(w3.playerHp, hp0, '회피는 피해 0');
   assert.equal(w3.score, score0 + WAVE.dodgeScore);
+
+  // ↑ 를 누른 채로 두어도 jumpSec 이 지나면 회피 판정이 끝난다(캐릭터는 이미 착지했으므로)
+  for (let i = 0; i < 12; i++) w3.tick(0.05); // 0.6초 > WAVE.jumpSec
+  const hp1 = w3.playerHp;
+  const dodged1 = c3('DODGE');
+  slime.pushed = 0;
+  slime.x = 0.999;
+  w3.tick(0.05);
+  assert.equal(c3('DODGE'), dodged1, '점프 시간이 지나면 ↑ 를 꾹 눌러도 회피 안 됨');
+  assert.ok(w3.playerHp < hp1, '점프 끝난 뒤 접촉은 정상 피해');
   w3.move('up', false);
 
   // 박쥐가 나올 때까지 목표를 맞혀 웨이브를 진행시킨다(회피 꺼짐 → 접촉은 정상 피해, HP는 넉넉함)

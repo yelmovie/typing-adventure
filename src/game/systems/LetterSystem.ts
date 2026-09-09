@@ -110,15 +110,7 @@ export class LetterSystem implements TypingMode {
       this.idleOn = idle;
       this.emit('LETTER_IDLE', { idle });
     }
-    const drain = this.run.idleDrain(dt);
-    if (drain > 0) {
-      this.playerHp = Math.max(0, this.playerHp - drain);
-      this.emit('IDLE_DRAIN', { hpLoss: drain, hp: this.playerHp, idle: this.run.idleSeconds });
-      if (this.playerHp <= 0) {
-        this.fail('hp');
-        return;
-      }
-    }
+    // S3 는 시간제한 없이 편지를 읽고 옮겨 적는 스테이지라 멈춤 벌칙은 점수(모래시계)만. HP 는 깎지 않는다.
     this.emit('HUD_TICK', this.snapshot());
   }
 

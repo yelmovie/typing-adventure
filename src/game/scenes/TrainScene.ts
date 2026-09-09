@@ -169,7 +169,8 @@ export class TrainScene extends Phaser.Scene {
       this.telegraph.setFrame('c1_r0');
       this.time.delayedCall(120, () => this.telegraph?.setFrame('c0_r0'));
     }
-    const ring = this.add.ellipse(840, DECK_Y - 65, 40, 40, 0xfff2b0, 0.9).setDepth(6).setBlendMode(Phaser.BlendModes.ADD);
+    // 전신기 이미지를 쓸 때 링 중심은 전신기 키 본체(x≈763, y≈630) 위. 840,715 는 코드 그래픽 폴백 시절 좌표라 레버 쪽에 떴다.
+    const ring = this.add.ellipse(this.telegraph ? 763 : 840, DECK_Y - (this.telegraph ? 150 : 65), 40, 40, 0xfff2b0, 0.9).setDepth(6).setBlendMode(Phaser.BlendModes.ADD);
     this.tweens.add({ targets: ring, scale: 4, alpha: 0, duration: 450, onComplete: () => ring.destroy() });
   }
 
