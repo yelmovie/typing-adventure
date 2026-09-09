@@ -11,7 +11,12 @@ import type { StageId } from '../types';
 import { AudioManager, STAGE_BGM } from '../systems/AudioManager';
 
 const CLASS_FX: Record<string, string> = { brown_boy: 'fx_warrior', pink_girl: 'fx_mage', glasses_boy: 'fx_scholar', blond_explorer: 'fx_archer' };
-const MODE_ATLAS: Record<string, string[]> = { wave: ['fx_gate'], telegram: ['fx_train_props'], boss: ['fx_crystals'], race: ['mon_shadow_chaser'] };
+const MODE_ATLAS: Record<string, string[]> = {
+  wave: ['fx_gate', 'mon_boss_slime', 'fx_items', 'fx_pickup'],
+  telegram: ['fx_train_props'],
+  boss: ['fx_crystals'],
+  race: ['mon_shadow_chaser'],
+};
 const MODE_BG: Record<string, string[]> = { boss: ['bg_bright_castle'] };
 
 /** 스테이지 하나에 필요한 배경·몬스터·이펙트를 로더 큐에 넣는다 (이미 있으면 건너뜀). Boot 의 ?go=battle 바로가기도 같이 쓴다 */

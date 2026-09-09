@@ -6,7 +6,7 @@ const CH = 'ChatGPT Image 2026년 9월 8일 오후 ';
 export const BACKGROUNDS = [
   { id: 'bg_main_gate', file: `${CH}12_57_37 (1).png`, usage: 'home' },
   { id: 'bg_adventure_room', file: `${CH}12_57_37 (2).png`, usage: 'setup' },
-  { id: 'bg_world_map', file: `${CH}12_57_37 (3).png`, usage: 'world_map' },
+  { id: 'bg_world_map', file: 'adventure-map-v2.png', usage: 'world_map' }, // v2: 스테이지 핀 5개 위치(좌하→우상 지그재그)에 맞춰 재생성
   { id: 'bg_practice_forest', file: `${CH}12_57_37 (4).png`, usage: 'stage_intro (stage_1)' },
   { id: 'bg_forest_battle', file: `${CH}12_57_37 (5).png`, usage: 'battle (stage_1)' }, // v2 에서 bg_neon_city 로 교체 // v2 에서 bg_desert_gate 로 교체 // v2 에서 bg_train 으로 교체
   { id: 'bg_library', file: `${CH}12_57_37 (9).png`, usage: 'collection / certificate' },
@@ -43,6 +43,7 @@ export const SHEETS = [
   { id: 'mon_keycap_knight', kind: 'monster', file: `${CH}12_57_56 (4).png` },
   { id: 'mon_keyboard_golem', kind: 'monster', file: `${CH}12_58_11 (10).png` },
   { id: 'mon_shadow_chaser', kind: 'monster', file: 'stage2-shadow-chaser-v2.png' },
+  { id: 'mon_boss_slime', kind: 'monster', file: 'boss-slime-sheet-v2.png' }, // S1 마지막 웨이브 대장(왕관 쓴 큰 슬라임)
 ];
 
 // 균등 격자 시트 (cols×rows) → 프레임 이름 c{col}_r{row}
@@ -58,6 +59,13 @@ export const GRIDS = [
   { id: 'ui_badges', file: 'badge-icons-v2.png', cols: 5, rows: 3 },
   { id: 'ui_item_skills', file: 'item-skill-icons-v2.png', cols: 4, rows: 3 },
   { id: 'ui_map_markers', file: 'map-markers-v2.png', cols: 5, rows: 1 },
+  // 3차 (2026-09-09)
+  // 캐릭터 점프·앉기 4×4: 행 = brown_boy / pink_girl / glasses_boy / blond_explorer, 열 = 준비·공중·앉기·착지
+  { id: 'char_poses', file: 'character-action-poses-v2.png', cols: 4, rows: 4 },
+  // 게임 화면용 아이템 6종(items.ts 순서: coin·gem·star·heart·shield·bolt)
+  { id: 'fx_items', file: 'item-game-icons-v2.png', cols: 6, rows: 1 },
+  // 이펙트 5프레임 × 3종: r0 회피 / r1 획득 / r2 회복
+  { id: 'fx_pickup', file: 'fx-dodge-pickup-heal-v2.png', cols: 5, rows: 3 },
 ];
 
 export const ROW_NAMES = [
@@ -92,4 +100,7 @@ export const DOM_SHEETS = [
     names: ['lantern', 'flag', 'star', 'crown', 'treasure', 'heart', 'bomb', '', 'shield', 'time_plus', 'fire_aoe', 'word_hint'] },
   { file: 'map-markers-v2.png', prefix: 'map', cols: 5, rows: 1, autoRows: false,
     names: ['stage_1', 'stage_2', 'stage_3', 'stage_4', 'stage_5'] },
+  // 도감 아이템 탭 공용 (data/items.ts 의 id 와 같은 이름)
+  { file: 'item-game-icons-v2.png', prefix: 'drop', cols: 6, rows: 1, autoRows: false,
+    names: ['coin', 'gem', 'star', 'heart', 'shield', 'bolt'] },
 ];

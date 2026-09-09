@@ -34,12 +34,16 @@ class Mob {
     this.word = m.word.text;
     this.targetX = SPAWN_X;
     this.labelLift = (m.uid % 3) * 58;
-    registerSheetAnims(scene, m.sheet);
-    const scale = m.big ? 1.05 * 1.8 : m.kind === 'bat' ? 1.0 : 1.05;
-    this.enemy = new Enemy(scene, SPAWN_X, GROUND_Y + (m.kind === 'bat' ? -120 : 0), m.sheet, scale);
-    if (m.big) this.enemy.sprite.setTint(0xffcf7a);
+    // 대장 전용 시트가 없으면 초록 슬라임을 키워 쓰던 예전 방식으로 폴백
+    const sheet = scene.textures.exists(m.sheet) ? m.sheet : 'mon_green_slime';
+    const ownSheet = sheet === m.sheet;
+    registerSheetAnims(scene, sheet);
+    // 전용 대장 시트는 그림 자체가 크고 왕관이 있으니 덜 키우고 틴트도 안 입힌다
+    const scale = m.big ? 1.05 * (ownSheet ? 1.25 : 1.8) : m.kind === 'bat' ? 1.0 : 1.05;
+    this.enemy = new Enemy(scene, SPAWN_X, GROUND_Y + (m.kind === 'bat' ? -120 : 0), sheet, scale);
+    if (m.big && !ownSheet) this.enemy.sprite.setTint(0xffcf7a);
     this.enemy.setDepth(6);
-    this.enemy.sprite.play(anim(m.sheet, 'walk_left'));
+    this.enemy.sprite.play(anim(sheet, 'walk_left'));
     this.ring = scene.add.ellipse(SPAWN_X, GROUND_Y + 8, 190, 50, 0xffd34d, 0).setDepth(4);
     this.labelDone = scene.add.text(0, 0, '', styleText(46, '#63e074')).setOrigin(0, 1).setDepth(12);
     this.labelRest = scene.add.text(0, 0, '', styleText(46, '#ffffff')).setOrigin(0, 1).setDepth(12);
@@ -230,14 +234,19 @@ export class WaveScene extends Phaser.Scene {
     const mob = this.mobs.get(d.uid);
     const x = mob?.x ?? 1200;
     const y = (mob?.enemy.sprite.y ?? GROUND_Y) - 90;
-    const ICONS: Record<string, string> = { coin: '🪙', gem: '💎', star: '⭐', heart: '❤', shield: '🛡', bolt: '⚡' };
-    const icon = ICONS[d.item] ?? '🪙';
-    const it = this.add.text(x, y, icon, { fontSize: '56px' }).setOrigin(0.5).setDepth(22);
+    // 아이템 아이콘 시트(fx_items c0~c5_r0 = items.ts 순서)가 있으면 그걸로, 없으면 이모지 폴백
+    const ORDER = ['coin', 'gem', 'star', 'heart', 'shield', 'bolt'];
+    const col = ORDER.indexOf(d.item);
+    const it: Phaser.GameObjects.Image | Phaser.GameObjects.Text =
+      col >= 0 && this.textures.exists('fx_items')
+        ? this.add.image(x, y, 'fx_items', `c${col}_r0`).setDisplaySize(72, 72).setOrigin(0.5).setDepth(22)
+        : this.add.text(x, y, ({ coin: '🪙', gem: '💎', star: '⭐', heart: '❤', shield: '🛡', bolt: '⚡' } as Record<string, string>)[d.item] ?? '🪙', { fontSize: '56px' }).setOrigin(0.5).setDepth(22);
     this.tweens.add({ targets: it, y: y - 120, x: x - 40, duration: 320, ease: 'Quad.easeOut', onComplete: () => {
       this.tweens.add({ targets: it, x: PLAYER_POS.x, y: PLAYER_POS.y - 120, scale: 0.6, duration: 380, ease: 'Quad.easeIn', delay: 120, onComplete: () => {
         it.destroy();
         AudioManager.sfx(d.item === 'coin' ? 'coin' : 'star', { rate: d.item === 'star' ? 1.2 : 1 });
         this.player?.hop();
+        this.playFx(1, PLAYER_POS.x, PLAYER_POS.y - 120, 0.8);
         this.hitBurst?.explode(14, PLAYER_POS.x, PLAYER_POS.y - 120);
         const label = d.score > 0 ? `+${d.score}` : d.item === 'heart' ? '+HP' : d.item === 'shield' ? '방패!' : '느려짐!';
         const color = d.item === 'coin' ? '#ffd34d' : d.item === 'gem' ? '#8fe0ff' : d.item === 'star' ? '#ff7ab6' : d.item === 'heart' ? '#63e074' : d.item === 'shield' ? '#8fb4ff' : '#fff2b0';
@@ -247,6 +256,22 @@ export class WaveScene extends Phaser.Scene {
     } });
   }
 
+  /** fx_pickup 시트 5프레임 재생 (r0 회피 · r1 획득 · r2 회복). 시트가 없으면 아무것도 안 그린다 */
+  private playFx(row: 0 | 1 | 2, x: number, y: number, scale = 1) {
+    if (!this.textures.exists('fx_pickup')) return;
+    const key = `fx_pickup_r${row}`;
+    if (!this.anims.exists(key)) {
+      this.anims.create({
+        key,
+        frames: Array.from({ length: 5 }, (_, c) => ({ key: 'fx_pickup', frame: `c${c}_r${row}` })),
+        frameRate: 16,
+      });
+    }
+    const s = this.add.sprite(x, y, 'fx_pickup', `c0_r${row}`).setDepth(24).setScale(scale).setBlendMode(Phaser.BlendModes.ADD);
+    s.play(key);
+    s.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => s.destroy());
+  }
+
   /** 점프/앉기로 몬스터 접촉을 회피 */
   private onDodge(d: { uid: number; kind: string }) {
     AudioManager.sfx('combo', { rate: 1.4 });
@@ -254,6 +279,7 @@ export class WaveScene extends Phaser.Scene {
     mob?.flash();
     const x = mob?.x ?? PLAYER_POS.x + 260;
     const y = (mob?.enemy.sprite.y ?? GROUND_Y) - 170;
+    this.playFx(0, (x + PLAYER_POS.x) / 2, y + 80, 0.9);
     const t = this.add.text(x, y, '회피!', styleText(52, '#8fe0ff')).setOrigin(0.5).setDepth(24).setScale(0.6).setAlpha(0);
     this.tweens.add({ targets: t, alpha: 1, scale: 1.05, y: y - 40, duration: 260, ease: 'Back.easeOut', yoyo: true, hold: 260, onComplete: () => t.destroy() });
   }
@@ -270,6 +296,7 @@ export class WaveScene extends Phaser.Scene {
   private onHeal(d: { amount: number }) {
     if (!this.player) return;
     const p = this.player;
+    this.playFx(2, p.x, p.y - 150, 0.8);
     const t = this.add.text(p.x, p.y - 240, `+${d.amount}`, styleText(40, '#63e074')).setOrigin(0.5).setDepth(22);
     this.tweens.add({ targets: t, y: p.y - 310, alpha: 0, duration: 700, onComplete: () => t.destroy() });
   }

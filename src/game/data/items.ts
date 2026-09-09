@@ -9,11 +9,12 @@ export interface ItemDef {
   cssIcon?: 'gem';
 }
 
+// 아이콘은 item-game-icons-v2.png(6×1) 을 잘라 만든 drop_* (게임 화면 fx_items 와 같은 그림)
 export const ITEMS: ItemDef[] = [
-  { id: 'coin', name: '코인', desc: '점수 30점을 더해줘요', img: 'icon_coin' },
-  { id: 'gem', name: '보석', desc: '점수 80점과 코인을 더해줘요', cssIcon: 'gem' },
-  { id: 'star', name: '별', desc: '점수 150점을 더해줘요', img: 'item_star' },
-  { id: 'heart', name: '하트', desc: '체력을 20 채워줘요', img: 'item_heart' },
-  { id: 'shield', name: '방패', desc: '다음 한 번의 접촉을 막아줘요', img: 'item_shield' },
-  { id: 'bolt', name: '번개', desc: '3초 동안 적을 느리게 만들어요', img: 'icon_bolt' },
+  { id: 'coin', name: '코인', desc: '점수 30점을 더해줘요', img: 'drop_coin' },
+  { id: 'gem', name: '보석', desc: '점수 80점과 코인을 더해줘요', img: 'drop_gem' },
+  { id: 'star', name: '별', desc: '점수 150점을 더해줘요', img: 'drop_star' },
+  { id: 'heart', name: '하트', desc: '체력을 20 채워줘요', img: 'drop_heart' },
+  { id: 'shield', name: '방패', desc: '다음 한 번의 접촉을 막아줘요', img: 'drop_shield' },
+  { id: 'bolt', name: '번개', desc: '3초 동안 적을 느리게 만들어요', img: 'drop_bolt' },
 ];

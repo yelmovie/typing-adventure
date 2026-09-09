@@ -209,3 +209,23 @@ https://claude.ai/code/artifact/77a529d9-2b61-434e-957e-ee1f6526f5de — 14 지�
 ### 9-4. 이번에 확인한 실패
 
 - **NotebookLM 조회 실패** — `authenticated: false` (구글 쿠키 만료). `ask_question` 두 번 모두 "Could not find NotebookLM chat input". 되살리려면 사용자가 `setup_auth` 로 직접 구글 로그인해야 한다. 이번 세션은 이 문서(`docs/PLAN.md`)만 보고 진행함.
+
+## 10. 3차 이미지 5장 적용 (2026-09-09 오후)
+
+사용자가 만들어 온 5장을 전부 반영했다. 원본은 `assets/`, 가공본은 `npm run assets` → `public/assets/`.
+
+| 파일 | 규격 검사 | 등록 | 연결 |
+|---|---|---|---|
+| `assets/background/adventure-map-v2.png` | 1664×936, 알파 없음(배경이라 정상) | `BACKGROUNDS bg_world_map` 교체 | 지도 핀 좌표 조정: S2 (720,690)→(530,610) 네온시티 성 아래, S3 (880,430)→(980,620) 황금문 옆. ①④⑤는 그대로 맞음 |
+| `assets/character/boss-slime-sheet-v2.png` | 1145×1374, 알파 O, 5×6 30프레임 | `SHEETS mon_boss_slime` | `WAVE BOSS_SHEET`, `WaveSystem.spawn` 이 대장에만 이 시트. `WaveScene` 은 시트 없으면 초록 슬라임 1.8배 폴백. 전용 시트일 땐 배율 1.25·틴트 없음 |
+| `assets/character/character-action-poses-v2.png` | 1254×1254, 알파 O, 4×4 | `GRIDS char_poses` (행=캐릭터4, 열=준비·공중·앉기·착지) | **아직 연결 안 함** — `Player.jump/crouch` 는 여전히 트윈. 다음 작업 |
+| `assets/character/item-game-icons-v2.png` | 2172×362, 알파 O, 6×1 | `GRIDS fx_items` + `DOM_SHEETS drop_*` | `WaveScene.onDrop` 이모지 → 스프라이트(72px). `data/items.ts` 도감 아이콘도 `drop_*` 로 통일(보석 CSS 아이콘 제거) |
+| `assets/character/fx-dodge-pickup-heal-v2.png` | 1086×1448, 알파 O, 5×3 | `GRIDS fx_pickup` | `WaveScene.playFx(row,x,y)` 신설 → 회피(r0)·획득(r1)·회복(r2). ADD 블렌드라 크로마 잔여 어두운 테두리가 안 보인다 |
+
+- 프리로드: `StageIntroScene.MODE_ATLAS.wave` 에 `mon_boss_slime`·`fx_items`·`fx_pickup` 추가.
+- 알파 검사 결과(크로마키 제거 확인): 순수 크로마 잔류가 대장 슬라임 4.1%·이펙트 2.6%로 잡혔으나 프리뷰로 확인하니 **슬라임 몸 색·회복 이펙트 잎사귀**였다. 실제 잔여 없음. 아이템 시트는 0.000%.
+- 브라우저 실측 확인: 지도 핀 5개 랜드마크 정렬, 대장 슬라임(왕관·큰 크기) 20번째 등장, 아이템 6종 렌더, 회피 이펙트 재생.
+
+### 남은 이미지 작업
+- `char_poses` 를 `Player.jump/crouch` 에 연결(행 인덱스: brown_boy 0 / pink_girl 1 / glasses_boy 2 / blond_explorer 3).
+- 지도 배경이 바뀌었으니 `WorldMapScene` 의 비네트·발밑 글로우 색감 재확인.

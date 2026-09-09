@@ -67,6 +67,8 @@ const MOB: Record<MobKind, { sheet: string; name: string }> = {
   slime: { sheet: 'mon_green_slime', name: '초록 슬라임' },
   bat: { sheet: 'mon_letter_bat', name: '글자 박쥐' },
 };
+/** 대장 슬라임 전용 시트(왕관 쓴 큰 슬라임). 없으면 씬이 초록 슬라임으로 폴백한다 */
+export const BOSS_SHEET = 'mon_boss_slime';
 
 export interface WaveSnapshot extends BattleSnapshot {
   wave: number; // 1..4
@@ -173,7 +175,7 @@ export class WaveSystem {
     const m: WaveMonster = {
       uid: ++this.uidSeq,
       kind: effKind,
-      sheet: MOB[effKind].sheet,
+      sheet: isBoss ? BOSS_SHEET : MOB[effKind].sheet,
       name: isBoss ? '대장 슬라임' : MOB[effKind].name,
       word,
       x: 0,
