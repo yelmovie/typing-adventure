@@ -208,7 +208,10 @@ https://claude.ai/code/artifact/77a529d9-2b61-434e-957e-ee1f6526f5de — 14 지�
 
 ### 9-4. 이번에 확인한 실패
 
-- **NotebookLM 조회 실패** — `authenticated: false` (구글 쿠키 만료). `ask_question` 두 번 모두 "Could not find NotebookLM chat input". 되살리려면 사용자가 `setup_auth` 로 직접 구글 로그인해야 한다. 이번 세션은 이 문서(`docs/PLAN.md`)만 보고 진행함.
+- **NotebookLM MCP 서버는 더 이상 못 쓴다 (원인 확정)** — `ask_question` 이 항상 `"Could not find NotebookLM chat input"` 으로 실패한다. `get_health` 가 `authenticated: false` 라 처음엔 쿠키 만료로 봤지만, Chrome 전체 종료 → `cleanup_data(preserve_library:true)` → `setup_auth` 를 다 해도 브라우저 창조차 안 뜨고 즉시 실패했다.
+  진짜 원인: **NotebookLM 이 `notebook.google.com` 의 "Gemini Notebook" 으로 개편**되면서 서버가 찾는 옛 주소·옛 입력창 선택자가 안 맞는다. 인증 문제가 아니다.
+  **우회(확인됨):** `mcp__claude-in-chrome__*` 로 사용자의 실제 Chrome에서 노트북을 열면 이미 로그인돼 있어 그대로 질문할 수 있다 → https://notebooklm.google.com/notebook/3fe83052-fcdd-4d5d-945a-6c21904c23df
+  **덧붙여:** 그렇게 직접 물어본 결과 이 노트북에는 **타이핑 어드벤처 관련 기록이 없다**("기록 없음"). 즉 인수인계는 지금까지도 사실상 이 문서(`docs/PLAN.md`)가 해 왔다. 글로벌 `~/.claude/CLAUDE.md` 의 Memory routing 절에도 같은 내용을 적어뒀다.
 
 ## 10. 3차 이미지 5장 적용 (2026-09-09 오후)
 
