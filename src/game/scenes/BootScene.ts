@@ -27,6 +27,8 @@ export class BootScene extends Phaser.Scene {
     for (const bg of BACKGROUNDS) this.load.image(bg, `./assets/backgrounds/${bg}.webp`);
     for (const c of CHARACTERS) this.load.atlas(c.sheet, `./assets/sprites/${c.sheet}.webp`, `./assets/sprites/${c.sheet}.json`);
     for (const p of PETS) this.load.atlas(p.sheet, `./assets/sprites/${p.sheet}.webp`, `./assets/sprites/${p.sheet}.json`);
+    // 점프·앉기 포즈는 모든 전투 씬이 방향키를 받으므로 여기서 한 번만 받는다
+    this.load.atlas('char_poses', './assets/sprites/char_poses.webp', './assets/sprites/char_poses.json');
   }
 
   create() {

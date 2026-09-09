@@ -1,6 +1,16 @@
 import Phaser from 'phaser';
 import { registerSheetAnims, anim, type Dir } from './anims';
 
+/** char_poses(4×4) 행 = 캐릭터, 열 = 0 준비 · 1 공중 · 2 앉기 · 3 착지 */
+const POSE_ROW: Record<string, number> = {
+  char_brown_boy: 0,
+  char_pink_girl: 1,
+  char_glasses_boy: 2,
+  char_blond_explorer: 3,
+};
+/** 포즈 시트는 셀이 313px 로 캐릭터 시트(223px)보다 커서, 같은 키로 보이게 줄인다 */
+const POSE_SCALE = 0.8;
+
 /** 플레이어 캐릭터 (Phaser 스프라이트 래퍼). origin (0.5, 1) = 발 위치 */
 export class Player {
   readonly sprite: Phaser.GameObjects.Sprite;
@@ -14,10 +24,12 @@ export class Player {
   busy = false;
   /** true 면 동작이 끝난 뒤 idle 대신 걷기 애니로 돌아간다 (S1 처럼 계속 걸어가는 씬) */
   walking = false;
-  /** 방향키 상태(연출용) — 전용 프레임이 없어 트윈으로 표현 */
+  /** 방향키 상태(연출용). char_poses 시트가 있으면 전용 프레임, 없으면 트윈 스쿼시로 표현 */
   jumping = false;
   crouching = false;
   private idleTimer?: Phaser.Time.TimerEvent;
+  /** char_poses 안에서 이 캐릭터의 행. -1 이면 전용 포즈 없음(트윈 폴백) */
+  private poseRow = -1;
 
   constructor(scene: Phaser.Scene, x: number, y: number, sheet: string, scale = 1) {
     this.scene = scene;
@@ -25,6 +37,7 @@ export class Player {
     this.baseY = y;
     this.baseScale = scale;
     registerSheetAnims(scene, sheet);
+    this.poseRow = POSE_ROW[sheet] ?? -1;
     this.shadow = scene.add.ellipse(x, y + 6, 150 * scale, 40 * scale, 0x000000, 0.28);
     this.sprite = scene.add.sprite(x, y, sheet, 'idle_front').setOrigin(0.5, 1).setScale(scale);
     this.startBob();
@@ -40,6 +53,7 @@ export class Player {
   setSheet(sheet: string) {
     if (sheet === this.sheet) return;
     this.sheet = sheet;
+    this.poseRow = POSE_ROW[sheet] ?? -1;
     registerSheetAnims(this.scene, sheet);
     this.sprite.setTexture(sheet, `idle_${this.facing}`);
     this.sprite.anims.stop();
@@ -71,6 +85,7 @@ export class Player {
   }
 
   idle(dir: Dir = this.facing) {
+    this.ensureSheet();
     this.facing = dir;
     if (this.walking) {
       this.walk(dir, false);
@@ -89,7 +104,8 @@ export class Player {
     const schedule = () => {
       this.idleTimer = this.scene.time.delayedCall(2500 + Math.random() * 2000, () => {
         if (!this.sprite.active) return;
-        if (!this.busy) {
+        // 점프·앉기 포즈 중이면 건드리지 않는다(포즈 시트에는 idle 프레임이 없다)
+        if (!this.busy && !this.jumping && !this.crouching) {
           const r = Math.random();
           if (r < 0.35) {
             // 두리번: 잠깐 정면/뒤 보고 다시 오른쪽
@@ -111,6 +127,7 @@ export class Player {
 
   /** 대시 프레임(TURBO·FEVER 진입 등) */
   dash(ms = 600) {
+    this.ensureSheet();
     this.bob?.stop();
     this.sprite.setScale(this.baseScale);
     this.sprite.setFrame('dash');
@@ -120,6 +137,7 @@ export class Player {
 
   /** 실패 화면: 풀 죽은 포즈(피격 프레임 유지 + 고개 숙임) */
   sad() {
+    this.ensureSheet();
     this.busy = true;
     this.bob?.stop();
     this.sprite.anims.stop();
@@ -130,6 +148,7 @@ export class Player {
   }
 
   walk(dir: Dir, run = false) {
+    this.ensureSheet();
     this.facing = dir;
     this.bob?.stop();
     this.sprite.setScale(this.baseScale);
@@ -139,6 +158,7 @@ export class Player {
 
   /** 공격: 앞으로 살짝 대시 + 공격 프레임. onHit 시점에 콜백 */
   attack(onHit: () => void, onDone?: () => void) {
+    this.ensureSheet();
     if (this.busy) {
       onHit();
       onDone?.();
@@ -171,6 +191,7 @@ export class Player {
   }
 
   hit() {
+    this.ensureSheet();
     this.bob?.stop();
     this.sprite.setScale(this.baseScale);
     this.sprite.play(anim(this.sheet, 'hit'));
@@ -191,6 +212,7 @@ export class Player {
   }
 
   victory() {
+    this.ensureSheet();
     this.busy = true;
     this.bob?.stop();
     this.sprite.setScale(this.baseScale);
@@ -208,6 +230,7 @@ export class Player {
 
   /** 글자 하나 맞을 때: 짧은 찌르기(공격 프레임 + 앞으로 톡) — busy 중이면 살짝 흔들리기만 */
   jab() {
+    this.ensureSheet();
     if (this.busy) {
       this.scene.tweens.add({ targets: this.sprite, scaleX: this.baseScale * 1.06, duration: 50, yoyo: true });
       return;
@@ -228,13 +251,44 @@ export class Player {
     this.scene.tweens.add({ targets: [this.sprite, this.shadow], x: x0 + dx, duration: 130, yoyo: true, ease: 'Quad.easeOut' });
   }
 
-  /** 방향키 위: 점프(y 아크 + 스쿼시·스트레치) */
+  /** char_poses 전용 프레임으로 교체. 시트나 행이 없으면 false → 호출부가 트윈 폴백 */
+  private setPose(col: 0 | 1 | 2 | 3): boolean {
+    if (this.poseRow < 0 || !this.scene.textures.exists('char_poses')) return false;
+    this.bob?.stop();
+    this.sprite.anims.stop();
+    this.sprite.setTexture('char_poses', `c${col}_r${this.poseRow}`);
+    this.sprite.setFlipX(false);
+    this.sprite.setScale(this.baseScale * POSE_SCALE);
+    return true;
+  }
+
+  /**
+   * 포즈 프레임이 떠 있으면 원래 시트로 되돌린다.
+   * 점프·앉기 도중에 피격·걷기 같은 다른 동작이 끼어들 수 있는데,
+   * 그때 setFrame('idle_front') 을 하면 char_poses 에는 그 프레임이 없어 그림이 깨진다.
+   */
+  private ensureSheet() {
+    if (this.sprite.texture.key === this.sheet) return;
+    this.sprite.setTexture(this.sheet, `idle_${this.facing}`);
+    this.sprite.setScale(this.baseScale);
+  }
+
+  /** 포즈 해제 → 원래 시트의 idle(또는 걷기)로 */
+  private clearPose() {
+    this.ensureSheet();
+    if (!this.busy) this.idle(this.facing);
+  }
+
+  /** 방향키 위: 점프. 전용 포즈가 있으면 준비 → 공중 → 착지 프레임, 없으면 스쿼시 트윈 */
   jump(ms = 420) {
     if (this.jumping) return;
     this.jumping = true;
     const y0 = this.baseY;
     this.bob?.stop();
-    this.scene.tweens.add({ targets: this.sprite, scaleY: this.baseScale * 0.82, scaleX: this.baseScale * 1.15, duration: 90, yoyo: true, ease: 'Quad.easeOut' });
+    const posed = this.setPose(1);
+    if (!posed) {
+      this.scene.tweens.add({ targets: this.sprite, scaleY: this.baseScale * 0.82, scaleX: this.baseScale * 1.15, duration: 90, yoyo: true, ease: 'Quad.easeOut' });
+    }
     this.scene.tweens.add({
       targets: this.sprite,
       y: y0 - 130,
@@ -244,17 +298,33 @@ export class Player {
       onComplete: () => {
         this.sprite.setY(y0);
         this.jumping = false;
+        if (posed) {
+          // 착지 프레임을 잠깐 보여주고 원복 (앉기 중이면 앉기 포즈를 유지)
+          if (this.crouching) { this.setPose(2); return; }
+          this.setPose(3);
+          this.scene.time.delayedCall(130, () => {
+            if (!this.sprite.active || this.jumping || this.crouching) return;
+            this.clearPose();
+          });
+          return;
+        }
         if (!this.busy) this.startBob();
       },
     });
   }
 
-  /** 방향키 아래: 앉기(scaleY 스쿼시 유지, 키를 떼면 원복) */
+  /** 방향키 아래: 앉기. 전용 포즈가 있으면 그 프레임, 없으면 scaleY 스쿼시 */
   crouch(on: boolean) {
     if (this.crouching === on) return;
     this.crouching = on;
     this.bob?.stop();
     const y0 = this.baseY;
+    if (this.poseRow >= 0 && this.scene.textures.exists('char_poses')) {
+      if (on) this.setPose(2);
+      else if (!this.jumping) this.clearPose();
+      this.sprite.setY(y0);
+      return;
+    }
     if (on) {
       this.scene.tweens.add({ targets: this.sprite, scaleY: this.baseScale * 0.62, scaleX: this.baseScale * 1.08, y: y0 + 24 * this.baseScale, duration: 110, ease: 'Quad.easeOut' });
     } else {
@@ -277,6 +347,7 @@ export class Player {
   }
 
   cheer() {
+    this.ensureSheet();
     this.bob?.stop();
     this.sprite.setScale(this.baseScale);
     this.sprite.play(anim(this.sheet, 'cheer'));

@@ -221,7 +221,7 @@ https://claude.ai/code/artifact/77a529d9-2b61-434e-957e-ee1f6526f5de — 14 지�
 |---|---|---|---|
 | `assets/background/adventure-map-v2.png` | 1664×936, 알파 없음(배경이라 정상) | `BACKGROUNDS bg_world_map` 교체 | 지도 핀 좌표 조정: S2 (720,690)→(530,610) 네온시티 성 아래, S3 (880,430)→(980,620) 황금문 옆. ①④⑤는 그대로 맞음 |
 | `assets/character/boss-slime-sheet-v2.png` | 1145×1374, 알파 O, 5×6 30프레임 | `SHEETS mon_boss_slime` | `WAVE BOSS_SHEET`, `WaveSystem.spawn` 이 대장에만 이 시트. `WaveScene` 은 시트 없으면 초록 슬라임 1.8배 폴백. 전용 시트일 땐 배율 1.25·틴트 없음 |
-| `assets/character/character-action-poses-v2.png` | 1254×1254, 알파 O, 4×4 | `GRIDS char_poses` (행=캐릭터4, 열=준비·공중·앉기·착지) | **아직 연결 안 함** — `Player.jump/crouch` 는 여전히 트윈. 다음 작업 |
+| `assets/character/character-action-poses-v2.png` | 1254×1254, 알파 O, 4×4 | `GRIDS char_poses` (행=캐릭터4, 열=준비·공중·앉기·착지) | `Player.jump` → 공중(c1) → 착지(c3, 130ms) → 원복, `Player.crouch` → 앉기(c2). `BootScene` 에서 전역 로드(전투 씬 6개 모두 방향키를 받으므로) |
 | `assets/character/item-game-icons-v2.png` | 2172×362, 알파 O, 6×1 | `GRIDS fx_items` + `DOM_SHEETS drop_*` | `WaveScene.onDrop` 이모지 → 스프라이트(72px). `data/items.ts` 도감 아이콘도 `drop_*` 로 통일(보석 CSS 아이콘 제거) |
 | `assets/character/fx-dodge-pickup-heal-v2.png` | 1086×1448, 알파 O, 5×3 | `GRIDS fx_pickup` | `WaveScene.playFx(row,x,y)` 신설 → 회피(r0)·획득(r1)·회복(r2). ADD 블렌드라 크로마 잔여 어두운 테두리가 안 보인다 |
 
