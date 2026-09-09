@@ -309,9 +309,10 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
     this.el.classList.toggle('fever', level >= 2);
     this.el.classList.toggle('power', level === 1);
     AudioManager.setRate(level >= 2 ? 1.15 : 1);
+    // FEVER 진입은 화면 전체가 같이 바뀌는 순간이라 대기시키지 않고 바로 띄운다
     if (level === 1) this.judge('POWER!', 'perfect');
-    if (level === 2) { this.judge('FEVER TIME!', 'fever big'); AudioManager.sfx('fever'); }
-    if (level === 3) { this.judge('FINAL FEVER!', 'fever big'); AudioManager.sfx('fever'); }
+    if (level === 2) { this.judgeNow('FEVER TIME!', 'fever big'); AudioManager.sfx('fever'); }
+    if (level === 3) { this.judgeNow('FINAL FEVER!', 'fever big'); AudioManager.sfx('fever'); }
   }
 
   private flash(cls: 'right' | 'wrong') {
@@ -324,16 +325,21 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
   }
 
   /**
-   * S3(편지)는 문장 하나를 맞힐 때 PERFECT·자물쇠 해제·비밀방 발견이 같은 프레임에 떠서 3단으로 쌓이는데,
-   * 그러면 리본이 양피지 본문 줄까지 올라와 읽던 문장을 덮는다. 편지 모드에서만 큐에 넣어 한 번에 하나씩 보여준다.
+   * 판정·이벤트 팝업은 큐로 하나씩 보여준다.
+   * 동시에 여러 개가 뜨면(S3 = PERFECT + 자물쇠 + 비밀방, S1 클리어 = FEVER + 펫 스킬 + 소탕 + 클리어)
+   * 78px 씩 위로 쌓이다가 편지 본문·캐릭터 위까지 올라와 서로 겹쳐 읽을 수 없게 된다.
    */
   private judge(text: string, cls: string) {
-    if (this.el.classList.contains('mode-letter')) {
-      this.judgeQueue.push([text, cls]);
-      this.pumpJudge();
-      return;
-    }
-    this.showJudge(text, cls);
+    this.judgeQueue.push([text, cls]);
+    this.pumpJudge();
+  }
+
+  /** 지금 당장 보여줘야 하는 팝업(FEVER 진입 등) — 대기 중인 것을 버리고 앞으로 나온다 */
+  private judgeNow(text: string, cls: string) {
+    this.judgeQueue.length = 0;
+    window.clearTimeout(this.judgeTimer);
+    this.judgeTimer = 0;
+    this.judge(text, cls);
   }
 
   private pumpJudge() {
@@ -345,7 +351,7 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
     this.judgeTimer = window.setTimeout(() => {
       this.judgeTimer = 0;
       this.pumpJudge();
-    }, 700);
+    }, 380);
   }
 
   private showJudge(text: string, cls: string) {
@@ -388,6 +394,11 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
 
   private finish(cleared: boolean, s: BattleSnapshot, reason?: 'time' | 'hp') {
     if (!this.battle) return;
+    // 클리어 연출(씬의 STAGE CLEAR)이 대기 중인 팝업에 가리지 않게 큐를 비운다
+    this.judgeQueue.length = 0;
+    window.clearTimeout(this.judgeTimer);
+    this.judgeTimer = 0;
+    for (const old of this.el.querySelectorAll<HTMLElement>('.judge-pop')) old.remove();
     window.clearInterval(this.tickTimer);
     this.typing?.setEnabled(false);
     this.hud?.update(s);

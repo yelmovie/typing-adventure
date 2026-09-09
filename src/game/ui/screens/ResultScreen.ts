@@ -24,10 +24,12 @@ export class ResultScreen extends Screen<{ result: BattleResult }> {
 
     const stars = h('div', { class: 'stars stars-lg result-stars' }, [1, 2, 3].map(() => h('span', { class: 'star' }, '★')));
 
+    // 배너는 패널 바깥(.result-wrap 기준)에 둔다. 패널이 길어지면 스크롤되는데,
+    // 패널 안에 있으면 top:-58px 인 배너가 overflow 에 잘린다.
+    const banner = h('div', { class: `result-banner ${r.cleared ? '' : 'fail'}` }, r.cleared ? (st.index === 5 ? '세상에 글자를 되찾았다!' : st.mode === 'daily' ? '오늘의 도전 완료!' : 'STAGE CLEAR!') : '다시 도전!');
     const panel = h(
       'div',
       { class: `panel ${r.cleared ? '' : 'panel-deep'} result-panel` },
-      h('div', { class: `result-banner ${r.cleared ? '' : 'fail'}` }, r.cleared ? (st.index === 5 ? '세상에 글자를 되찾았다!' : st.mode === 'daily' ? '오늘의 도전 완료!' : 'STAGE CLEAR!') : '다시 도전!'),
       h('div', { class: 'result-sub' }, st.mode === 'daily' ? `${st.name} · ${r.dailyNew ? '오늘 최고 기록 갱신!' : '오늘 기록에 못 미쳤어요'}` : `STAGE ${st.index} · ${st.name}${r.cleared ? '' : r.failReason === 'time' ? ' · 시간이 다 됐어요' : ' · HP가 0이 됐어요'}`),
       stars,
       h('div', { class: 'result-star-hint' }, st.mode === 'daily' ? '내일도 새 낱말 20개가 기다려요' : r.cleared ? (r.stars >= 3 ? '완벽해요! 별 3개 달성!' : r.stars === 2 ? `별 3개 조건: 정확도 95% + ${fmt.time(st.goalTimeSec)} 안에 클리어 또는 ${st.goalCombo}콤보` : '별 2개 조건: 정확도 90% 이상') : `낱말 ${r.wordsDone}개를 물리쳤어요. 다시 도전하면 더 잘할 수 있어요!`),
@@ -69,7 +71,15 @@ export class ResultScreen extends Screen<{ result: BattleResult }> {
         h('button', { class: 'btn btn-gray btn-md', onclick: () => { AudioManager.sfx('click'); void navigate('home'); } }, [icon('home'), ' 홈으로']),
       ),
     );
-    this.el.append(h('div', { class: 'result-wrap' }, panel));
+    // 배지가 많으면 내용이 화면을 넘친다. 본문만 스크롤 영역으로 감싸고
+    // 버튼 줄(다시 도전·다음·홈으로)은 패널 바닥에 고정해 항상 보이게 한다.
+    const actions = panel.lastElementChild;
+    if (actions) {
+      const body = h('div', { class: 'result-body' });
+      while (panel.firstChild && panel.firstChild !== actions) body.append(panel.firstChild);
+      panel.prepend(body);
+    }
+    this.el.append(h('div', { class: 'result-wrap' }, banner, panel));
     this.el.append(commonTopBar({ hideHome: true }));
 
     // 별 순차 점등
