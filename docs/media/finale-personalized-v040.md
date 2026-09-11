@@ -39,3 +39,15 @@
 개발 서버와 같은 Chrome 프로세스를 여러 케이스가 재사용하던 검사에서 미디어 대기·스크린샷 timeout이 발생했다. 케이스별 Chrome 프로세스를 새로 여는 방식으로 검사 간 자원을 분리했으며, 같은 pause/전환 케이스는 정상 통과했다. 실제 배포 빌드의 나머지 영상·인트로 회귀 결과는 완료 후 아래에 기록한다.
 
 Opening 소스 회귀 **6/6 PASS** (`tmp/opening-personalized-isolated-final/results.json`). 실제 8초 자동 재생·종료, pause/resume/skip, 튜토리얼 왕복 후 강제 재상영 없음과 다시보기, 915×412 동작 줄이기, 자동 재생 거부 후 건너뛰기, 요청 실패 후 홈·연습 접근, 영어 문구·Tab 순환을 확인했다. 영상 프레임이 전체 플레이어 영역을 유지하고 `contain`으로 표시되는 것도 각 진입에서 확인했다. 915 화면 캡처를 직접 검토했다.
+
+## 통합 배포 빌드 확인
+
+- 대상: `http://127.0.0.1:4180/`, `tmp/release-v040-final`, 제공된 manifest version `1bb5c1ef84256433`.
+- Finale production **8/8 PASS**, 종료 코드 0 (`tmp/finale-production-v040-final/results.json`). 실제 1920×1080/8초 무음 영상, pause/resume/Tab/Escape, 1024 동작 줄이기·직접 재생, 자동 재생 거부 복구, MP4 요청 실패, 15초 대기 만료, 아틀라스 요청 실패 시 같은 캐릭터·펫 초상화 표시를 확인했다.
+- 위 production8과 소스 모듈 접근이 필요한 전환2를 합쳐 서로 다른 lifecycle 시나리오 **10개 PASS**다. 소스에서 먼저 수행한 pause 단독 검사는 중복 합산하지 않는다.
+- deliberate request-failure 주입이 service worker cache에 가로막히지 않게 미디어 검사 context는 `serviceWorkers: 'block'`을 썼다. 실제 PWA·오프라인 검증은 프로젝트의 별도 오프라인 감사 결과를 따른다.
+- 배포 화면 `tmp/finale-production-v040-final/finale-desktop.png`를 직접 검토했다. 선택 캐릭터·펫과 실제 재생 중인 축하 영상이 분리되고 배경 및 문구가 올바르게 표시된다.
+
+Opening 통합 production **6/6 PASS**, 종료 코드 0 (`tmp/opening-production-v040-final/results.json`). 소스에서 검증한 여섯 흐름을 4180 배포 빌드에서도 모두 재확인했다. 제품 미디어 파일은 128조합 통과 이후 동결한 상태이며, 이후 변경은 검사 하네스와 이 문서뿐이다.
+
+최종 묶음은 캐스트 128 상태, 서로 다른 Finale lifecycle 10 시나리오(소스 전환2 + production8), Opening production6 시나리오다. 테스트 브라우저는 모두 닫았다. 공개 도메인의 OG 절대주소와 외부 공유 미리보기만 배포 담당자의 최종 URL 확정 단계에 남는다. 기존 Suno/Higgsfield 사용권 확인 대기 상태는 변경하지 않았다.

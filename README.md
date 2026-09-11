@@ -1,5 +1,7 @@
 # 타이핑 어드벤처 (Typing Adventure)
 
+플레이: [타이핑 어드벤처](https://typing-adventure-six.vercel.app/) · 최신 납품 기준: [v0.4.0 안내](docs/delivery/HANDOFF.md)
+
 초등학생용 한국어·영어 타자 판타지 모험 웹게임(v0.4.0). 사라진 글자를 되찾기 위해 5개 스테이지를 타이핑으로 돌파한다.
 정적 웹앱이며 기록은 브라우저 localStorage 에만 저장된다(서버·로그인·개인정보 수집 없음).
 

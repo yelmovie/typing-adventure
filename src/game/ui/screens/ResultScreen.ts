@@ -1,4 +1,5 @@
 import { Screen } from '../Screen';
+import { currentDailyKind } from '../../systems/DailySystem';
 import { h, fmt, icon, uiImg } from '../../util/dom';
 import { navigate } from '../../Game';
 import { getStage, getStageByIndex } from '../../data/stages';
@@ -93,7 +94,7 @@ export class ResultScreen extends Screen<{ result: BattleResult }> {
     });
     const actions = h('div', { class: 'result-actions' },
       st.index === 5 && r.cleared ? h('button', { class: 'btn btn-primary result-main', onclick: () => certificateModal() }, copy('완주 영상 · 인증서', 'Movie & certificate')) : null,
-      h('button', { class: `btn ${r.cleared ? 'btn-sky' : 'btn-primary result-main'}`, onclick: () => { AudioManager.sfx('click'); void navigate('battle', { stageId: st.id, remix: r.remix }); } }, copy('바로 다시 도전', 'Play again')),
+      h('button', { class: `btn ${r.cleared ? 'btn-sky' : 'btn-primary result-main'}`, onclick: () => { AudioManager.sfx('click'); void navigate('battle', { stageId: st.id, remix: r.remix, dailyKind: st.id === 'daily' ? currentDailyKind() : undefined }); } }, copy('바로 다시 도전', 'Play again')),
       unlockedNext ? h('button', { class: 'btn btn-primary', onclick: () => void navigate('worldmap', { focusIndex: next!.index }) }, icon('flag'), copy(' 다음 지역', ' Next region'))
         : h('button', { class: 'btn btn-gold', onclick: () => void navigate('worldmap', { focusIndex: st.index }) }, icon('pin'), copy(' 지도로', ' Map')));
     const panel = h('div', { class: 'panel panel-deep result-panel result-fit-panel' }, heading, tabs, h('div', { class: 'result-body' }, ...panes), actions);
