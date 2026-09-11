@@ -7,7 +7,7 @@ import type { ContentUnit, Difficulty, StageDef, PetDef } from '../types';
 import { calcWordScore } from './TypingStats';
 import { TypingRun, type Emit } from './TypingRun';
 import { countStrokes } from '../util/hangul';
-import type { BattleSnapshot, TypingMode } from './BattleSystem';
+import type { BattleSnapshot, TypingMode } from './BattleState';
 
 export const DAILY = { words: 20, sentences: 10 };
 export type DailyKind = 'word' | 'sentence' | 'long';
@@ -81,7 +81,7 @@ export class DailySystem implements TypingMode {
     this.stage = stage;
     this.difficulty = difficulty;
     this.emit = emit;
-    this.words = words;
+    this.words = [...words];
     this.kind = kind;
     activeKind = kind;
     this.run = new TypingRun({ stage, difficulty, pet, next: () => this.words[this.idx] ?? null, emit });
@@ -120,14 +120,7 @@ export class DailySystem implements TypingMode {
     if (!t) return false;
     const r = this.run.skip();
     if (!r) return false;
-    this.idx++;
-    if (this.idx >= this.words.length) {
-      this.finished = true;
-      this.running = false;
-      this.run.stats.stop();
-      this.emit('STAGE_CLEAR', this.snapshot());
-      return true;
-    }
+    this.words.push(this.words.splice(this.idx, 1)[0]);
     this.run.advance();
     this.emit('TARGET_CHANGED', this.snapshot());
     return true;
@@ -140,22 +133,14 @@ export class DailySystem implements TypingMode {
     const r = this.run.submit(value, usedBackspace);
     if (!r) return;
     if (!r.correct) {
-      this.emit('INPUT_WRONG', { typed: value, target: t, hpLoss: 0, timeLoss: 0, forgiven: r.forgiven, shielded: false, snapshot: this.snapshot() });
-      this.idx++; // 틀린 낱말은 넘긴다
-      if (this.idx >= this.words.length) {
-        this.finished = true;
-        this.running = false;
-        this.run.stats.stop();
-        this.emit('STAGE_CLEAR', this.snapshot());
-        return;
-      }
-      this.run.advance();
+      this.emit('INPUT_WRONG', { typed: value, target: t, hpLoss: 0, timeLoss: 0, forgiven: r.forgiven, shielded: this.run.isShielded(), snapshot: this.snapshot() });
+      // 오늘의 기록도 정확히 완료한 입력으로만 채운다. 같은 목표를 다시 고칠 수 있다.
       this.emit('TARGET_CHANGED', this.snapshot());
       return;
     }
     this.score += calcWordScore(this.run.combo, r.perfect, countStrokes(t.text));
     this.idx++;
-    this.emit('INPUT_CORRECT', { target: t, perfect: r.perfect, damage: 0, gained: 0, combo: this.run.combo, mult: r.mult, snapshot: this.snapshot() });
+    this.emit('INPUT_CORRECT', { target: t, perfect: r.perfect, corrected: r.corrected, damage: 0, gained: 0, combo: this.run.combo, mult: r.mult, snapshot: this.snapshot() });
     if (this.idx >= this.words.length) {
       this.finished = true;
       this.running = false;

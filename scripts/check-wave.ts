@@ -29,13 +29,15 @@ assert.ok(t0.dead);
 assert.equal(w.defeated, 1);
 assert.equal(count('WAVE_DEFEAT'), 1);
 
-// 3. 시간이 흐르면 등장 간격대로 스폰, 최대 4마리
+// 3. 시간이 흐르면 스폰되고, 화면 위 마릿수 상한을 넘지 않는다
 for (let i = 0; i < 150; i++) { w.tick(0.1); if (i % 30 === 0 && w.target) w.commit(w.target.word.text[0]); } // 15초, 3초마다 한 글자 쳐서 무입력 감소는 안 걸리게
 assert.ok(w.monsters.filter((m) => !m.dead).length <= WAVE.maxOnField);
-assert.ok(w.spawnedCount() >= 5, '15초면 5마리 이상 등장');
+assert.ok(w.spawnedCount() >= 3, '15초면 최소한 워밍업 3마리는 등장');
 
 // 4. 접촉: x가 1에 닿으면 HP-10, 밀려남
-// (30초 동안 아무도 안 쳤으니 이미 몇 번 닿았을 수 있음 → 증가분만 본다)
+// 앞 루프에서 이미 몇 번 닿았을 수 있다. 무적·기운내기를 끄고 이 한 번의 접촉만 본다.
+w.invulnLeft = 0;
+w.rallyUsed = true;
 const m = w.monsters.find((x) => !x.dead && x.pushed === 0)!;
 m.x = 0.999;
 const hp0 = w.playerHp;
@@ -44,6 +46,7 @@ w.tick(0.1);
 assert.equal(w.playerHp, hp0 - WAVE.touchHp);
 assert.ok(m.x < 0.6 && m.pushed > 0, '밀려남');
 assert.equal(count('WAVE_TOUCH'), touches0 + 1);
+assert.ok(w.invulnLeft > 0, '맞으면 무적 시간이 켜진다');
 
 // 5. 오타 → 콤보 0, HP -3(위험·보상 루프)
 const hp1 = w.playerHp;
@@ -53,7 +56,7 @@ assert.equal(w.run.combo, 0);
 
 // 6. 20마리 처치 → 문 개방 + 클리어 (광역은 TypingRun 테스트의 FEVER 진입에 의존)
 let guard = 0;
-while (!w.finished && guard++ < 200) {
+while (!w.finished && guard++ < 800) {
   const t = w.target;
   if (!t) { w.tick(0.5); continue; }
   w.submit(t.word.text, false);
@@ -78,7 +81,7 @@ assert.equal(count('STAGE_CLEAR'), 1);
   assert.equal(w2.run.stats.wrongStrokes, wrongBefore, '점프는 오타로 안 센다');
   for (let i = 0; i < 10; i++) w2.tick(0.5);
   let guard = 0;
-  while (w2.run.combo < WAVE.sweepEvery && !w2.finished && guard++ < 60) { if (w2.target) w2.submit(w2.target.word.text, false); else w2.tick(0.5); }
+  while (w2.run.combo < WAVE.sweepEvery && !w2.finished && guard++ < 400) { if (w2.target) w2.submit(w2.target.word.text, false); else w2.tick(0.5); }
   assert.equal(c2('WAVE_SWEEP'), 1, '5콤보 소탕 1회');
   assert.ok(w2.monsters.every((m) => m.dead), '화면의 적 전부 처치');
 }
@@ -113,7 +116,7 @@ assert.equal(count('STAGE_CLEAR'), 1);
 
   // 박쥐가 나올 때까지 목표를 맞혀 웨이브를 진행시킨다(회피 꺼짐 → 접촉은 정상 피해, HP는 넉넉함)
   let guard2 = 0;
-  while (!w3.monsters.some((m) => m.kind === 'bat') && !w3.finished && guard2++ < 400) {
+  while (!w3.monsters.some((m) => m.kind === 'bat') && !w3.finished && guard2++ < 1200) {
     if (w3.target) w3.submit(w3.target.word.text, false);
     w3.tick(0.1);
   }
@@ -166,7 +169,7 @@ assert.equal(count('STAGE_CLEAR'), 1);
   const w7 = new WaveSystem(stage, 'normal', pet, words, () => {});
   w7.start();
   let guard3 = 0;
-  while (!w7.finished && guard3++ < 200) {
+  while (!w7.finished && guard3++ < 800) {
     const t = w7.target;
     if (!t) { w7.tick(0.5); continue; }
     w7.submit(t.word.text, false);
@@ -179,6 +182,89 @@ assert.equal(count('STAGE_CLEAR'), 1);
   assert.equal(boss!.name, '대장 슬라임');
   assert.equal(boss!.maxHp, 4 * WAVE.bossHpMul, '4음절 대장 낱말 × HP배율');
   assert.ok(boss!.speed < (1 / WAVE.travelSec.slime), '대장은 일반 슬라임보다 느림');
+}
+
+// 11. 속도 적응형 스폰: 빨리 치는 아이에겐 촘촘하게, 느린 아이에겐 뜸하게 나온다
+{
+  const SEC = 24;
+  // 느린 아이: 8초에 한 낱말
+  const slow = new WaveSystem(stage, 'normal', pet, words, () => {});
+  slow.start();
+  for (let i = 0; i < SEC * 10 && !slow.finished; i++) {
+    slow.tick(0.1);
+    if (i % 80 === 79 && slow.target) slow.submit(slow.target.word.text, false);
+  }
+  const slowSpawns = slow.spawnedCount();
+  const slowField = slow.monsters.filter((m) => !m.dead).length;
+
+  // 빠른 아이: 1.5초에 한 낱말
+  const fast = new WaveSystem(stage, 'normal', pet, words, () => {});
+  fast.start();
+  let fastSpawns = 0;
+  for (let i = 0; i < SEC * 10 && !fast.finished; i++) {
+    fast.tick(0.1);
+    if (i % 15 === 14 && fast.target) fast.submit(fast.target.word.text, false);
+    fastSpawns = Math.max(fastSpawns, fast.spawnedCount());
+  }
+
+  assert.ok(fastSpawns > slowSpawns, `빠른 아이에게 더 많이 등장 (빠름 ${fastSpawns} > 느림 ${slowSpawns})`);
+  assert.ok(slowField <= 3, `느린 아이 화면엔 3마리 이하만 남는다 (실제 ${slowField})`);
+  assert.ok(slowSpawns >= 3, '느려도 워밍업 3마리는 나온다');
+}
+
+// 12. 피격 무적: 여러 마리가 동시에 닿아도 한 번만 깎인다
+{
+  const w8 = new WaveSystem(stage, 'normal', pet, words, () => {});
+  w8.start();
+  for (let i = 0; i < 200; i++) w8.tick(0.1); // 여러 마리 등장
+  w8.rallyUsed = true; // 기운내기와 섞이지 않게
+  w8.invulnLeft = 0;
+  const alive = w8.monsters.filter((m) => !m.dead).slice(0, 3);
+  assert.ok(alive.length >= 2, '두 마리 이상 살아 있어야 이 검사가 의미 있다');
+  const hpA = w8.playerHp;
+  for (const m of alive) { m.x = 0.999; m.pushed = 0; }
+  w8.tick(0.05); // 같은 프레임에 전부 접촉
+  assert.equal(w8.playerHp, hpA - WAVE.touchHp, '동시에 닿아도 피해는 1회분');
+
+  // 무적이 끝나면 다시 맞는다
+  for (let i = 0; i < Math.ceil(WAVE.hitInvulnSec / 0.1) + 2; i++) w8.tick(0.1);
+  assert.equal(w8.invulnLeft, 0, '무적이 끝났다');
+  const hpB = w8.playerHp;
+  const m8 = w8.monsters.find((m) => !m.dead)!;
+  m8.pushed = 0;
+  m8.x = 0.999;
+  w8.tick(0.05);
+  assert.equal(w8.playerHp, hpB - WAVE.touchHp, '무적이 끝나면 정상 피해');
+}
+
+// 13. 기운내기: HP 가 문턱 아래로 처음 떨어지면 판당 1회 발동 — 회복 + 적 정지
+{
+  const ev9: [string, unknown][] = [];
+  const w9 = new WaveSystem(stage, 'normal', pet, words, (ev, d) => ev9.push([ev, d]));
+  w9.start();
+  for (let i = 0; i < 100; i++) w9.tick(0.1);
+  const c9 = (ev: string) => ev9.filter((e) => e[0] === ev).length;
+  assert.equal(c9('RALLY'), 0, '아직 HP 가 넉넉하면 발동 안 함');
+
+  w9.playerHp = WAVE.rallyAtHp + WAVE.touchHp; // 한 대 맞으면 문턱 아래로
+  w9.invulnLeft = 0;
+  const m9 = w9.monsters.find((m) => !m.dead)!;
+  m9.pushed = 0;
+  m9.x = 0.999;
+  w9.tick(0.05);
+  assert.equal(c9('RALLY'), 1, '문턱 아래로 떨어지면 발동');
+  assert.equal(w9.playerHp, WAVE.rallyAtHp + WAVE.rallyHeal, '맞은 뒤 회복량만큼 돌아온다');
+  assert.ok(w9.monsters.filter((m) => !m.dead).every((m) => m.pushed > 0), '화면의 적이 전부 멈춘다');
+  assert.ok(w9.rallyUsed);
+
+  // 판당 1회 — 다시 떨어져도 발동하지 않는다
+  w9.playerHp = 20;
+  w9.invulnLeft = 0;
+  const m9b = w9.monsters.find((m) => !m.dead)!;
+  m9b.pushed = 0;
+  m9b.x = 0.999;
+  w9.tick(0.05);
+  assert.equal(c9('RALLY'), 1, '판당 1회만');
 }
 
 console.log('check-wave: all passed');

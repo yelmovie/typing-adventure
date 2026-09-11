@@ -1,0 +1,83 @@
+.tutorial { color: #f8f6ef; }
+.tutorial-header { position: absolute; inset: 34px 48px auto; display: flex; align-items: center; justify-content: space-between; font-size: max(25px, calc(18 * var(--ui-unit))); }
+.tutorial .btn { min-height: calc(48 * var(--ui-unit)); font-size: max(24px, calc(17 * var(--ui-unit))); }
+.tutorial-scene-caption { position: absolute; left: 95px; top: 210px; width: 630px; text-align: center; display: grid; gap: 16px; }
+.tutorial-scene-caption strong { font-size: max(36px, calc(24 * var(--ui-unit))); color: #ffdf82; }
+.tutorial-scene-caption span { font-size: max(24px, calc(17 * var(--ui-unit))); }
+.tutorial-panel { position: absolute; top: 145px; right: 65px; width: 1050px; bottom: 55px; box-sizing: border-box; padding: 36px 44px; overflow-y: auto; overscroll-behavior: contain; border: 2px solid #879fa04d; border-radius: 24px; background: linear-gradient(155deg,#192e39f5,#13252df5); box-shadow: 0 24px 80px #0007; }
+.tutorial-eyebrow { display: flex; justify-content: space-between; font-size: max(22px, calc(16 * var(--ui-unit))); color: #bce7d6; }
+.tutorial-steps { display: flex; gap: 14px; padding: 0; list-style: none; margin: 20px 0; }
+.tutorial-steps li { border: 2px solid #667d83; border-radius: 50%; width: 42px; height: 42px; display: grid; place-items: center; font-size: 24px; color: #cbd7dc; }
+.tutorial-steps .active { border-color: #ffdf82; color: #ffdf82; }
+.tutorial-steps .done { background: #ffdf82; border-color: #ffdf82; color: #142a32; }
+.tutorial h1 { margin: 16px 0; font-size: max(38px, calc(25 * var(--ui-unit))); line-height: 1.25; }
+.tutorial-instruction { font-size: max(27px, calc(19 * var(--ui-unit))); line-height: 1.55; margin: 12px 0 20px; }
+.tutorial-target { font-size: max(50px, calc(30 * var(--ui-unit))); letter-spacing: 0.04em; padding: 20px 24px; background: #0b1b22; border-radius: 14px; color: #fff0bb; white-space: pre-wrap; }
+.tutorial-target .done { color: #a4f0c6; }
+.tutorial-target .now { text-decoration: underline; text-underline-offset: 0.2em; }
+.tutorial-target .bad { color: #ffafb0; text-decoration: underline; text-decoration-thickness: 3px; }
+.tutorial-hint { font-size: max(22px, calc(16 * var(--ui-unit))); line-height: 1.5; color: #d8e7ec; margin: 17px 0; }
+.tutorial-form { display: grid; grid-template-columns: 1fr auto; gap: 10px 14px; }
+.tutorial-form label { grid-column: 1 / -1; font-size: max(22px, calc(16 * var(--ui-unit))); }
+#tutorial-input { width: 100%; min-width: 0; box-sizing: border-box; min-height: calc(48 * var(--ui-unit)); border-radius: 12px; padding: 10px 16px; border: 2px solid #a1c2cc; color: #16303a; background: #f6f8f2; font: inherit; font-size: max(30px, calc(22 * var(--ui-unit))); }
+#tutorial-input:focus { outline: 4px solid #ffdf82; outline-offset: 3px; }
+#tutorial-input[aria-invalid=true] { border-color: #c63c54; }
+.tutorial-form kbd { margin-left: 12px; font-size: 0.75em; }
+.tutorial-feedback { min-height: 2.8em; font-size: max(23px, calc(17 * var(--ui-unit))); line-height: 1.45; margin: 16px 0 10px; color: #b8efd8; }
+.tutorial-next { width: 100%; }
+.tutorial [hidden] { display: none !important; }
+.small-display .tutorial-panel { top: 150px; padding: 26px 30px; }
+.small-display .tutorial-steps { margin: 10px 0; }
+.small-display .tutorial h1 { margin: 12px 0; }
+.small-display .tutorial-target { padding: 12px 20px; }
+.small-display .tutorial-instruction { margin: 10px 0; }
+.short-display .tutorial-scene-caption { top: 255px; }
+.tutorial-panel { padding: 24px 32px; }
+.tutorial-steps { margin: 8px 0; }
+.tutorial h1 { margin: 8px 0; }
+.tutorial-instruction { margin: 8px 0; line-height: 1.35; }
+.tutorial-target-wrap { position: relative; }
+.tutorial-target-wrap .tutorial-target { padding: 12px 100px 12px 20px; }
+.tutorial-prose .tutorial-target { font-size: max(34px, calc(23 * var(--ui-unit))); line-height: 1.4; word-break: keep-all; }
+.tutorial-item-progress { position: absolute; right: 20px; top: 16px; font-size: max(20px, calc(14 * var(--ui-unit))); color: #bce7d6; }
+.tutorial-hint { margin: 10px 0; }
+.tutorial-feedback { min-height: 1.45em; margin: 10px 0; }
+.tutorial-keyboard { padding: 12px 16px; border: 1px solid #88b6aa55; border-radius: 16px; background: #0b1b2280; }
+.tutorial-keyboard-legend { margin-bottom: 8px; color: #c3d9d6; font-size: max(20px, calc(13 * var(--ui-unit))); }
+.tutorial-keyboard .kbd-guide { position: static; width: 100%; box-sizing: border-box; padding: 0; border: 0; background: none; box-shadow: none; gap: 6px; }
+.tutorial-keyboard .kbd-row { width: 100%; justify-content: center; gap: 6px; }
+.tutorial-keyboard .kbd-row:nth-child(2) { width: 94%; }
+.tutorial-keyboard .kbd-row:nth-child(3) { width: 88%; }
+.tutorial-keyboard .kbd-row:last-child { width: 65%; }
+.tutorial-keyboard .key { flex: 1; width: auto; min-width: 0; height: 36px; font-size: 25px; border-radius: 6px; animation: none; }
+.tutorial-keyboard .key.wide { flex: 1.9; font-size: 21px; }
+.tutorial-keyboard .key.space { flex: 0 1 45%; font-size: 21px; }
+.tutorial-keyboard .key .alt { font-size: 14px; }
+.tutorial-keyboard .key.pressed { background: #8ee8c3; color: #0b3027; box-shadow: inset 0 3px 0 #257b61; transform: translateY(2px); }
+.tutorial-next { margin-top: 12px; }
+.small-display .tutorial-panel { top: 130px; bottom: 32px; padding: 20px 30px; }
+.small-display .tutorial h1 { margin: 8px 0; }
+.short-display .tutorial-scene-caption { display: none; }
+.short-display .tutorial-panel { left: 65px; width: auto; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); column-gap: 24px; align-content: start; }
+.short-display .tutorial-panel > * { grid-column: 1; }
+.short-display .tutorial-panel > .tutorial-eyebrow { grid-column: 1 / -1; }
+.short-display .tutorial-panel > .tutorial-keyboard { grid-column: 2; grid-row: 3 / 9; align-self: center; }
+.short-display .tutorial-panel > .tutorial-next { grid-column: 1 / -1; }
+.short-display .tutorial-keyboard-legend { line-height: 1.4; }
+.tutorial-part-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin: 24px 0; }
+.tutorial .tutorial-part-card { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; text-align: left; padding: 24px; min-width: 0; }
+.tutorial-part-card strong { font-size: var(--read-title); }
+.tutorial-part-card span { color: #ffdf82; }
+.tutorial-part-card small { font-size: var(--read-copy); line-height: 1.4; color: #d8e7ec; }
+.short-display .tutorial-panel.tutorial-menu { display: block; }
+.intro-practice-status { padding: 16px; border: 1px solid #bce7d655; border-radius: 12px; color: #bce7d6; font-size: var(--read-copy); line-height: 1.4; }
+.race-track .tk-gap { font-size: max(23px, calc(16 * var(--ui-unit))); color: #dbedff; margin-top: 9px; }
+.race-track .tk-bar { margin-bottom: 26px; }
+.race-track .tk-mark.chaser { top: 100%; transform: translate(-50%, 2px); }
+.race-track .tk-mark.ghost { top: 100%; transform: translate(-50%, 2px); }
+.race-track.danger .tk-mark.chaser { animation: none; }
+.race-track.danger .tk-gap { color: #ffb7ad; font-weight: 700; }
+.intro-actions { flex-wrap: wrap; }
+/* The first boss bar counts protective crystals; later phases show actual HP. */
+.mode-boss .gauge-fill.boss-shield { background: linear-gradient(90deg, #7555cc, #b39aff); }
+.mode-boss .bb-target-desc { color: #d8ecff; }

@@ -3,100 +3,107 @@ import { h, fmt, icon, uiImg } from '../../util/dom';
 import { navigate } from '../../Game';
 import { getStage, getStageByIndex } from '../../data/stages';
 import { getBadge } from '../../data/badges';
+import { getCharacter, getPet } from '../../data/characters';
 import type { BattleResult } from '../../types';
 import { AudioManager } from '../../systems/AudioManager';
 import { SaveSystem } from '../../systems/SaveSystem';
-import { storyModal } from '../ModalController';
+import { certificateModal, practiceModal, replayModal } from '../ModalController';
+import { learningSummary } from '../LearningPanel';
 import { commonTopBar } from '../TopBar';
+import { getLanguage, t } from '../../i18n/Locale';
+import { journeyFor } from '../../data/worldJourney';
+import { scoreGuide } from '../../systems/ScoreGuide';
+
+import { resultPages } from '../ResultPages';
 
 export class ResultScreen extends Screen<{ result: BattleResult }> {
-  constructor() {
-    super('result');
-  }
+  private cleanups: (() => void)[] = [];
+  constructor() { super('result'); }
+  protected onHide() { this.cleanups.splice(0).forEach(cleanup => cleanup()); }
 
   protected render(data: { result: BattleResult }) {
-    const r = data.result;
-    const st = getStage(r.stageId);
+    this.onHide();
+    const r = data.result, st = getStage(r.stageId), save = SaveSystem.get();
     const next = st.index > 0 ? getStageByIndex(st.index + 1) : undefined;
-    const unlockedNext = r.cleared && next && SaveSystem.get().progress.unlockedStage >= next.index;
+    const unlockedNext = r.cleared && next && save.progress.unlockedStage >= next.index;
+    const language = getLanguage(), en = language === 'en', chapter = journeyFor(st.id, language);
+    const copy = (ko: string, english: string) => en ? english : ko;
+    const card = (...children: (HTMLElement | string | null)[]) => h('section', { class: 'result-detail-card' }, ...children);
+    const stat = (label: string, value: string, isNew: boolean) => h('div', { class: 'result-stat' },
+      h('span', { class: 'lbl' }, label), h('strong', { class: 'val' }, value),
+      isNew ? h('span', { class: 'new' }, copy('최고!', 'BEST')) : null);
+    const stars = h('div', { class: 'stars result-stars', 'aria-label': copy(`별 ${r.stars}개`, `${r.stars} stars`) }, [1, 2, 3].map(() => h('span', { class: 'star', 'aria-hidden': 'true' }, '★')));
+    const banner = h('h1', { class: `result-banner ${r.cleared ? '' : 'fail'}`, 'data-no-translate': '' },
+      r.cleared ? st.index === 5 ? copy('모험 완주!', 'Adventure complete!') : st.mode === 'daily' ? copy('오늘의 도전 완료!', 'Daily challenge complete!') : copy('스테이지 성공!', 'Stage clear!') : copy('다시 도전!', 'Try again!'));
+    const sub = h('p', { class: 'result-sub' }, `${r.remix ? copy('모험 플러스 · ', 'Adventure Plus · ') : ''}${st.mode === 'daily' ? '' : `STAGE ${st.index} · `}${t(st.name)}`);
+    const heading = h('header', { class: 'result-heading' }, h('div', {}, sub, banner), stars);
+    const overview = h('section', { class: 'result-pane result-overview', role: 'tabpanel', id: 'result-pane-0', 'aria-labelledby': 'result-tab-0', 'data-no-translate': '' },
+      h('div', { class: 'journey-result-story' },
+        h('span', { class: 'journey-relic-mark', 'aria-hidden': 'true', style: `--journey-color:${chapter?.color ?? '#77cf91'}` }, r.cleared ? chapter?.mark ?? '✓' : '↗'),
+        h('div', {}, h('b', {}, r.cleared ? chapter ? copy(`${chapter.relic} 되찾기 성공!`, `${chapter.relic} restored!`) : copy('오늘도 한 걸음 해냈어!', 'One more step today!') : r.attemptedCount === 0 ? copy('첫 글자부터 천천히 해 보자.', 'Start slowly, one letter at a time.') : copy('해낸 만큼, 다음엔 더 멀리!', 'Build on what you completed!')),
+          h('p', { class: 'result-completed' }, copy(`정확히 완성 ${r.wordsDone}개 · 고쳐서 성공 ${r.correctedCount ?? 0}개`, `${r.wordsDone} completed · ${r.correctedCount ?? 0} corrected`)))),
+      h('div', { class: 'result-grid' },
+        stat(copy('타수 / 분', 'CPM'), fmt.int(r.cpm), r.isNewCpm),
+        stat(copy('정확도', 'Accuracy'), r.attemptedCount === 0 ? '—' : `${fmt.pct(r.accuracy)}%`, r.isNewAccuracy),
+        stat(copy('최대 콤보', 'Best combo'), String(r.maxCombo), r.isNewCombo),
+        stat(copy('점수', 'Score'), fmt.int(r.score), r.isNewScore)),
+      h('p', { class: 'result-star-hint' }, r.cleared ? r.stars >= 3 ? copy('정확한 입력으로 별 3개를 모았어!', 'Three stars for accurate typing!') : copy('별을 더 모으는 방법은 성장 기록에서 볼 수 있어.', 'Find your next star goal in Growth.') : r.attemptedCount === 0 ? copy('아직 입력한 기록이 없어. 다시 도전해 보자!', 'No typing yet. Ready for another try?') : copy('어려웠던 부분은 성장 기록에서 함께 연습하자.', 'Practice the tricky parts in Growth.')),
+      h('p', { class: 'journey-result-next' }, r.cleared ? chapter?.next ?? copy('새 낱말로 한 번 더 도전해 보자.', 'Try again with new words.') : copy('틀려도 괜찮아. 한 글자씩 완성하면 돼.', 'Mistakes are OK. Finish one letter at a time.')));
 
-    const stat = (lbl: string | HTMLElement, val: string | HTMLElement, isNew: boolean) => h('div', { class: 'result-stat' }, h('div', { class: 'lbl' }, lbl), h('div', { class: 'val' }, val), isNew ? h('div', { class: 'new' }, 'NEW 최고!') : null);
+    const learning = learningSummary(r, () => practiceModal(() => {
+      if (this.el.style.display === 'none') return;
+      this.show({ result: r });
+      const growth = this.el.querySelector<HTMLButtonElement>('#result-tab-1');
+      growth?.click(); growth?.focus({ preventScroll: true });
+    }));
+    // The practice activity shows the full target; this page presents the next learning step.
+    learning.querySelector('.learning-example')?.remove();
+    const learningBlocks: HTMLElement[] = [];
+    learningBlocks.push(card(learning.querySelector('h3')!, learning.querySelector<HTMLElement>('.learning-counts')!));
+    for (const child of [...learning.children]) learningBlocks.push(card(child as HTMLElement));
+    learningBlocks.push(card(h('h3', {}, copy('다음 별을 향해', 'Your next star')),
+      h('p', {}, r.stars >= 3 && r.cleared ? copy('별 3개 달성! 새 낱말에서도 정확하게 입력해 보자.', 'Three stars earned! Try accurate typing with new words.') : r.cleared && r.stars === 1 ? copy('정확도 90% 이상으로 완료하면 별 2개!', 'Finish with 90% accuracy for two stars.') : st.mode === 'letter' || st.mode === 'daily' ? copy('정확도 95% 이상으로 완료하면 별 3개!', 'Finish with 95% accuracy for three stars.') : copy(`별 3개: 정확도 95% 이상 + ${fmt.time(st.goalTimeSec)} 안에 또는 ${st.goalCombo}콤보로 완료.`, `Three stars: 95% accuracy + finish within ${fmt.time(st.goalTimeSec)} or reach ${st.goalCombo} combo.`))));
+    scoreGuide(st, language).forEach((line, i) => learningBlocks.push(card(h('h3', {}, copy(`점수 도움 ${i + 1}`, `Scoring tip ${i + 1}`)), h('p', {}, line))));
+    const learningPages = resultPages(learningBlocks, en);
 
-    const stars = h('div', { class: 'stars stars-lg result-stars' }, [1, 2, 3].map(() => h('span', { class: 'star' }, '★')));
-
-    // 배너는 패널 바깥(.result-wrap 기준)에 둔다. 패널이 길어지면 스크롤되는데,
-    // 패널 안에 있으면 top:-58px 인 배너가 overflow 에 잘린다.
-    const banner = h('div', { class: `result-banner ${r.cleared ? '' : 'fail'}` }, r.cleared ? (st.index === 5 ? '세상에 글자를 되찾았다!' : st.mode === 'daily' ? '오늘의 도전 완료!' : 'STAGE CLEAR!') : '다시 도전!');
-    const panel = h(
-      'div',
-      { class: `panel ${r.cleared ? '' : 'panel-deep'} result-panel` },
-      h('div', { class: 'result-sub' }, st.mode === 'daily' ? `${st.name} · ${r.dailyNew ? '오늘 최고 기록 갱신!' : '오늘 기록에 못 미쳤어요'}` : `STAGE ${st.index} · ${st.name}${r.cleared ? '' : r.failReason === 'time' ? ' · 시간이 다 됐어요' : ' · HP가 0이 됐어요'}`),
-      stars,
-      h('div', { class: 'result-star-hint' }, st.mode === 'daily' ? '내일도 새 낱말 20개가 기다려요' : r.cleared ? (r.stars >= 3 ? '완벽해요! 별 3개 달성!' : r.stars === 2 ? `별 3개 조건: 정확도 95% + ${fmt.time(st.goalTimeSec)} 안에 클리어 또는 ${st.goalCombo}콤보` : '별 2개 조건: 정확도 90% 이상') : `낱말 ${r.wordsDone}개를 물리쳤어요. 다시 도전하면 더 잘할 수 있어요!`),
-      h(
-        'div',
-        { class: 'result-grid' },
-        stat(h('span', {}, icon('key_enter'), ' 타수'), h('span', {}, fmt.int(r.cpm), h('small', {}, ' 타/분')), r.isNewCpm),
-        stat(h('span', {}, icon('target'), ' 정확도'), h('span', {}, fmt.pct(r.accuracy), h('small', {}, '%')), r.isNewAccuracy),
-        stat(h('span', {}, icon('bolt'), ' 최대 콤보'), String(r.maxCombo), r.isNewCombo),
-        stat(h('span', {}, icon('trophy'), ' 점수'), fmt.int(r.score), r.isNewScore),
-      ),
-      r.mistakes?.length
-        ? h('div', { class: 'result-mistakes' }, h('div', { class: 'rm-title' }, r.cleared ? '다시 연습하면 좋은 낱말' : '여기서 막혔어요 — 다음엔 이 낱말부터'), h('div', { class: 'rm-list' }, r.mistakes.slice(0, 8).map((m) => h('span', { class: 'badge locked' }, m)), r.mistakes.length > 8 ? h('span', { class: 'muted' }, ` 외 ${r.mistakes.length - 8}개`) : null))
-        : r.cleared
-          ? h('div', { class: 'result-mistakes' }, h('div', { class: 'rm-title' }, '틀린 낱말 없음 — 완벽한 손끝!'))
-          : null,
-      r.newUnlocks?.length ? h('div', { class: 'result-coins' }, icon('unlock'), ` 새로 합류: ${r.newUnlocks.join(', ')}`) : null,
-      r.newTitles?.length ? h('div', { class: 'result-coins' }, `칭호 획득: ${r.newTitles.join(', ')}`) : null,
-      r.ghost && r.cleared ? h('div', { class: 'result-coins' }, r.beatGhost === true ? '어제의 나를 추월했어요! 새 기록 저장' : r.beatGhost === false ? '어제의 나가 더 빨랐어요. 다음엔 추월!' : '첫 기록 저장! 다음 판엔 어제의 나가 같이 달려요') : null,
-      r.coins > 0 ? h('div', { class: 'result-coins' }, icon('coin'), ` 코인 +${r.coins} 획득! (모두 ${fmt.int(SaveSystem.get().progress.coins)}코인)`) : null,
-      h(
-        'div',
-        { class: 'result-badges' },
-        r.newBadges.length
-          ? r.newBadges.map((id) => {
-              const b = getBadge(id);
-              return b ? h('span', { class: 'badge anim-pop' }, h('span', { class: 'badge-icon' }, uiImg(`badge_${b.id}`, '', b.icon)), `${b.name} 획득!`) : null;
-            })
-          : h('span', { class: 'none' }, r.cleared ? '새 배지는 없지만 기록은 저장됐어요' : '기록은 최대 콤보만 반영돼요'),
-      ),
-      h(
-        'div',
-        { class: 'result-actions' },
-        st.index === 5 && r.cleared ? h('button', { class: 'btn btn-gold btn-md', onclick: () => { AudioManager.sfx('click'); storyModal('ending'); } }, '엔딩 이야기') : null,
-        h('button', { class: 'btn btn-sky btn-md', onclick: () => { AudioManager.sfx('click'); void navigate('intro', { stageId: st.id }); } }, '다시 도전'),
-        unlockedNext
-          ? h('button', { class: 'btn btn-primary btn-md', onclick: () => { AudioManager.sfx('click'); void navigate('worldmap', { focusIndex: next!.index }); } }, [icon('flag'), ` 다음 · ${next!.name}`])
-          : h('button', { class: 'btn btn-gold btn-md', onclick: () => { AudioManager.sfx('click'); void navigate('worldmap', { focusIndex: st.index }); } }, [icon('pin'), ' 지도로']),
-        h('button', { class: 'btn btn-gray btn-md', onclick: () => { AudioManager.sfx('click'); void navigate('home'); } }, [icon('home'), ' 홈으로']),
-      ),
-    );
-    // 배지가 많으면 내용이 화면을 넘친다. 본문만 스크롤 영역으로 감싸고
-    // 버튼 줄(다시 도전·다음·홈으로)은 패널 바닥에 고정해 항상 보이게 한다.
-    const actions = panel.lastElementChild;
-    if (actions) {
-      const body = h('div', { class: 'result-body' });
-      while (panel.firstChild && panel.firstChild !== actions) body.append(panel.firstChild);
-      panel.prepend(body);
-    }
-    this.el.append(h('div', { class: 'result-wrap' }, banner, panel));
-    this.el.append(commonTopBar({ hideHome: true }));
-
-    // 별 순차 점등
+    const rewards: HTMLElement[] = [];
+    if (r.coins > 0) rewards.push(card(h('h3', {}, icon('coin'), copy(` 코인 +${r.coins}`, ` +${r.coins} coins`)), h('p', { class: 'result-coins' }, copy(`모두 ${fmt.int(save.progress.coins)}코인`, `${fmt.int(save.progress.coins)} coins in total`))));
+    for (const name of r.newUnlocks ?? []) rewards.push(card(h('h3', {}, icon('unlock'), copy(' 새 친구!', ' New friend!')), h('p', {}, t(name))));
+    if (r.newUnlocks?.length) rewards.push(card(h('button', { class: 'btn btn-sky', onclick: () => void navigate('setup', { step: 'pet' }) }, copy('새 친구와 함께하기', 'Meet your new friend'))));
+    for (const title of r.newTitles ?? []) rewards.push(card(h('h3', {}, copy('새 칭호', 'New title')), h('p', {}, t(title))));
+    for (const seal of r.replayRewards ?? []) rewards.push(card(h('h3', {}, copy('별빛 인장 +1', 'Starlight seal +1')), h('p', {}, t(seal))));
+    for (const id of r.newBadges) { const b = getBadge(id); if (b) rewards.push(card(h('div', { class: 'result-badges' }, h('span', { class: 'badge' }, uiImg(`badge_${b.id}`, '', b.icon), `${t(b.name)} ${copy('획득!', 'earned!')}`)))); }
+    if (r.ghost && r.cleared) rewards.push(card(h('h3', {}, copy('어제의 나와 달리기', 'Run with your ghost')), h('p', {}, r.beatGhost === true ? copy('어제의 나를 추월했어! 새 기록 저장.', 'You beat your ghost! New record saved.') : r.beatGhost === false ? copy('다음엔 어제의 나를 추월해 보자.', 'Try to beat your ghost next time.') : copy('첫 기록 저장! 다음엔 같이 달려.', 'First record saved! Your ghost will join you next time.'))));
+    if (!rewards.length) rewards.push(card(h('h3', {}, copy('다음 모험에서 만나자!', 'See you next adventure!')), h('p', {}, copy('이번에 새로 받은 선물은 없어. 한 글자씩 도전하며 별과 친구를 모아 보자.', 'No new gifts this time. Keep typing to collect stars and friends.'))));
+    if (r.cleared) rewards.push(card(h('button', { class: 'btn btn-sky', onclick: () => replayModal() }, copy('새 조합으로 다시 모험', 'Try a new adventure mix'))));
+    const rewardPages = resultPages(rewards, en);
+    const panes = [overview, ...[learningPages, rewardPages].map((page, i) => h('section', { class: 'result-pane', role: 'tabpanel', id: `result-pane-${i + 1}`, 'aria-labelledby': `result-tab-${i + 1}`, hidden: true }, page.el))];
+    const tabs = h('div', { class: 'result-tabs', role: 'tablist', 'aria-label': copy('모험 결과', 'Adventure results') });
+    const buttons: HTMLButtonElement[] = [];
+    const select = (index: number) => {
+      panes.forEach((pane, i) => { pane.hidden = i !== index; buttons[i].setAttribute('aria-selected', String(i === index)); buttons[i].tabIndex = i === index ? 0 : -1; });
+      [learningPages, rewardPages].forEach(page => page.refresh());
+    };
+    [copy('이번 결과', 'Results'), copy('성장 기록', 'Growth'), copy('받은 선물', 'Rewards')].forEach((label, i) => {
+      const button = h('button', { class: 'btn btn-gray', id: `result-tab-${i}`, type: 'button', role: 'tab', 'aria-controls': `result-pane-${i}`, 'aria-selected': String(i === 0), tabindex: i === 0 ? '0' : '-1', onclick: () => select(i), onkeydown: (event: KeyboardEvent) => {
+        const dest = event.key === 'ArrowRight' ? (i + 1) % 3 : event.key === 'ArrowLeft' ? (i + 2) % 3 : event.key === 'Home' ? 0 : event.key === 'End' ? 2 : -1;
+        if (dest >= 0) { event.preventDefault(); select(dest); buttons[dest].focus(); }
+      } }, label);
+      buttons.push(button); tabs.append(button);
+    });
+    const actions = h('div', { class: 'result-actions' },
+      st.index === 5 && r.cleared ? h('button', { class: 'btn btn-primary result-main', onclick: () => certificateModal() }, copy('완주 영상 · 인증서', 'Movie & certificate')) : null,
+      h('button', { class: `btn ${r.cleared ? 'btn-sky' : 'btn-primary result-main'}`, onclick: () => { AudioManager.sfx('click'); void navigate('battle', { stageId: st.id, remix: r.remix }); } }, copy('바로 다시 도전', 'Play again')),
+      unlockedNext ? h('button', { class: 'btn btn-primary', onclick: () => void navigate('worldmap', { focusIndex: next!.index }) }, icon('flag'), copy(' 다음 지역', ' Next region'))
+        : h('button', { class: 'btn btn-gold', onclick: () => void navigate('worldmap', { focusIndex: st.index }) }, icon('pin'), copy(' 지도로', ' Map')));
+    const panel = h('div', { class: 'panel panel-deep result-panel result-fit-panel' }, heading, tabs, h('div', { class: 'result-body' }, ...panes), actions);
+    const cast = h('aside', { class: 'result-cast-label', 'data-no-translate': '' }, h('strong', {}, `${t(getCharacter(save.profile.characterId).name)} & ${t(getPet(save.profile.petId).name)}`), h('p', {}, copy(r.cleared ? '함께 해냈어!' : '다시 할 수 있어!', r.cleared ? 'We did it together!' : 'We can try again!')));
+    this.el.append(h('div', { class: 'result-wrap result-fit' }, cast, panel), commonTopBar());
+    this.cleanups.push(learningPages.dispose, rewardPages.dispose);
     const starEls = stars.querySelectorAll<HTMLElement>('.star');
     for (let i = 0; i < r.stars; i++) {
-      window.setTimeout(() => {
-        starEls[i].classList.add('on');
-        AudioManager.sfx('star');
-      }, 400 + i * 380);
-    }
-    if (unlockedNext && !SaveSystem.get().progress.clearedStages.includes(next!.id)) {
-      window.setTimeout(() => {
-        // 결과 배너가 화면 위 가운데를 쓰므로 토스트는 왼쪽으로 비킨다
-        const t = h('div', { class: 'toast toast-side' }, icon('unlock'), ` ${next!.name} 해금!`);
-        document.getElementById('toast-root')!.append(t);
-        window.setTimeout(() => t.remove(), 2500);
-      }, 1600);
+      const timer = window.setTimeout(() => { starEls[i]?.classList.add('on'); AudioManager.sfx('star'); }, 400 + i * 380);
+      this.cleanups.push(() => window.clearTimeout(timer));
     }
   }
 }

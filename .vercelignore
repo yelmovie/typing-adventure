@@ -1,5 +1,9 @@
-assets/
-samplepages/
-tmp/
-docs/
-_unused/
+/output/
+/tmp/
+/assets/
+/docs/
+/.agents/
+/.codex/
+/node_modules/
+/samplepages/
+/_unused/

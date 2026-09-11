@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
-import { addBackground, addAmbientSparkles } from './common';
+import { addBackground, addAmbientSparkles, prefersReducedMotion } from './common';
 import { Player } from '../entities/Player';
 import { Pet } from '../entities/Pet';
 import { SaveSystem } from '../systems/SaveSystem';
 import { getCharacter, getPet } from '../data/characters';
 import { AudioManager } from '../systems/AudioManager';
+import { homeSheet } from '../data/homeAssets';
 
 export class HomeScene extends Phaser.Scene {
   private player?: Player;
@@ -23,12 +24,15 @@ export class HomeScene extends Phaser.Scene {
     const pet = getPet(save.profile.petId);
 
     // 메인 캐릭터: 화면 중앙보다 약간 왼쪽, 문 앞
-    this.player = new Player(this, 760, 985, ch.sheet, 1.75);
+    this.player = new Player(this, 760, 985, homeSheet(ch.sheet), 1.75);
     this.player.idle('front');
-    this.pet = new Pet(this, 950, 990, pet.sheet, 0.85);
+    this.pet = new Pet(this, 950, 990, homeSheet(pet.sheet), 0.85);
 
     // 가끔 응원 동작
-    this.time.addEvent({
+    if (prefersReducedMotion()) {
+      this.player.sprite.anims.stop();
+      this.pet.sprite.anims.stop();
+    } else this.time.addEvent({
       delay: 4200,
       loop: true,
       callback: () => {

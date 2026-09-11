@@ -42,12 +42,14 @@ assert.equal(L.locksOpen, 1);
   L.submit(t, false);
 }
 
-// 4. 5초 무입력 → 모래시계 켜짐, 점수 감소. 입력하면 꺼짐
+// 4. 5초 무입력 → 읽기 안내만. 읽는 동안 점수·콤보 유지, 입력하면 안내 꺼짐
 {
   const s0 = L.score;
+  const combo0 = L.run.combo;
   for (let i = 0; i < 60; i++) L.tick(0.1);
   assert.ok(L.snapshot().letter!.idle);
-  assert.ok(L.score < s0);
+  assert.equal(L.score, s0, '읽기를 기다린다고 획득 점수를 빼앗지 않는다');
+  assert.equal(L.run.combo, combo0, '문장 읽기 대기는 콤보를 유지한다');
   L.commit('문');
   L.tick(0.1);
   assert.ok(!L.snapshot().letter!.idle);

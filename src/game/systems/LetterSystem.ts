@@ -3,7 +3,7 @@
  *  - 편지 6문장이 한 줄씩 나타난다. 2문장 = 자물쇠 1개 (총 3개). 6문장 → 황금문 개방.
  *  - 어절(띄어쓰기 단위)마다 룬이 하나. 어절을 다 치면 룬 점등, 틀린 음절 확정 시 룬 균열, 고치면 복구.
  *  - 10글자 연속 무오타 → 룬 발광(LETTER_GLOW). 한 문장 무오타 → PERFECT.
- *  - 시간제한 없음. 5초 무입력 → 모래시계(점수만 초당 -5).
+ *  - 시간제한·읽기 대기 감점 없음. 5초 무입력 → 천천히 읽기 안내만.
  *  - PERFECT 문장 2개 → 비밀방(코인 +30), 정확도 98% 이상 → 비밀 보상(코인 +20).
  * 순수 로직. emit 주입.
  */
@@ -12,14 +12,13 @@ import { DIFFICULTY_RULES } from '../data/stages';
 import { calcWordScore } from './TypingStats';
 import { TypingRun, RULES, type Emit } from './TypingRun';
 import { countStrokes } from '../util/hangul';
-import type { BattleSnapshot, TypingMode } from './BattleSystem';
+import type { BattleSnapshot, TypingMode } from './BattleState';
 
 export const LETTER = {
   sentences: 6,
   perLock: 2,
   locks: 3,
   idleSec: 5,
-  idleScorePerSec: 5,
   glowStreak: 10,
   secretPerfect: 2,
   secretCoins: 30,
@@ -105,12 +104,11 @@ export class LetterSystem implements TypingMode {
     this.run.tick(dt);
     this.idleSec += dt;
     const idle = this.idleSec >= LETTER.idleSec;
-    if (idle) this.score = Math.max(0, this.score - LETTER.idleScorePerSec * dt);
     if (idle !== this.idleOn) {
       this.idleOn = idle;
       this.emit('LETTER_IDLE', { idle });
     }
-    // S3 는 시간제한 없이 편지를 읽고 옮겨 적는 스테이지라 멈춤 벌칙은 점수(모래시계)만. HP 는 깎지 않는다.
+    // 읽고 생각하는 동안 점수·콤보·HP를 깎지 않는다.
     this.emit('HUD_TICK', this.snapshot());
   }
 
@@ -175,10 +173,11 @@ export class LetterSystem implements TypingMode {
     const r = this.run.skip();
     if (!r) return false;
     this.streak = 0;
-    this.lines.push(t.text);
-    this.idx++;
-    this.emit('LETTER_LINE', { index: this.lines.length - 1, text: t.text, perfect: false, wrong: true });
-    this.afterLine();
+    // 미완료 문장을 뒤로 보낸다. 열린 자물쇠와 복원된 문장 수는 그대로다.
+    this.sentences.push(this.sentences.splice(this.idx, 1)[0]);
+    this.run.advance();
+    this.resetRunes();
+    this.emit('TARGET_CHANGED', this.snapshot());
     return true;
   }
 
@@ -192,13 +191,10 @@ export class LetterSystem implements TypingMode {
     if (!r.correct) {
       this.streak = 0;
       this.applyHp(r.hpDelta);
-      this.emit('INPUT_WRONG', { typed: value, target: cur, hpLoss: r.hpDelta < 0 ? -r.hpDelta : 0, timeLoss: 0, forgiven: r.forgiven, shielded: false, snapshot: this.snapshot() });
-      // 틀린 채 Enter → 그 문장은 흐릿하게 기록되고 다음 문장으로 (점수 없음, PERFECT 아님)
-      this.lines.push(cur.text);
-      this.idx++;
-      this.emit('LETTER_LINE', { index: this.lines.length - 1, text: cur.text, perfect: false, wrong: true });
-      this.afterLine();
-      if (!this.finished && this.playerHp <= 0) this.fail('hp');
+      this.emit('INPUT_WRONG', { typed: value, target: cur, hpLoss: r.hpDelta < 0 ? -r.hpDelta : 0, timeLoss: 0, forgiven: r.forgiven, shielded: this.run.isShielded(), snapshot: this.snapshot() });
+      // 동일 문장을 고쳐서 제출해야 룬과 자물쇠가 완성된다.
+      if (this.playerHp <= 0) this.fail('hp');
+      else this.emit('TARGET_CHANGED', this.snapshot());
       return;
     }
     const combo = this.run.combo;
@@ -207,7 +203,7 @@ export class LetterSystem implements TypingMode {
     if (r.perfect) this.perfectLines++;
     this.lines.push(cur.text);
     this.idx++;
-    this.emit('INPUT_CORRECT', { target: cur, perfect: r.perfect, damage: 0, gained: 0, combo, mult: r.mult, variant: r.variant, snapshot: this.snapshot() });
+    this.emit('INPUT_CORRECT', { target: cur, perfect: r.perfect, corrected: r.corrected, damage: 0, gained: 0, combo, mult: r.mult, variant: r.variant, snapshot: this.snapshot() });
     this.emit('LETTER_LINE', { index: this.lines.length - 1, text: cur.text, perfect: r.perfect });
     this.afterLine();
   }
@@ -223,7 +219,7 @@ export class LetterSystem implements TypingMode {
       this.run.coins += LETTER.secretCoins;
       this.emit('LETTER_SECRET', { coins: LETTER.secretCoins });
     }
-    if (this.lines.length >= LETTER.sentences) {
+    if (this.lines.length >= this.sentences.length && this.sentences.length > 0) {
       this.clear();
       return;
     }

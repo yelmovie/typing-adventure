@@ -16,9 +16,26 @@ export function calcWordScore(combo: number, perfect: boolean, strokes: number):
   return 100 + Math.min(combo, 20) * 10 + (perfect ? 50 : 0) + strokes * 2;
 }
 
+/** 잘못된 글자·삽입·빠진 글자의 최소 수. 입력 중에는 아직 치지 않은 뒷부분을 오류로 세지 않는다. */
+export function inputErrorCount(target: string, typed: string, submitted = true): number {
+  const a = [...target.normalize('NFC')], b = [...typed.normalize('NFC')];
+  let start = 0;
+  while (start < a.length && start < b.length && a[start] === b[start]) start++;
+  const expected = a.slice(start), actual = b.slice(start);
+  if (!actual.length) return submitted ? expected.length : 0;
+  if (!expected.length) return actual.length;
+  let row = Array.from({ length: expected.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= actual.length; i++) {
+    const next = [i];
+    for (let j = 1; j <= expected.length; j++) next[j] = Math.min(next[j - 1] + 1, row[j] + 1, row[j - 1] + (actual[i - 1] === expected[j - 1] ? 0 : 1));
+    row = next;
+  }
+  return submitted ? row[expected.length] : Math.min(...row);
+}
+
 /**
  * 타수 통계 누적기.
- *  - 정확도 = 정답 타수 / (정답 타수 + 오답 타수) × 100
+ *  - 정확도 = 정답 타수 / (정답 타수 + 오답 글자 수·삽입·누락 수) × 100
  *  - 타/분(CPM) = 확정 입력한 정답 타수 / 경과 분
  *  프로젝트 전체에서 이 정의 하나만 사용한다.
  */
@@ -31,19 +48,30 @@ export class TypingStats {
   endAt = 0;
   /** 목표가 없어 칠 수 없던 시간(몬스터 등장 대기 등) — 타수 계산에서 뺀다 */
   idleSec = 0;
+  private activeSec = 0;
+  private running = false;
 
   start(now = performance.now()) {
     this.startAt = now;
     this.endAt = 0;
+    this.activeSec = 0;
+    this.idleSec = 0;
+    this.running = true;
   }
   stop(now = performance.now()) {
     this.endAt = now;
+    this.running = false;
   }
-  elapsedSec(now = performance.now()): number {
-    if (!this.startAt) return 0;
-    return ((this.endAt || now) - this.startAt) / 1000;
+  /** 모드가 실제 진행한 시간만 전달한다. 일시정지·탭 이탈·목표 등장 대기는 기록에서 제외한다. */
+  tick(dt: number, hasTarget = true) {
+    if (!this.running || !Number.isFinite(dt) || dt <= 0) return;
+    if (hasTarget) this.activeSec += dt;
+    else this.idleSec += dt;
   }
-  /** 틀린 음절을 확정할 때마다 오타 1타 (Enter 오답과 별개로 정확도에 반영) */
+  elapsedSec(_now?: number): number {
+    return this.activeSec;
+  }
+  /** 입력 중 확인한 오류를 기록한다. 같은 오류의 Enter 제출과 중복 집계하지 않는다. */
   addTypo(n = 1) {
     this.wrongStrokes += n;
   }
@@ -52,19 +80,18 @@ export class TypingStats {
     this.submissions++;
     this.correctSubmissions++;
   }
-  addWrong(typed: string, target: string) {
-    // 오답 타수 = 실제로 입력한 타수 (최소 1, 최대 목표 타수 × 1.5 로 완화)
-    const s = Math.max(1, Math.min(countStrokes(typed), Math.ceil(countStrokes(target) * 1.5)));
-    this.wrongStrokes += s;
+  addWrong(typed: string, target: string, alreadyCounted = 0) {
+    const errors = Math.max(1, inputErrorCount(target, typed));
+    this.wrongStrokes += Math.max(0, errors - alreadyCounted);
     this.submissions++;
   }
   accuracy(): number {
     const total = this.correctStrokes + this.wrongStrokes;
-    if (total === 0) return 100;
+    if (total === 0) return 0;
     return (this.correctStrokes / total) * 100;
   }
-  cpm(now = performance.now()): number {
-    const min = Math.max(0, this.elapsedSec(now) - this.idleSec) / 60;
+  cpm(_now?: number): number {
+    const min = this.activeSec / 60;
     if (min <= 0) return 0;
     return this.correctStrokes / min;
   }

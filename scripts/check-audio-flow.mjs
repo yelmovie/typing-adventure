@@ -1,0 +1,66 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { chromium } from 'playwright';
+
+const base = process.env.AUDIO_TEST_URL || 'http://127.0.0.1:5180';
+const out = 'tmp/audio-flow-check';
+fs.mkdirSync(out, { recursive: true });
+const browser = await chromium.launch({ channel: process.env.AUDIO_BROWSER_CHANNEL || 'chrome' });
+const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+await context.addInitScript(() => {
+  localStorage.setItem('typing_adventure_save_v1', JSON.stringify({ version: '1', profile: { name: '하늘', characterId: 'brown_boy', petId: 'cat', difficulty: 'normal' }, progress: { unlockedStage: 2, clearedStages: ['stage_1'], stageStars: { stage_1: 3 } }, settings: { bgm: false, sfx: false, prologueSeen: true } }));
+  window.__observedAudio = [];
+  window.Audio = new Proxy(window.Audio, { construct(Target, args) { const media = new Target(...args); window.__observedAudio.push(media); return media; } });
+});
+const page = await context.newPage();
+const errors = [], checks = [];
+page.on('pageerror', error => errors.push(error.message));
+const ready = () => page.waitForFunction(() => !document.querySelector('#fade.on') && !document.getElementById('ui-stage')?.inert);
+const musicPlaying = () => page.waitForFunction(() => window.__observedAudio.some(media => !media.paused && media.currentTime > 0));
+const snapshot = () => page.evaluate(() => window.__observedAudio.map(media => ({ src: media.src, paused: media.paused, time: media.currentTime, volume: media.volume })));
+try {
+  await page.goto(base, { waitUntil: 'domcontentloaded' });
+  await page.locator('.home-menu').waitFor({ timeout: 60000 });
+  await ready();
+  await page.locator('.opening-skip').click({ timeout: 60000 });
+  await page.locator('.opening-player').waitFor({ state: 'detached' });
+  await page.getByRole('button', { name: '설정', exact: true }).click();
+  const bgm = page.getByRole('switch', { name: '배경 음악', exact: true });
+  await bgm.click();
+  await musicPlaying();
+  assert.equal((await snapshot()).filter(media => !media.paused).length, 1);
+  checks.push('Initially disabled BGM starts through the settings switch');
+  await bgm.click();
+  assert.ok((await snapshot()).every(media => media.paused));
+  await bgm.click();
+  await musicPlaying();
+  assert.equal((await snapshot()).length, 1, 'Resume the existing track without a duplicate');
+  checks.push('Same-scene off/on pauses and resumes one actual media element');
+  await page.locator('.settings-body input[type=range]').first().fill('30');
+  assert.ok(Math.abs((await snapshot())[0].volume - 0.47 * 0.3 / 0.7) < 0.001);
+  await page.getByRole('button', { name: '확인', exact: true }).click();
+  await page.getByRole('button', { name: '모험 이어하기', exact: true }).click();
+  await page.locator('.screen.worldmap:not(.hidden)').waitFor();
+  await ready();
+  await musicPlaying();
+  let media = await snapshot();
+  assert.equal(media.filter(item => !item.paused).length, 1);
+  assert.ok(media.find(item => !item.paused).src.endsWith('bgm_map.mp3'));
+  checks.push('Scene change stops the previous track and keeps the selected volume');
+  await page.getByRole('button', { name: '소리 설정', exact: true }).click();
+  const mute = page.locator('.sound-popover.open').getByRole('button', { name: '켜기/끄기' });
+  await mute.click();
+  assert.ok((await snapshot()).every(item => item.paused));
+  assert.deepEqual(await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('typing_adventure_save_v1')).settings; return [s.bgm, s.sfx]; }), [false, false]);
+  await mute.click();
+  await musicPlaying();
+  assert.equal((await snapshot()).filter(item => !item.paused).length, 1);
+  checks.push('Global mute toggles BGM/SFX state and resumes without overlapping tracks');
+  assert.deepEqual(errors, []);
+  fs.writeFileSync(`${out}/results.json`, JSON.stringify({ date: new Date().toISOString(), checks: checks.map(label => ({ label, pass: true })), media: await snapshot(), errors, note: 'Actual Chrome media decoding/playback state; physical-speaker listening is not tested.' }, null, 2));
+  console.log(`PASS audio: ${checks.length} real browser checks`);
+} catch (error) {
+  await page.screenshot({ path: `${out}/failure.png` });
+  fs.writeFileSync(`${out}/failure.json`, JSON.stringify({ error: String(error), checks, media: await snapshot(), state: await page.evaluate(() => ({ saved: localStorage.getItem('typing_adventure_save_v1'), modal: document.getElementById('modal-root')?.textContent })), errors }, null, 2));
+  throw error;
+} finally { await browser.close(); }

@@ -2,14 +2,14 @@
  * TypingRun — 모든 스테이지 모드가 공유하는 타이핑 코어 (순수 로직, DOM/Phaser 없음).
  *  - 음절 타격 판정: 확정 음절이 목표 접두어와 맞으면 약공격, 틀린 음절은 표시만(판정은 Enter 제출 시)
  *  - 콤보 → 5(+20%) / 10 POWER(×1.5) / 20 FEVER 8초(×2, 오타 1회 용서, 펫 액티브) / 30 FINAL FEVER(보스, ×3)
- *  - 3초 무입력 시 콤보가 1초마다 1씩 감소
+ *  - 낱말은 12초 무입력 후 콤보 감소, 문장은 읽는 동안 콤보 유지
  *  - 변화구 단어: 보물(코인·점수) / 하트(HP·시간, 적용은 모드가) / 폭탄(5초 제한, 실패 시 콤보만 초기화)
  *  - 펫 패시브/액티브 (액티브는 FEVER 진입 시 자동)
  *  - 몰래 적응형 난이도: 최근 10단어 정확도 <80% → -1, ≥97%+빠름 → +1 (UI 비노출)
  * 시간은 전부 tick(dt) 누적으로 잰다 → 일시정지에 안전하고 테스트가 쉽다.
  */
-import type { ContentUnit, Difficulty, PetActive, PetDef, StageDef, WordVariant } from '../types';
-import { TypingStats } from './TypingStats';
+import type { ContentUnit, Difficulty, LearningAttempt, PetActive, PetDef, StageDef, WordVariant } from '../types';
+import { TypingStats, inputErrorCount } from './TypingStats';
 import { countStrokes, isPrefixInput } from '../util/hangul';
 
 export type FeverLevel = 0 | 1 | 2 | 3;
@@ -22,9 +22,9 @@ export const RULES = {
   feverSec: 8,
   finalSec: 10,
   feverMult: [1, 1.5, 2, 3] as const,
-  idleSec: 3,
+  idleSec: 12,
   // 초등학생은 낱말을 읽고 손가락을 찾는 데 몇 초씩 걸린다. 생각하는 시간까지 벌주지 않게 여유를 둔다.
-  drainAfterSec: 8, // 무입력 8초부터
+  drainAfterSec: 12, // 무입력 12초부터 — 낱말을 읽고 자판을 찾는 아이는 8초를 그냥 넘긴다
   drainHpPerSec: 1, // 초당 HP -1 (가만히 두면 108초 만에 실패)
   bombSec: 5,
   bombPetBonusSec: 2,
@@ -63,6 +63,7 @@ export interface RunOptions {
 export interface SubmitResult {
   correct: boolean;
   perfect: boolean;
+  corrected?: boolean;
   forgiven: boolean; // 오답이지만 용서됨: 콤보 유지, 패널티 없음
   skipped?: boolean; // 점프로 건너뜀: 정확도 영향 없음, 콤보만 0
   mult: number; // 강공격 배율 (콤보/FEVER/펫)
@@ -94,12 +95,17 @@ export class TypingRun {
   /** 오답 노트: 틀린 음절을 확정했거나 오답 제출한 목표(중복 없음, 순서 유지) */
   mistakes: string[] = [];
   skipsLeft = RULES.skipsPerStage;
+  skippedCount = 0;
+  correctedCount = 0;
+  /** 최근 80회 입력 근거. 자동 저장은 결과 화면에서만 수행한다. */
+  learningAttempts: LearningAttempt[] = [];
 
   private o: RunOptions;
   private now: () => number;
   private hitChars = 0;
   private wrongAt = -1;
   private fixed = false;
+  private visibleErrors = 0;
   private idle = 0;
   private drainAcc = 0;
   private decayAcc = 0;
@@ -109,6 +115,7 @@ export class TypingRun {
   private recent: { ok: boolean; sec: number; strokes: number }[] = [];
   private targetSec = 0;
   private seen = new Set<string>();
+  private needsCorrection = new Set<string>();
 
   constructor(o: RunOptions) {
     this.o = o;
@@ -131,6 +138,7 @@ export class TypingRun {
     this.hitChars = 0;
     this.wrongAt = -1;
     this.fixed = false;
+    this.visibleErrors = 0;
     this.bombElapsed = 0;
     this.targetSec = 0;
     return u;
@@ -169,14 +177,20 @@ export class TypingRun {
     let m = 0;
     while (m < c.length && m < t.length && c[m] === t[m]) m++;
     if (!isPrefixInput(cur.text, v)) {
+      const errors = inputErrorCount(cur.text, v, false);
+      const added = Math.max(0, errors - this.visibleErrors);
+      this.stats.addTypo(added);
+      this.visibleErrors = errors;
       if (this.wrongAt !== m) {
         this.wrongAt = m;
-        this.stats.addTypo(); // 정확도에 오타 반영 (고쳐도 남는다)
         this.noteMistake(cur.text);
+        this.needsCorrection.add(cur.id);
+        this.recordAttempt(cur, v, 'wrong');
         this.o.emit('SYLLABLE_MISS', { index: m, target: cur });
       }
       return { newHits: 0, wrongIndex: m };
     }
+    this.visibleErrors = 0;
     if (this.wrongAt >= 0) {
       this.wrongAt = -1;
       this.fixed = true;
@@ -195,6 +209,8 @@ export class TypingRun {
     const cur = this.current;
     if (!cur || this.skipsLeft <= 0) return null;
     this.skipsLeft--;
+    this.skippedCount++;
+    this.recordAttempt(cur, '', 'skipped');
     this.idle = 0;
     this.setCombo(0);
     this.o.emit('SKIP', { left: this.skipsLeft, target: cur });
@@ -212,8 +228,13 @@ export class TypingRun {
     if (this.recent.length > RULES.adaptiveWindow) this.recent.shift();
 
     if (!correct) {
-      this.stats.addWrong(v, cur.text);
+      // 현재 남은 오타만 중복 제외한다. 이미 고친 과거 오류가 새 누락까지 상쇄하면 안 된다.
+      this.stats.addWrong(v, cur.text, this.visibleErrors);
+      this.visibleErrors = 0;
       this.noteMistake(cur.text);
+      this.fixed = true;
+      this.needsCorrection.add(cur.id);
+      this.recordAttempt(cur, v, 'wrong');
       let forgiven = false;
       let forgivenBy: 'fever' | 'pet' | null = null;
       if (this.forgiveFever > 0) {
@@ -226,14 +247,20 @@ export class TypingRun {
         forgivenBy = 'pet';
       }
       if (forgivenBy === 'pet') this.o.emit('PET_PASSIVE', { passive: this.pet.passive, pet: this.pet });
-      if (!forgiven) this.setCombo(0);
+      if (!forgiven && !this.isShielded()) this.setCombo(0);
       this.updateAdaptive();
-      return { correct: false, perfect: false, forgiven, mult: 1, bonusScore: 0, hpDelta: forgiven ? 0 : -RULES.wrongHp, feverEntered: false, target: cur };
+      return { correct: false, perfect: false, forgiven, mult: 1, bonusScore: 0, hpDelta: forgiven || this.isShielded() ? 0 : -RULES.wrongHp, feverEntered: false, target: cur };
     }
 
-    const perfect = !usedBackspace && !this.fixed;
+    // 삭제 키 사용 자체는 오타를 고쳤다는 근거가 아니다. 교정 성취는 실제 오입력에만 준다.
+    const corrected = this.fixed || this.wrongAt >= 0 || this.needsCorrection.has(cur.id);
+    const perfect = !usedBackspace && !corrected;
+    if (corrected) this.correctedCount++;
+    this.recordAttempt(cur, v, 'correct', corrected);
+    this.needsCorrection.delete(cur.id);
     if (perfect) this.perfectCount++;
     this.stats.addCorrect(cur.text);
+    this.visibleErrors = 0;
     this.wordsDone++;
     this.setCombo(this.combo + 1);
     const mult = this.damageMult();
@@ -250,12 +277,13 @@ export class TypingRun {
     const petActive = this.updateFever();
     this.updateAdaptive();
     const hpDelta = (perfect ? RULES.perfectHealHp : 0) + (this.combo % RULES.comboHealEvery === 0 ? RULES.comboHealHp : 0);
-    return { correct: true, perfect, forgiven: false, mult, bonusScore, hpDelta, variant: cur.variant, petActive, feverEntered: this.feverLevel > prevLevel, target: cur };
+    return { correct: true, perfect, corrected, forgiven: false, mult, bonusScore, hpDelta, variant: cur.variant, petActive, feverEntered: this.feverLevel > prevLevel, target: cur };
   }
 
   /** 100ms마다. 폭탄 시간 초과면 { bomb: true } (호출자가 advance) */
   tick(dt: number): { bomb: boolean } {
-    this.targetSec += dt;
+    this.stats.tick(dt, this.current != null);
+    if (this.current) this.targetSec += dt;
     if (this.shieldLeft > 0) this.shieldLeft = Math.max(0, this.shieldLeft - dt);
     if (this.feverLevel >= 2) {
       this.feverLeft -= dt;
@@ -263,13 +291,13 @@ export class TypingRun {
         this.feverLeft = 0;
         this.wordHint = false;
         this.forgiveFever = 0;
-        this.setLevel(this.combo >= RULES.powerCombo ? 1 : 0);
+        this.setLevel(this.combo >= this.powerCombo ? 1 : 0);
       }
     }
     // 무입력 감소 (목표가 없을 땐 — 웨이브 사이 등 — 세지 않는다). 그 시간은 타수 계산에서도 뺀다
     if (this.current) this.idle += dt;
-    else this.stats.idleSec += dt;
-    if (this.combo > 0 && this.idle >= RULES.idleSec) {
+    // 문장은 읽는 시간도 학습이다. 단어 모드도 자판을 찾을 여유를 보장한다.
+    if (!this.isSentenceMode() && this.combo > 0 && this.idle >= RULES.idleSec) {
       this.decayAcc += dt;
       while (this.decayAcc >= 1 && this.combo > 0) {
         this.decayAcc -= 1;
@@ -311,12 +339,28 @@ export class TypingRun {
     if (!this.mistakes.includes(text)) this.mistakes.push(text);
   }
 
+  private recordAttempt(unit: ContentUnit, typed: string, outcome: LearningAttempt['outcome'], corrected = false) {
+    const last = this.learningAttempts[this.learningAttempts.length - 1];
+    if (outcome === 'wrong' && last?.outcome === 'wrong' && last.targetId === unit.id && last.typed === typed) return;
+    this.learningAttempts.push({ targetId: unit.id, target: unit.text, typed, outcome, corrected });
+    if (this.learningAttempts.length > 80) this.learningAttempts.shift();
+  }
+
+  private isSentenceMode(): boolean {
+    return this.stage.mode === 'letter' || this.stage.mode === 'telegram' || (this.stage.mode === 'daily' && this.current?.type !== 'word');
+  }
+
+  /** 문장 스테이지도 완주 전에 친구 기술을 경험한다. */
+  get powerCombo(): number {
+    return this.isSentenceMode() ? 2 : RULES.powerCombo;
+  }
+
   private setCombo(c: number) {
     if (c === this.combo) return;
     this.combo = c;
     this.maxCombo = Math.max(this.maxCombo, c);
     this.o.emit('COMBO_CHANGED', c);
-    if (this.feverLevel === 1 && c < RULES.powerCombo) this.setLevel(0);
+    if (this.feverLevel === 1 && c < this.powerCombo) this.setLevel(0);
   }
 
   private setLevel(l: FeverLevel) {
@@ -330,8 +374,8 @@ export class TypingRun {
     const c = this.combo;
     let target: FeverLevel = this.feverLevel;
     if (this.stage.mode === 'boss' && c >= RULES.finalCombo) target = 3;
-    else if (c >= RULES.feverCombo) target = 2;
-    else if (c >= RULES.powerCombo) target = 1;
+    else if (c >= (this.isSentenceMode() ? 4 : RULES.feverCombo)) target = 2;
+    else if (c >= this.powerCombo) target = 1;
     if (target <= this.feverLevel) return undefined;
     if (target >= 2) {
       this.feverLeft = target === 3 ? RULES.finalSec : RULES.feverSec;
@@ -342,6 +386,14 @@ export class TypingRun {
     const a = this.pet.active;
     if (a === 'shield') this.shieldLeft = RULES.shieldSec;
     if (a === 'word_hint') this.wordHint = true;
+    // 시간/적이 없는 읽기 모드에서는 실제로 쓸 수 있는 도움으로 바꾼다.
+    // 보호막은 오답 HP뿐 아니라 콤보도 지켜 주지만, 오답을 성공으로 기록하지 않는다.
+    const untimed = this.stage.mode === 'letter' || this.stage.mode === 'daily';
+    if (untimed && a === 'time_plus') {
+      this.shieldLeft = RULES.shieldSec;
+      this.wordHint = true;
+    }
+    if ((untimed || this.stage.mode === 'telegram') && a === 'fire_aoe') this.wordHint = true;
     this.o.emit('PET_ACTIVE', { active: a, pet: this.pet, level: target });
     return a;
   }

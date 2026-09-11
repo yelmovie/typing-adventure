@@ -14,7 +14,9 @@ export const STAGES: StageDef[] = [
     mission: '숲에서 몰려오는 몬스터 무리를 낱말로 물리치고 숲의 문을 열자!',
     enemies: ['green_slime', 'letter_bat'],
     targets: 20,
-    timeLimitSec: 180,
+    // 낱말 20개를 180초에 끝내려면 낱말당 9초 — 첫 스테이지에 앉은 초보에겐 그 자체가 벽이다.
+    // 끝내는 건 넉넉하게(240초), 별 3개는 goalTimeSec 100초로 여전히 어렵게 둔다.
+    timeLimitSec: 240,
     bgIntro: 'bg_practice_forest',
     bgBattle: 'bg_forest_battle',
     map: { x: 300, y: 800, icon: '숲' },
@@ -33,11 +35,11 @@ export const STAGES: StageDef[] = [
     mission: '검은 그림자가 쫓아온다! 낱말을 연달아 입력해 네온 시티를 달려 빠져나가자!',
     enemies: ['shadow_chaser'],
     targets: 18,
-    timeLimitSec: 180,
+    timeLimitSec: 90,
     bgIntro: 'bg_neon_city',
     bgBattle: 'bg_neon_city',
     map: { x: 530, y: 610, icon: '시티' },
-    goalTimeSec: 110,
+    goalTimeSec: 55,
     goalCombo: 12,
     playable: true,
   },
@@ -76,7 +78,7 @@ export const STAGES: StageDef[] = [
     bgBattle: 'bg_train',
     map: { x: 1230, y: 250, icon: '열차' },
     goalTimeSec: 120,
-    goalCombo: 12,
+    goalCombo: 3, // Three telegram sentences: the accuracy + combo route must be reachable.
     playable: true,
   },
   {
@@ -131,7 +133,7 @@ export function getStageByIndex(index: number): StageDef | undefined {
 
 export const DIFFICULTY_LABEL: Record<Difficulty, { name: string; desc: string; cls: string }> = {
   beginner: { name: '기초', desc: '시간 35% 넉넉 · 몬스터·추격자·열차가 느려요', cls: 'easy' },
-  normal: { name: '표준', desc: '기본 속도 · 오타는 콤보만 초기화', cls: 'normal' },
+  normal: { name: '표준', desc: '기본 속도 · 틀려도 고쳐서 다시 도전', cls: 'normal' },
   challenge: { name: '도전', desc: '시간 20% 짧고 적이 빨라요', cls: 'hard' },
 };
 

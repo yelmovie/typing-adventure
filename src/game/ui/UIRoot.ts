@@ -2,10 +2,12 @@ import type { ScreenName } from '../types';
 import type { Screen } from './Screen';
 import { HomeScreen } from './screens/HomeScreen';
 import { SetupScreen } from './screens/SetupScreen';
+import { TutorialScreen } from './screens/TutorialScreen';
 import { WorldMapScreen } from './screens/WorldMapScreen';
 import { IntroScreen } from './screens/IntroScreen';
 import { BattleScreen } from './screens/BattleScreen';
 import { ResultScreen } from './screens/ResultScreen';
+import { closeModal } from './ModalController';
 
 /** DOM 스크린 관리자 */
 export class UIRoot {
@@ -16,6 +18,7 @@ export class UIRoot {
     this.screens = {
       home: new HomeScreen(),
       setup: new SetupScreen(),
+      tutorial: new TutorialScreen(),
       worldmap: new WorldMapScreen(),
       intro: new IntroScreen(),
       battle: new BattleScreen(),
@@ -32,6 +35,7 @@ export class UIRoot {
   }
 
   hide(name: ScreenName) {
+    closeModal();
     this.screens[name].hide();
   }
 }

@@ -7,6 +7,8 @@ import { EventBus, Events } from '../../EventBus';
 import { AudioManager } from '../../systems/AudioManager';
 import { toast } from '../ModalController';
 import { commonTopBar } from '../TopBar';
+import { getLanguage } from '../../i18n/Locale';
+import { journeyFor, journeyProgress } from '../../data/worldJourney';
 
 
 export class WorldMapScreen extends Screen {
@@ -20,10 +22,12 @@ export class WorldMapScreen extends Screen {
     this.busy = false;
     const save = SaveSystem.get();
     const unlocked = save.progress.unlockedStage;
+    const language = getLanguage();
+    const journey = journeyProgress(save, language);
 
     // 점선 길은 WorldMapScene(Phaser) 에서 캐릭터 아래 깊이로 그린다 — DOM 으로 그리면 캐릭터를 덮었다
 
-    const allClear = save.progress.clearedStages.length >= 5;
+    const allClear = journey.complete;
     this.el.classList.toggle('all-clear', allClear);
     this.el.append(h('div', { class: 'map-title text-outline' }, allClear ? '빛을 되찾은 세상' : '모험 지도'));
 
@@ -34,32 +38,41 @@ export class WorldMapScreen extends Screen {
       const current = !locked && !cleared && st.index === unlocked;
       const stars = save.progress.stageStars[st.id] ?? 0;
       const node = h(
-        'div',
+        'button',
         {
-          class: `map-node ${locked ? 'locked' : ''} ${cleared ? 'cleared' : ''} ${current ? 'current' : ''}`,
-          style: { left: `${st.map.x + 60}px`, top: `${st.map.y + 40}px` },
-          role: 'button',
-          tabindex: locked ? '-1' : '0',
-          'aria-label': `${st.index}. ${st.name}${locked ? ' (잠김)' : ''}`,
+          class: `map-node ${st.map.y < 300 ? 'map-node-upper' : ''} ${locked ? 'locked' : ''} ${cleared ? 'cleared' : ''} ${current ? 'current' : ''}`,
+          style: `left: ${st.map.x + 60}px; top: ${st.map.y + 40}px; --map-anchor-y: ${st.map.y + 40}px`,
+          type: 'button',
+          'aria-disabled': String(locked),
+          'aria-label': `${st.index}. ${st.name} · ${locked ? '이전 지역을 완료하면 열려요' : cleared ? `완료, 별 ${stars}개` : '지금 도전할 지역'}`,
           onclick: () => this.pick(st.index, locked),
         },
         h('div', { class: 'node-pin' }, locked ? icon('lock', 'lg') : uiImg(`map_${st.id}`, 'pin', st.map.icon)),
         h('div', { class: 'node-label' }, h('span', { class: 'node-num' }, String(st.index)), st.name),
         h('div', { class: 'stars' }, [1, 2, 3].map((i) => h('span', { class: `star ${i <= stars ? 'on' : ''}` }, '★'))),
+        h('div', { class: 'node-status' }, locked ? '잠김' : cleared ? '완료 · 다시 도전' : '지금 도전'),
       );
       this.el.append(node);
     }
 
     // 진행도 패널
-    const clearedCount = save.progress.clearedStages.length;
     const starTotal = Object.values(save.progress.stageStars).reduce((a, b) => a + b, 0);
+    const nextRegion = journey.next ? journeyFor(journey.next.id, language)?.region : undefined;
     this.el.append(
       h(
         'div',
-        { class: 'panel panel-glass map-progress' },
-        h('div', { class: 'mp-title' }, h('span', {}, `${save.profile.name} 모험가 · Lv.${SaveSystem.level()}`), h('span', {}, icon('star_on'), ` ${starTotal}/15`)),
-        h('div', { class: 'gauge gauge-lg' }, h('div', { class: 'gauge-fill gold', style: { width: `${(clearedCount / 5) * 100}%` } }), h('div', { class: 'gauge-label' }, `스테이지 ${clearedCount} / 5 클리어`)),
-        h('div', { class: 'mp-next' }, unlocked <= 5 && clearedCount < 5 ? `다음 목표: ${STAGES[unlocked - 1].name}` : '모든 스테이지를 정복했어요!'),
+        { class: 'panel panel-glass map-progress journey-map', 'data-no-translate': 'true' },
+        h('div', { class: 'mp-title' }, h('span', {}, language === 'en' ? `Lights restored ${journey.restored.length}/5` : `되찾은 빛 ${journey.restored.length}/5`), h('span', {}, icon('star_on'), ` ${starTotal}/15`)),
+        h('div', { class: 'journey-lights', role: 'list', 'aria-label': language === 'en' ? 'Five lights of the world' : '다섯 지역의 빛' }, journey.chapters.map(chapter => {
+          const restored = journey.restored.some(item => item.stageId === chapter.stageId);
+          const label = `${chapter.relic} · ${language === 'en' ? restored ? 'restored' : 'waiting' : restored ? '되찾았어' : '아직 기다리는 중'}`;
+          return h('div', { class: `journey-light ${restored ? 'restored' : ''}`, role: 'listitem', 'aria-label': label, title: label, style: `--journey-color: ${chapter.color}` },
+            h('span', { class: 'journey-light-mark', 'aria-hidden': 'true' }, restored ? chapter.mark : '·'),
+            h('span', { class: 'journey-light-label', 'aria-hidden': 'true' }, chapter.relic));
+        })),
+        h('div', { class: 'mp-next' }, journey.complete
+          ? (language === 'en' ? 'All five lights shine. Try a new journey!' : '다섯 빛이 모두 반짝여. 새 낱말로 다시 모험!')
+          : (language === 'en' ? `Next · ${nextRegion}` : `다음 · ${nextRegion}`)),
       ),
     );
     this.el.append(h('div', { class: 'map-legend' }, h('span', { class: 'lg-clear' }, '클리어'), h('span', { class: 'lg-cur' }, '현재 위치'), h('span', { class: 'lg-lock' }, '잠김')));
@@ -77,6 +90,9 @@ export class WorldMapScreen extends Screen {
     this.busy = true;
     AudioManager.sfx('click');
     const st = STAGES[index - 1];
-    EventBus.emit(Events.MAP_FOCUS, { index, then: () => void navigate('intro', { stageId: st.id }) });
+    EventBus.emit(Events.MAP_FOCUS, { index, then: async () => {
+      try { await navigate('intro', { stageId: st.id }); }
+      finally { this.busy = false; }
+    } });
   }
 }

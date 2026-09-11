@@ -12,40 +12,42 @@
   gap: 12px;
   min-height: 72px;
   padding: 0 40px;
-  border: var(--outline-w) solid var(--outline);
-  border-radius: var(--radius-md);
-  background: linear-gradient(180deg, var(--btn-bg-top) 0%, var(--btn-bg-bot) 100%);
+  border: none;
+  border-radius: 0;
+  border-radius: var(--pix-round-sm);
+  background: var(--pix-grain), linear-gradient(180deg, var(--btn-bg-top) 0%, var(--btn-bg-bot) 100%);
   color: var(--btn-text);
   font-family: var(--font-title);
   font-size: 30px;
   letter-spacing: 1px;
-  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
-  box-shadow: var(--shadow-btn), inset 0 3px 0 rgba(255, 255, 255, 0.35), inset 0 -4px 0 rgba(0, 0, 0, 0.18);
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
+  /* 테두리는 inset 링으로, 바깥 하드 그림자는 filter 로 그린다 */
+  box-shadow:
+    inset 0 0 0 4px var(--edge-dark),
+    inset 0 9px 0 -4px rgba(255, 255, 255, 0.4),
+    inset 0 -9px 0 -4px rgba(0, 0, 0, 0.26);
+  filter: var(--btn-drop, drop-shadow(0 6px 0 var(--edge-dark)));
   cursor: pointer;
   user-select: none;
-  transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.15s ease;
+  transition: transform 0.08s ease, filter 0.15s ease;
   white-space: nowrap;
 }
-.btn:hover { filter: brightness(1.1); transform: translateY(-2px); }
-.btn:active, .btn.pressed {
-  transform: translateY(4px);
-  box-shadow: var(--shadow-btn-active), inset 0 3px 0 rgba(255, 255, 255, 0.2);
-}
-.btn:focus-visible { outline: 4px solid var(--gold-300); outline-offset: 2px; }
+.btn:hover { --btn-drop: drop-shadow(0 6px 0 var(--edge-dark)) brightness(1.1); transform: translateY(-2px); }
+.btn:active, .btn.pressed { --btn-drop: drop-shadow(0 2px 0 var(--edge-dark)); transform: translateY(4px); }
+.btn:focus-visible { outline: 4px solid var(--gold-300); outline-offset: 4px; }
 .btn.disabled, .btn:disabled {
   --btn-bg-top: #8d93a8;
   --btn-bg-bot: #5f657c;
+  --btn-drop: drop-shadow(0 4px 0 var(--edge-dark)) saturate(0.4);
   color: #d5d8e6;
   cursor: not-allowed;
-  filter: saturate(0.4);
   transform: none;
-  box-shadow: 0 4px 0 var(--outline);
   pointer-events: none;
 }
 .btn .btn-icon { font-size: 1.1em; line-height: 1; }
-.btn-lg { min-height: 88px; font-size: 38px; padding: 0 56px; border-radius: var(--radius-lg); }
+.btn-lg { min-height: 88px; font-size: 38px; padding: 0 56px; }
 .btn-md { min-height: 64px; font-size: 26px; padding: 0 32px; }
-.btn-sm { min-height: 66px; font-size: 22px; padding: 0 22px; border-radius: 10px; }
+.btn-sm { min-height: 66px; font-size: 22px; padding: 0 22px; }
 .btn-block { width: 100%; }
 
 .btn-primary { --btn-bg-top: #6fe07f; --btn-bg-bot: #2f9e42; }
@@ -66,54 +68,71 @@
 }
 
 /* ---------- 패널 ---------- */
+/* 픽셀 창: 몸체는 자르지 않고(제목 리본·닫기 버튼이 밖으로 나가야 하므로)
+   ::before 한 겹이 계단 모서리 + 3겹 테두리 + 재질을 전부 그린다. */
 .panel {
   position: relative;
-  border: var(--outline-w) solid var(--outline);
-  border-radius: var(--radius-lg);
-  background: var(--panel-navy);
-  box-shadow: var(--shadow-panel), inset 0 2px 0 rgba(255, 255, 255, 0.12);
+  border: none;
+  border-radius: 0;
+  background: transparent;
   color: var(--text-light);
+  filter: var(--pix-shadow);
+  --panel-fill: var(--panel-navy);
+  --panel-line: var(--edge-line);
 }
 .panel::before {
-  /* 금색 내부 테두리 */
   content: '';
   position: absolute;
-  inset: 5px;
-  border: 2px solid rgba(247, 207, 90, 0.55);
-  border-radius: calc(var(--radius-lg) - 6px);
+  inset: 0;
+  z-index: -1;
+  background: var(--pix-grain), var(--panel-fill);
+  border-radius: var(--pix-round-lg);
+  box-shadow:
+    /* 바깥 어두운선 → 금선 → 안쪽 어두운선 (겹쳐 그려 3겹 링이 된다) */
+    inset 0 0 0 5px var(--edge-dark),
+    inset 0 0 0 8px var(--panel-line),
+    inset 0 0 0 11px var(--edge-dark),
+    /* 위쪽 하이라이트 한 줄 — 유리가 아니라 금속판처럼 보이게 */
+    inset 0 14px 0 -11px rgba(255, 255, 255, 0.16);
   pointer-events: none;
 }
 .panel-cream {
-  background: var(--panel-cream);
   color: var(--text-dark);
-  border-color: var(--brown-700);
+  --panel-fill: var(--panel-cream);
+  --panel-line: var(--edge-line-cream);
 }
-.panel-cream::before { border-color: rgba(138, 95, 49, 0.45); }
-.panel-purple { background: var(--panel-purple); }
-.panel-deep { background: var(--panel-navy-deep); }
+.panel-purple { --panel-fill: var(--panel-purple); }
+.panel-deep { --panel-fill: var(--panel-navy-deep); }
 .panel-glass {
-  background: rgba(16, 20, 60, 0.72);
-  backdrop-filter: blur(6px);
+  --panel-fill: rgba(16, 20, 60, 0.78);
+  filter: var(--pix-shadow-sm);
 }
+.panel-glass::before { backdrop-filter: blur(6px); }
+/* 제목 리본: 창 위쪽 테두리에 박힌 금속 명판. 어두운선 + 위쪽 밝은선 2겹 */
 .panel-title {
   position: absolute;
-  top: -26px;
+  top: -28px;
   left: 50%;
   transform: translateX(-50%);
-  padding: 8px 36px;
-  border: var(--outline-w) solid var(--outline);
-  border-radius: 14px;
-  background: linear-gradient(180deg, var(--gold-300), var(--gold-500));
+  padding: 10px 40px;
+  border: none;
+  border-radius: 0;
+  border-radius: var(--pix-round-sm);
+  background: var(--pix-grain), linear-gradient(180deg, var(--gold-300) 0%, var(--gold-400) 45%, var(--gold-500) 100%);
   color: var(--brown-900);
   font-family: var(--font-title);
   font-size: 30px;
+  letter-spacing: 1px;
   white-space: nowrap;
-  box-shadow: 0 5px 0 var(--outline);
+  box-shadow:
+    inset 0 0 0 4px var(--edge-dark),
+    inset 0 7px 0 -4px rgba(255, 255, 255, 0.55);
+  filter: drop-shadow(0 5px 0 var(--edge-dark));
   z-index: 2;
 }
-.panel-title.purple { background: linear-gradient(180deg, #b895ff, #6c3fd6); color: #fff; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.3); }
-.panel-title.sky { background: linear-gradient(180deg, #8fe0ff, #2f9cf0); color: #fff; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.3); }
-.panel-title.green { background: linear-gradient(180deg, #8ff29a, #34a04a); color: #fff; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.3); }
+.panel-title.purple { background: var(--pix-grain), linear-gradient(180deg, #c4a8ff, #6c3fd6); color: #fff; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4); }
+.panel-title.sky { background: var(--pix-grain), linear-gradient(180deg, #9fe8ff, #2f9cf0); color: #fff; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4); }
+.panel-title.green { background: var(--pix-grain), linear-gradient(180deg, #9df5a8, #34a04a); color: #fff; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4); }
 
 /* 나무 팻말 느낌 라벨 */
 .sign {
@@ -273,19 +292,97 @@
 .input:focus { box-shadow: inset 0 4px 6px rgba(0, 0, 0, 0.18), 0 4px 0 var(--outline), var(--glow-sky); }
 .input::placeholder { color: #a99b7d; font-weight: 500; }
 
+/* ---------- 픽셀 말풍선 ---------- */
+/* 캔버스 위 캐릭터 머리에 붙는다. 좌표는 디자인 1920×1080 기준(캔버스와 같은 좌표계). */
+.speech-bubble {
+  --sb-fill-a: #fffaf0;
+  --sb-fill-b: #f3e3c2;
+  --sb-ink: var(--text-dark);
+  position: absolute;
+  transform: translate(-50%, 0) scale(0.7);
+  transform-origin: 50% 100%;
+  margin-bottom: 20px; /* 꼬리 자리 */
+  filter: drop-shadow(0 5px 0 var(--edge-dark));
+  opacity: 0;
+  pointer-events: none;
+  z-index: 6;
+  transition: opacity 0.18s ease, transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.5);
+}
+.speech-bubble.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+.speech-bubble .sb-box {
+  max-width: 340px;
+  padding: 13px 20px 14px;
+  border-radius: var(--pix-round-sm);
+  background: var(--pix-grain), linear-gradient(180deg, var(--sb-fill-a) 0%, var(--sb-fill-b) 100%);
+  box-shadow: inset 0 0 0 4px var(--edge-dark), inset 0 8px 0 -4px rgba(255, 255, 255, 0.65);
+  color: var(--sb-ink);
+  font-family: var(--font-title);
+  font-size: 23px;
+  line-height: 1.32;
+  text-align: center;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+/* 말풍선 꼬리 — 테두리 두께만큼 위로 겹쳐 상자와 이어 붙인다 */
+.speech-bubble .sb-tail {
+  position: absolute;
+  left: 50%;
+  bottom: -18px;
+  width: 32px;
+  height: 22px;
+  margin-left: -16px;
+  background: var(--edge-dark);
+  clip-path: polygon(0 0, 32px 0, 16px 22px);
+}
+.speech-bubble .sb-tail::before {
+  content: '';
+  position: absolute;
+  inset: 0 5px 5px;
+  background: var(--sb-fill-b);
+  clip-path: polygon(0 0, 22px 0, 11px 15px);
+}
+.speech-bubble.sb-foe { --sb-fill-a: #ffe4e4; --sb-fill-b: #f2b9bb; --sb-ink: #4a1418; }
+.speech-bubble.sb-pet { --sb-fill-a: #e9f7ff; --sb-fill-b: #bfe2f5; --sb-ink: #10304a; }
+.speech-bubble.sb-pet .sb-box { font-size: 21px; max-width: 300px; }
+/* 타이핑 중에만 깜빡이는 커서 */
+.speech-bubble .sb-caret {
+  display: inline-block;
+  width: 0.5em;
+  margin-left: 1px;
+  border-bottom: 4px solid currentColor;
+  vertical-align: baseline;
+  animation: ta-blink 0.7s step-end infinite;
+}
+.speech-bubble.typed .sb-caret { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .speech-bubble { transition: none; }
+  .speech-bubble .sb-caret { animation: none; }
+}
+
 /* ---------- 모달 ---------- */
 .modal-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(6, 8, 28, 0.7);
+  /* 뒤 화면을 확실히 눌러 팝업이 앞으로 나오게.
+     blur 는 쓰지 않는다 — 뒤 버튼이 filter(drop-shadow)를 쓰고 있어서
+     backdrop-filter 와 겹치면 크로뮴이 글자를 두 번(좌우 반전) 그린다. 저사양 태블릿에도 부담. */
+  background: rgba(6, 8, 28, 0.82);
   display: flex;
   align-items: center;
   justify-content: center;
+  /* 세로가 짧은 창에서도 제목 리본·닫기 버튼이 잘리지 않게 */
+  padding: 56px 24px 40px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   animation: ta-fade-in 0.2s ease-out;
 }
 .modal {
   width: 760px;
   max-width: 92%;
+  max-height: calc(100% - 24px);
+  display: flex;
+  flex-direction: column;
   padding: 56px 48px 40px;
   animation: ta-pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
 }
@@ -297,26 +394,32 @@
 .modal .panel-title .ui-icon { width: 30px; height: 30px; vertical-align: -6px; margin-right: 4px; }
 .settings-body { padding: 0 10px; }
 .modal-actions { display: flex; gap: 20px; justify-content: center; margin-top: 32px; flex-wrap: wrap; }
+/* 닫기: 창 밖으로 빼면 세로 짧은 화면에서 잘린다. 테두리 안쪽 우상단에 박아 둔다 */
 .modal-close {
   position: absolute;
-  top: -26px;
-  right: -26px;
-  width: 66px;
-  height: 66px;
-  border-radius: 50%;
-  border: var(--outline-w) solid var(--outline);
-  background: linear-gradient(180deg, #ff8080, #d4383d);
+  top: 16px;
+  right: 16px;
+  width: 58px;
+  height: 58px;
+  border: none;
+  border-radius: 0;
+  border-radius: var(--pix-round-sm);
+  background: var(--pix-grain), linear-gradient(180deg, #ff8f8f, #c93036);
   color: #fff;
   font-family: var(--font-title);
-  font-size: 30px;
+  font-size: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 4px 0 var(--outline);
+  box-shadow:
+    inset 0 0 0 4px var(--edge-dark),
+    inset 0 7px 0 -4px rgba(255, 255, 255, 0.45);
+  filter: drop-shadow(0 4px 0 var(--edge-dark));
   z-index: 3;
 }
-.modal-close:hover { filter: brightness(1.1); }
+.modal-close:hover { filter: drop-shadow(0 4px 0 var(--edge-dark)) brightness(1.12); }
+.modal-close:active { transform: translateY(3px); filter: drop-shadow(0 1px 0 var(--edge-dark)); }
 
 /* 설정 행 */
 .setting-row {
@@ -381,14 +484,39 @@
 
 /* ---------- 별 ---------- */
 .stars { display: inline-flex; gap: 6px; }
+/* 별: 안 딴 별은 "빈 슬롯"으로 보여야 한다. 그냥 회색 글자면 딴 건지 만 건지 모른다 */
 .star {
   font-size: 30px;
-  color: #6b6f8f;
-  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+  color: #3d4470;
+  text-shadow: 0 2px 0 #0a0d28;
   filter: drop-shadow(0 0 0 transparent);
 }
-.star.on { color: var(--gold-400); text-shadow: 0 2px 0 var(--brown-800), 0 0 12px rgba(255, 215, 80, 0.7); }
-.stars-lg .star { font-size: 96px; }
+.star.on {
+  color: var(--gold-400);
+  text-shadow: 0 3px 0 var(--brown-800), 0 0 14px rgba(255, 215, 80, 0.75);
+}
+.stars-lg { display: inline-flex; gap: 18px; align-items: center; }
+.stars-lg .star {
+  font-size: 76px;
+  width: 118px;
+  height: 118px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--pix-round-sm);
+  background: var(--pix-grain), linear-gradient(180deg, rgba(4, 7, 30, 0.7), rgba(14, 20, 60, 0.45));
+  box-shadow:
+    inset 0 0 0 4px var(--edge-dark),
+    inset 0 0 0 6px rgba(143, 224, 255, 0.18),
+    inset 0 10px 12px -6px rgba(0, 0, 0, 0.5);
+}
+.stars-lg .star.on {
+  background: var(--pix-grain), linear-gradient(180deg, #6a4a12, #2e1f06);
+  box-shadow:
+    inset 0 0 0 4px var(--edge-dark),
+    inset 0 0 0 6px rgba(247, 207, 90, 0.65),
+    inset 0 0 24px rgba(255, 205, 70, 0.45);
+}
 .stars-lg .star.on { animation: ta-star-in 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.4) both; }
 
 /* ---------- 배지 ---------- */
@@ -480,8 +608,27 @@
 .vol-wrap .vol { width: 220px; height: 30px; accent-color: var(--gold-400); cursor: pointer; }
 .vol-wrap .vol-val { font-family: var(--font-title); width: 56px; text-align: right; color: var(--sky-300); }
 .setting-links { display: flex; flex-wrap: wrap; gap: 10px; padding: 14px 10px 4px; border-top: 2px dashed rgba(255, 255, 255, 0.15); margin-top: 8px; }
-.guide-list { display: grid; gap: 10px; max-height: 520px; overflow-y: auto; padding: 4px 10px; font-size: 21px; line-height: 1.5; }
+.guide-list { display: grid; gap: 8px; max-height: 560px; overflow-y: auto; padding: 4px 14px 4px 4px; font-size: 21px; line-height: 1.5; }
 .guide-list p { margin: 0; }
+/* 소제목: 목록이 길어 눈으로 훑어야 한다. 앞에 금색 사각 표식을 붙여 단락을 가른다 */
+.guide-list .guide-h {
+  margin: 14px 0 2px;
+  font-family: var(--font-title);
+  font-size: 25px;
+  color: var(--gold-300);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.guide-list .guide-h::before {
+  content: '';
+  width: 14px;
+  height: 14px;
+  background: var(--gold-400);
+  box-shadow: inset 0 0 0 3px var(--edge-dark);
+  flex: 0 0 auto;
+}
+.guide-list .guide-h:first-child { margin-top: 0; }
 .guide-std { margin: 12px 10px 0; font-size: 17px; line-height: 1.5; }
 .story-body { display: grid; gap: 14px; min-height: 260px; padding: 8px 14px; font-size: 24px; line-height: 1.6; color: var(--text-dark, #2a2a3a); }
 .story-body p { margin: 0; }

@@ -3,9 +3,9 @@ import { h, fmt, icon } from '../../util/dom';
 import { SaveSystem } from '../../systems/SaveSystem';
 import { navigate } from '../../Game';
 import { getStage } from '../../data/stages';
-import { getCharacter, getPet, portraitUrl } from '../../data/characters';
+import { getCharacter, getPet, portraitUrl, profileDisplayName } from '../../data/characters';
 import type { StageId, ContentUnit } from '../../types';
-import { BattleSystem, type BattleSnapshot, type TypingMode } from '../../systems/BattleSystem';
+import type { BattleSnapshot, TypingMode } from '../../systems/BattleState';
 import { WaveSystem } from '../../systems/WaveSystem';
 import { RaceSystem } from '../../systems/RaceSystem';
 import { LetterSystem } from '../../systems/LetterSystem';
@@ -15,17 +15,20 @@ import { DailySystem, pickDailyWords, pickDailyLong, DAILY, type DailyKind } fro
 import { allContent } from '../../data/content';
 import { currentTitle } from '../../data/titles';
 import { getEnemy } from '../../data/enemies';
-import { getContentForStage } from '../../data/content';
+import { getContentForStage, getRemixContent } from '../../data/content';
 import { TypingSystem } from '../../systems/TypingSystem';
 import { HudController } from '../HudController';
 import { KeyboardGuide } from '../KeyboardGuide';
 import { EventBus, Events } from '../../EventBus';
 import { AudioManager } from '../../systems/AudioManager';
 import { finalizeAndSave } from '../../systems/ScoreSystem';
-import { confirmModal, closeModal } from '../ModalController';
+import { alertModal, confirmModal, closeModal } from '../ModalController';
 import { refreshSoundIcon } from '../TopBar';
 import type { PetActive, WordVariant } from '../../types';
 import type { FeverLevel } from '../../systems/TypingRun';
+import { getLanguage } from '../../i18n/Locale';
+
+const ui = (ko: string, en: string) => getLanguage() === 'en' ? en : ko;
 
 /** 순서N 태그 기준 정렬 (없으면 원래 순서) */
 const byOrder = (a: { tags: string[] }, b: { tags: string[] }) => {
@@ -33,8 +36,8 @@ const byOrder = (a: { tags: string[] }, b: { tags: string[] }) => {
   return n(a) - n(b);
 };
 
-/** 전투 화면 DOM: HUD + 실제 한글 입력창 + 키보드 가이드. 로직(BattleSystem)의 소유자. */
-export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKind }> {
+/** 전투 화면 DOM: HUD + 실제 한글 입력창 + 키보드 가이드. 여섯 모드의 타이핑 로직을 연결한다. */
+export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKind; remix?: boolean }> {
   private battle?: TypingMode;
   private typing?: TypingSystem;
   private hud?: HudController;
@@ -51,38 +54,61 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
   /** 편지 모드 전용 판정 팝 큐 (동시에 뜬 팝이 쌓여 본문을 덮지 않게 순서대로) */
   private judgeQueue: [string, string][] = [];
   private judgeTimer = 0;
+  private started = false;
+  private pauseDialogOpen = false;
+  private pausedByOverlay = false;
+  private modalObserver?: MutationObserver;
+  private lifetime = 0;
+  private remix = false;
+  private visibilityHandler = () => {
+    if (document.hidden) void this.pauseMenu(ui('다른 화면을 보는 동안 모험을 멈췄어요. 준비되면 계속해요.', 'Your adventure is paused while this tab is hidden. Continue when you are ready.'));
+  };
+  private shortcutHandler = (event: KeyboardEvent) => {
+    if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing) return;
+    event.preventDefault();
+    if (this.kbd?.el.classList.contains('show')) this.setKbdVisible(false);
+    else void this.pauseMenu();
+  };
 
   constructor() {
     super('battle');
   }
 
-  protected render(data: { stageId: StageId; dailyKind?: DailyKind }) {
+  protected render(data: { stageId: StageId; dailyKind?: DailyKind; remix?: boolean }) {
+    this.lifetime++;
     const st = getStage(data.stageId);
     const save = SaveSystem.get();
     const ch = getCharacter(save.profile.characterId);
     const pet = getPet(save.profile.petId);
     this.paused = false;
+    this.started = false;
+    this.pauseDialogOpen = false;
+    this.pausedByOverlay = false;
+    this.remix = data.remix === true;
+    const stagePool = data.remix ? getRemixContent(st.id) : getContentForStage(st.id);
     // 도움 모드: 그 스테이지만 기초 난이도 규칙(시간 +35%, 적 느리게)
     const difficulty = save.progress.assist?.[st.id] ? 'beginner' : save.profile.difficulty;
 
     if (st.mode === 'wave') {
-      const pool = getContentForStage(st.id).filter((u) => u.type === 'word');
+      const pool = stagePool.filter((u) => u.type === 'word');
       const len = (u: { text: string }) => [...u.text].filter((c) => c.trim()).length;
-      this.battle = new WaveSystem(st, difficulty, pet, { slime: pool.filter((u) => len(u) <= 2), bat: pool.filter((u) => len(u) >= 3) }, (ev, d) => EventBus.emit(ev, d));
+      const short = pool.filter((u) => len(u) <= (getLanguage() === 'en' ? 4 : 2));
+      const long = pool.filter((u) => len(u) >= (getLanguage() === 'en' ? 5 : 3));
+      this.battle = new WaveSystem(st, difficulty, pet, { slime: short.length ? short : pool, bat: long.length ? long : pool }, (ev, d) => EventBus.emit(ev, d));
     } else if (st.mode === 'race') {
-      const pool = getContentForStage(st.id).filter((u) => u.type === 'word');
+      const pool = stagePool.filter((u) => u.type === 'word');
       const ghost = save.records.ghosts?.[st.id] ?? null;
       this.battle = new RaceSystem(st, difficulty, pet, pool, ghost, getEnemy(st.enemies[0]).sheet, (ev, d) => EventBus.emit(ev, d));
     } else if (st.mode === 'letter') {
-      const all = getContentForStage(st.id).filter((u) => u.type === 'sentence');
+      const all = stagePool.filter((u) => u.type === 'sentence');
       const letter = all.filter((u) => u.tags.includes('편지')).sort(byOrder);
       this.battle = new LetterSystem(st, difficulty, pet, letter.length >= 6 ? letter : all, (ev, d) => EventBus.emit(ev, d));
     } else if (st.mode === 'telegram') {
-      const all = getContentForStage(st.id).filter((u) => u.type === 'sentence');
+      const all = stagePool.filter((u) => u.type === 'sentence');
       const tele = all.filter((u) => u.tags.includes('전보')).sort(byOrder);
       this.battle = new TelegramSystem(st, difficulty, pet, tele.length >= 3 ? tele : all.slice(0, 3), (ev, d) => EventBus.emit(ev, d));
     } else if (st.mode === 'boss') {
-      const all = getContentForStage(st.id);
+      const all = stagePool;
       const tag = (t: string) => all.filter((u) => u.tags.includes(t));
       const words = all.filter((u) => u.type === 'word');
       const crystals = tag('결정').length >= 5 ? tag('결정') : words.slice(0, 5);
@@ -94,22 +120,23 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
       const all = allContent();
       const dailyWords = kind === 'word' ? pickDailyWords(all.filter((u) => u.type === 'word')) : kind === 'sentence' ? pickDailyWords(all.filter((u) => u.type === 'sentence' && u.tags.includes('오늘문장')), DAILY.sentences) : pickDailyLong(all.filter((u) => u.type === 'sentence' && u.tags.some((t) => /^장문\d+$/.test(t))));
       this.battle = new DailySystem(st, difficulty, pet, dailyWords, (ev, d) => EventBus.emit(ev, d), kind);
-    } else this.battle = new BattleSystem(st, difficulty, pet.id);
+    } else throw new Error(`Unsupported stage mode: ${st.mode}`);
     if (import.meta.env.DEV) (window as unknown as { __battle: TypingMode }).__battle = this.battle; // 개발용 콘솔 접근
     this.hud = new HudController({
       stageIndex: st.index,
       stageName: st.name,
-      playerName: save.profile.name,
+      playerName: profileDisplayName(save.profile, getLanguage()),
       level: SaveSystem.level(),
       portrait: portraitUrl(ch.sheet),
       petName: pet.name,
       petPortrait: portraitUrl(pet.sheet),
-      petSkill: `${pet.passiveDesc} · ${pet.activeDesc}`,
+      petSkill: `${this.isSentenceMode() ? ui('2문장 연속 성공', '2 sentences in a row') : ui('10낱말 연속 성공', '10 words in a row')} · ${this.petHelp(pet.active)}`,
       petActive: pet.active,
-      countLabel: st.mode === 'wave' ? '몬스터' : st.mode === 'letter' || st.mode === 'telegram' ? '문장' : st.mode === 'boss' ? '페이즈' : '낱말',
+      countLabel: st.mode === 'wave' ? '몬스터' : st.mode === 'race' ? '거리' : this.isSentenceMode() ? '문장' : st.mode === 'boss' ? '페이즈' : '낱말',
+      progressKind: st.mode === 'race' ? 'distance' : st.mode === 'boss' ? 'phase' : 'targets',
       telegram: st.mode === 'telegram',
       timeLabel: st.mode === 'letter' || st.mode === 'daily' ? '걸린 시간' : st.mode === 'telegram' ? '충돌까지' : undefined,
-      hideEnemy: st.mode === 'letter' || st.mode === 'telegram' || st.mode === 'daily',
+      hideEnemy: st.mode === 'letter' || st.mode === 'telegram' || st.mode === 'daily' || st.mode === 'race',
       race: st.mode === 'race',
       bestCpm: save.records.bestCpm,
       title: currentTitle(save.progress.coins ?? 0).name,
@@ -126,9 +153,10 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
       autocorrect: 'off',
       autocapitalize: 'off',
       spellcheck: 'false',
-      placeholder: '여기에 입력하세요',
-      'aria-label': '타자 입력창',
-      lang: 'ko',
+      placeholder: ui('여기에 입력 · Esc로 잠시 멈춤', 'Type here · Esc to pause'),
+      'aria-label': ui('타자 입력창', 'Typing input'),
+      'aria-description': ui('Enter 제출, Tab 점프, Shift+Tab 버튼으로 이동, Escape 잠시 멈춤', 'Enter submits, Tab skips, Shift+Tab moves to controls, Escape pauses'),
+      lang: getLanguage(),
     }) as HTMLInputElement;
 
     this.kbdToggle = h('button', { class: 'btn btn-sm btn-gray bb-kbd-toggle', onclick: () => this.setKbdVisible(!SaveSystem.get().settings.showKeyboardGuide) }, save.settings.showKeyboardGuide ? '가이드 끄기' : '가이드 켜기');
@@ -144,7 +172,7 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
           { class: 'bb-target-lbl' },
           icon('target'),
           '목표',
-          h('span', { class: 'bb-target-desc' }, st.mode === 'wave' ? '몬스터 머리 위 낱말을 입력하면 공격! 다 치면 처치' : st.mode === 'race' ? '낱말을 빨리 칠수록 빨리 달려! 오타는 감속' : st.mode === 'letter' ? '편지의 문장을 띄어쓰기까지 똑같이 입력하고 Enter' : st.mode === 'telegram' ? '전보 문장을 그대로 입력하고 Enter! 문장마다 브레이크가 걸려' : st.mode === 'boss' ? '결정 → 러시 → 마지막 문장! 배운 걸 전부 써' : st.mode === 'daily' ? '오늘의 낱말 20개, 내 기록에 도전!' : st.index <= 2 ? '낱말을 똑같이 입력하고 Enter 또는 Space' : '문장을 똑같이 입력하고 Enter'),
+          h('span', { class: 'bb-target-desc' }, st.mode === 'wave' ? '몬스터 머리 위 낱말을 입력하면 공격! 다 치면 처치' : st.mode === 'race' ? '낱말을 빨리 칠수록 빨리 달려! 오타는 감속' : st.mode === 'letter' ? '편지의 문장을 띄어쓰기까지 똑같이 입력하고 Enter' : st.mode === 'telegram' ? '전보 문장을 그대로 입력하고 Enter! 문장마다 브레이크가 걸려' : st.mode === 'boss' ? '결정 → 러시 → 마지막 문장! 배운 걸 전부 써' : st.mode === 'daily' ? data.dailyKind === 'sentence' ? '오늘의 문장 10개, 정확하게 완성해요' : data.dailyKind === 'long' ? '오늘의 긴 글을 한 문장씩 정확하게 완성해요' : '오늘의 낱말 20개, 내 기록에 도전!' : st.index <= 2 ? '낱말을 똑같이 입력하고 Enter 또는 Space' : '문장을 똑같이 입력하고 Enter'),
           this.kbdToggle,
         ),
         h('div', { class: 'bb-target-row' }, this.hud.targetEl, this.hud.variantEl),
@@ -166,6 +194,7 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
       onChange: (value, composing) => this.onInputChange(value, composing),
       onSubmit: (value, meta) => this.battle?.submit(value, meta.usedBackspace),
       onSkip: () => this.doSkip(),
+      onPause: () => { void this.pauseMenu(); },
       onMove: (dir, pressed) => this.battle?.move?.(dir, pressed),
     });
     this.typing.setEnabled(false);
@@ -173,7 +202,7 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
 
     this.bind(Events.TARGET_CHANGED, (s: BattleSnapshot) => this.onTarget(s));
     this.bind(Events.HUD_TICK, (s: BattleSnapshot) => this.hud?.update(s));
-    this.bind(Events.INPUT_CORRECT, (d: { perfect: boolean; combo: number; snapshot: BattleSnapshot }) => this.onCorrect(d));
+    this.bind(Events.INPUT_CORRECT, (d: { perfect: boolean; corrected?: boolean; combo: number; snapshot: BattleSnapshot }) => this.onCorrect(d));
     this.bind(Events.INPUT_WRONG, (d: { snapshot: BattleSnapshot; forgiven: boolean; shielded: boolean }) => this.onWrong(d));
     this.bind(Events.STAGE_CLEAR, (s: BattleSnapshot) => this.finish(true, s));
     this.bind(Events.STAGE_FAILED, (d: { reason: 'time' | 'hp'; snapshot: BattleSnapshot }) => this.finish(false, d.snapshot, d.reason));
@@ -200,7 +229,7 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
     this.bind(Events.RACE_FINISH, (d: { beatGhost: boolean }) => this.judge(d.beatGhost ? '도착! 어제의 나 추월!' : '게이트 도착!', 'fever'));
     this.bind(Events.WAVE_TOUCH, (d: { hpLoss: number }) => { if (d.hpLoss > 0) this.flash('wrong'); });
     this.bind(Events.FEVER_CHANGED, (d: { level: FeverLevel }) => this.onFever(d.level));
-    this.bind(Events.PET_ACTIVE, (d: { active: PetActive; pet: { name: string; activeDesc: string } }) => this.judge(`${d.pet.name}: ${d.pet.activeDesc.replace('10콤보 때 ', '')}!`, 'pet'));
+    this.bind(Events.PET_ACTIVE, (d: { active: PetActive; pet: { name: string } }) => this.judge(`${d.pet.name}: ${this.petHelp(d.active)}`, 'pet'));
     this.bind(Events.PET_PASSIVE, (d: { pet: { name: string; passiveDesc: string } }) => this.judge(`${d.pet.name}이(가) ${d.pet.passiveDesc}!`, 'pet'));
     this.bind(Events.BOMB_EXPLODE, () => { this.flash('wrong'); this.judge('펑! 콤보 초기화', 'miss'); AudioManager.sfx('bomb'); });
     this.bind(Events.VARIANT_BONUS, (d: { variant: WordVariant; coins?: number; hp?: number }) => {
@@ -209,7 +238,40 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
     });
 
     this.hud.update(this.battle.snapshot());
+    if (getLanguage() === 'en') {
+      const help = this.el.querySelector('.bb-target-desc');
+      if (help) help.textContent = 'Match letters, capitals, spaces and punctuation. Correct mistakes and try again.';
+    }
+    document.addEventListener('visibilitychange', this.visibilityHandler);
+    document.addEventListener('keydown', this.shortcutHandler);
+    const modalRoot = document.getElementById('modal-root');
+    if (modalRoot) {
+      this.modalObserver = new MutationObserver(() => {
+        if (!this.battle || this.battle.finished || this.pauseDialogOpen) return;
+        if (modalRoot.childElementCount > 0 && !this.paused) {
+          this.suspendBattle();
+          this.pausedByOverlay = true;
+        } else if (modalRoot.childElementCount === 0 && this.pausedByOverlay) {
+          this.pausedByOverlay = false;
+          void this.pauseMenu();
+        }
+      });
+      this.modalObserver.observe(modalRoot, { childList: true });
+    }
     this.countdown();
+  }
+
+  private isSentenceMode() {
+    return this.battle?.stage.mode === 'letter' || this.battle?.stage.mode === 'telegram' || (this.battle instanceof DailySystem && this.battle.kind !== 'word');
+  }
+
+  private petHelp(active: PetActive): string {
+    const mode = this.battle?.stage.mode;
+    const untimed = mode === 'letter' || mode === 'daily';
+    if (active === 'shield') return ui('5초 동안 오답 콤보·HP 보호', '5 seconds of combo and HP protection');
+    if (active === 'time_plus') return untimed ? ui('5초 복구 보호 + 다음 입력 힌트', '5-second recovery shield + next target hint') : ui('시간·거리 여유 추가', 'Extra time or distance');
+    if (active === 'fire_aoe') return untimed || mode === 'telegram' ? ui('다음에 입력할 내용 미리 보기', 'Preview the next target') : ui('화염으로 적을 밀어내요', 'Fire helps push enemies back');
+    return ui('다음에 입력할 내용 미리 보기', 'Preview the next target');
   }
 
   private bind<T>(ev: string, fn: (d: T) => void) {
@@ -219,18 +281,20 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
 
   /** 3, 2, 1, GO! 카운트다운 후 전투 시작 */
   private countdown() {
+    const lifetime = this.lifetime;
     const wrap = h('div', { class: 'countdown' });
     this.el.append(wrap);
     const steps = ['3', '2', '1', 'GO!'];
     let i = 0;
     const next = () => {
-      if (!this.battle) return;
+      if (!this.battle || this.started || lifetime !== this.lifetime) return;
       wrap.replaceChildren(h('div', { class: `cd ${steps[i] === 'GO!' ? 'go' : ''}` }, steps[i]));
-      AudioManager.sfx(steps[i] === 'GO!' ? 'go' : 'countdown');
+      if (!document.hidden) AudioManager.sfx(steps[i] === 'GO!' ? 'go' : 'countdown');
       i++;
       if (i < steps.length) window.setTimeout(next, 650);
       else
         window.setTimeout(() => {
+          if (lifetime !== this.lifetime) return;
           wrap.remove();
           this.start();
         }, 500);
@@ -239,7 +303,10 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
   }
 
   private start() {
-    if (!this.battle) return;
+    if (!this.battle || this.started) return;
+    if (document.hidden || this.paused) { void this.pauseMenu(); return; }
+    this.started = true;
+    this.el.querySelector('.countdown')?.remove();
     this.battle.start();
     this.typing?.setEnabled(true);
     this.lastTick = performance.now();
@@ -247,19 +314,39 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
       const now = performance.now();
       const dt = (now - this.lastTick) / 1000;
       this.lastTick = now;
-      if (!this.paused) this.battle?.tick(dt);
+      if (!this.paused && !document.hidden) this.battle?.tick(dt);
     }, 100);
   }
 
   private onTarget(s: BattleSnapshot) {
     this.currentTarget = s.target;
     this.hud?.update(s);
+    if (s.boss) {
+      const help = this.el.querySelector<HTMLElement>('.bb-target-desc');
+      if (help) {
+        help.dataset.noTranslate = 'true';
+        const b = s.boss;
+        const roles = { armor: ui('갑옷 깨기', 'Break the armor'), core: ui('코어 밝히기', 'Light the core'), finale: ui('마지막 일격', 'Final strike') };
+        help.textContent = b.phase === 1
+          ? ui('글자를 맞추면 결정에 균열! 낱말을 완성하면 깨져요.', 'Each correct letter cracks a crystal. Finish the word to break it!')
+          : b.phase === 2
+            ? ui('다가오는 낱말을 완성해서 반격! 글자를 칠 때마다 공격해요.', 'Finish the incoming words to counterattack! Each letter sends a hit.')
+            : `${b.finalStep}/${b.finalTotal} · ${roles[b.finalRole ?? 'armor']} · ${ui('문장을 완성하면 강력한 일격!', 'Finish the sentence for a mighty strike!')}`;
+      }
+    }
     if (s.target) {
+      if (this.inputEl) this.inputEl.placeholder = ui('여기에 입력 · Esc로 잠시 멈춤', 'Type here · Esc to pause');
       this.inputEl?.classList.toggle('long', [...s.target.text].length > 8);
       this.typing?.setTarget(s.target.text, s.target.type);
       this.hud?.renderTarget(s.target.text, '');
       this.kbd?.update(s.target.text, '');
+      this.typing?.setEnabled(this.started && !this.paused);
       this.typing?.focus();
+    } else {
+      this.typing?.setEnabled(false);
+      this.hud?.renderTarget('', '');
+      this.kbd?.update('', '');
+      if (this.inputEl) this.inputEl.placeholder = ui('다음 목표가 곧 나타나요', 'The next target is on its way');
     }
   }
 
@@ -274,7 +361,7 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
     }
     if (this.battle.skip()) {
       AudioManager.sfx('go', { rate: 1.4 });
-      this.judge(`점프! 남은 ${left - 1}번`, 'good');
+      this.judge(ui(`나중에 다시 도전! 남은 점프 ${left - 1}번`, `Try it later! ${left - 1} skips left`), 'good');
       this.typing?.setTarget(this.currentTarget?.text ?? '', this.currentTarget?.type ?? 'word');
       this.hud?.setSkips(left - 1);
     }
@@ -291,15 +378,15 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
     if (!composing) this.battle?.commit(value);
   }
 
-  private onCorrect(d: { perfect: boolean; combo: number; snapshot: BattleSnapshot }) {
+  private onCorrect(d: { perfect: boolean; corrected?: boolean; combo: number; snapshot: BattleSnapshot }) {
     this.flash('right');
-    this.judge(d.perfect ? 'PERFECT!' : d.combo >= 5 ? 'GREAT!' : 'GOOD!', d.perfect ? 'perfect' : 'good');
+    this.judge(d.corrected ? ui('스스로 고쳤어! ✨', 'You fixed it! ✨') : d.perfect ? ui('정확하게 완성! ✨', 'PERFECT! ✨') : ui('완성했어요!', 'Completed!'), d.perfect || d.corrected ? 'perfect' : 'good');
     this.hud?.update(d.snapshot);
   }
 
   private onWrong(d: { snapshot: BattleSnapshot; forgiven: boolean; shielded: boolean }) {
     this.flash('wrong');
-    this.judge(d.forgiven ? '오타 용서!' : d.shielded ? '방어막!' : 'MISS', d.forgiven || d.shielded ? 'good' : 'miss');
+    this.judge(d.forgiven || d.shielded ? ui('친구가 보호했어요 · 고쳐서 다시!', 'Your friend protected you · correct and retry!') : ui('목표를 보고 고쳐서 다시 해요', 'Check the target, correct it and retry'), d.forgiven || d.shielded ? 'good' : 'miss');
     this.hud?.update(d.snapshot);
     this.inputEl?.classList.remove('bad');
   }
@@ -366,20 +453,51 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
     window.setTimeout(() => j.remove(), kind === 'perfect' || kind === 'good' || kind === 'miss' ? 900 : 1150);
   }
 
-  /** 전투 중 홈 버튼: 잠시 멈추고 "정말 나갈까요?" 확인 후에만 홈으로 이동, 취소하면 이어서 진행 */
+  private suspendBattle() {
+    this.paused = true;
+    this.battle?.pause();
+    this.typing?.setEnabled(false);
+    AudioManager.setRate(1);
+  }
+
+  private resumeBattle() {
+    if (!this.battle || this.battle.finished) return;
+    if (document.hidden) { void this.pauseMenu(); return; }
+    this.paused = false;
+    this.lastTick = performance.now();
+    if (!this.started) this.start();
+    else {
+      this.battle.resume();
+      this.typing?.setEnabled(this.battle.run.current != null);
+      AudioManager.setRate(this.battle.run.feverLevel >= 2 ? 1.15 : 1);
+    }
+  }
+
+  /** 화면 복귀만으로 시작하지 않는다. 계속하기·Escape 등 명시적인 사용자 동작으로 재개한다. */
+  private async pauseMenu(message = ui('잠시 쉬어도 괜찮아요. 멈춘 시간은 타수와 기록에 들어가지 않아요.', 'Take your time. Paused time is not included in your typing record.')) {
+    if (!this.battle || this.battle.finished || this.pauseDialogOpen || this.pausedByOverlay) return;
+    const lifetime = this.lifetime;
+    this.suspendBattle();
+    this.pauseDialogOpen = true;
+    await alertModal(ui('잠시 멈춤', 'Paused'), message, ui('계속하기', 'Continue'));
+    if (lifetime !== this.lifetime) return;
+    this.pauseDialogOpen = false;
+    this.resumeBattle();
+  }
+
+  /** 전투 중 홈 버튼: 진행을 멈춘 후 이동을 확인한다. */
   private async homeMenu() {
     if (!this.battle || this.battle.finished || this.paused) return;
-    this.paused = true;
-    this.battle.pause();
-    this.typing?.setEnabled(false);
-    const leave = await confirmModal('나가기', '정말 나갈까요?\n지금 전투 기록은 저장되지 않아요.', '나가기', '계속하기');
+    const lifetime = this.lifetime;
+    this.suspendBattle();
+    this.pauseDialogOpen = true;
+    const leave = await confirmModal(ui('나가기', 'Leave adventure'), ui('정말 나갈까요?\n지금 전투 기록은 저장되지 않아요.', 'Leave this adventure?\nThis unfinished round will not be saved.'), ui('나가기', 'Leave'), ui('계속하기', 'Continue'));
+    if (lifetime !== this.lifetime) return;
+    this.pauseDialogOpen = false;
     if (leave) {
       void navigate('home');
     } else {
-      this.paused = false;
-      this.battle.resume();
-      this.lastTick = performance.now();
-      this.typing?.setEnabled(true);
+      this.resumeBattle();
     }
   }
 
@@ -418,6 +536,11 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
         perfectCount: s.perfectCount,
         coins: s.coins,
         mistakes: this.battle.run.mistakes,
+        learningAttempts: this.battle.run.learningAttempts.map((attempt) => ({ ...attempt })),
+        attemptedCount: this.battle.run.stats.submissions,
+        skippedCount: this.battle.run.skippedCount,
+        correctedCount: this.battle.run.correctedCount,
+        remix: this.remix,
         ghost: this.battle instanceof RaceSystem && cleared ? this.battle.ghostRecord() : undefined,
         beatGhost: this.battle instanceof RaceSystem ? this.battle.beatGhost : undefined,
         wordsSeen: this.battle.wordsSeen(),
@@ -429,10 +552,16 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
     } else {
       this.judge(st.mode === 'telegram' ? '급정지 실패… 다시 도전!' : reason === 'time' ? `시간 종료 ${fmt.time(0)}` : 'HP가 0이 됐어요', 'miss');
     }
-    window.setTimeout(() => void navigate('result', { result }), cleared ? (st.mode === 'boss' ? 4200 : 2200) : 1600);
+    const lifetime = this.lifetime;
+    window.setTimeout(() => { if (lifetime === this.lifetime) void navigate('result', { result }); }, cleared ? (st.mode === 'boss' ? 4200 : 2200) : 1600);
   }
 
   protected onHide() {
+    this.lifetime++;
+    document.removeEventListener('visibilitychange', this.visibilityHandler);
+    document.removeEventListener('keydown', this.shortcutHandler);
+    this.modalObserver?.disconnect();
+    this.modalObserver = undefined;
     window.clearInterval(this.tickTimer);
     window.clearTimeout(this.judgeTimer);
     this.judgeTimer = 0;

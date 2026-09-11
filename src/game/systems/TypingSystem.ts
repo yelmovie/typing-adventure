@@ -10,6 +10,8 @@ export interface TypingCallbacks {
   onSubmit: (value: string, meta: { usedBackspace: boolean }) => void;
   /** Tab 키: 어려운 낱말 점프 */
   onSkip?: () => void;
+  /** Escape: 입력창에서 벗어나 잠시 멈추기 */
+  onPause?: () => void;
   /** 방향키: 캐릭터 이동/점프/앉기 (left·right·up·down) */
   onMove?: (dir: 'left' | 'right' | 'up' | 'down', pressed: boolean) => void;
 }
@@ -67,6 +69,11 @@ export class TypingSystem {
       if (!this.enabled) return;
       const ke = e as KeyboardEvent;
       const isComposingKey = ke.isComposing || ke.keyCode === 229;
+      if (ke.key === 'Escape' && !isComposingKey && !this.composing) {
+        ke.preventDefault();
+        this.cb.onPause?.();
+        return;
+      }
       if (ke.key === 'Backspace') this.usedBackspace = true;
       if (ke.key.startsWith('Arrow')) {
         ke.preventDefault();
@@ -74,6 +81,7 @@ export class TypingSystem {
         return;
       }
       if (ke.key === 'Tab') {
+        if (ke.shiftKey) return; // Shift+Tab은 일반 키보드 탐색으로 입력창에서 나갈 수 있다.
         ke.preventDefault();
         this.cb.onSkip?.();
         return;
@@ -101,9 +109,11 @@ export class TypingSystem {
         this.cb.onMove?.(ke.key.slice(5).toLowerCase() as 'left' | 'right' | 'up' | 'down', false);
       }
     });
-    // 캔버스 클릭 등으로 포커스를 잃어도 다시 가져온다
+    // 캔버스 클릭은 입력으로 돌아오되, 버튼·모달의 키보드 포커스를 빼앗지 않는다.
     on('blur', () => {
-      if (this.enabled) window.setTimeout(() => this.focus(), 10);
+      if (this.enabled) window.setTimeout(() => {
+        if (document.activeElement === document.body || document.activeElement?.tagName === 'CANVAS') this.focus();
+      }, 10);
     });
   }
 
@@ -135,6 +145,7 @@ export class TypingSystem {
   }
 
   focus() {
+    if (!this.enabled || this.input.disabled || this.input.closest('[inert]')) return;
     if (document.activeElement !== this.input) this.input.focus({ preventScroll: true });
   }
 

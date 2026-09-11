@@ -11,72 +11,13 @@ import { getEnemy } from '../data/enemies';
 import { getPet } from '../data/characters';
 import { DIFFICULTY_RULES } from '../data/stages';
 import { calcDamage, calcWordScore, DAMAGE } from './ScoreSystem';
-import { TypingRun, RULES, type FeverLevel } from './TypingRun';
+import { TypingRun, RULES } from './TypingRun';
 import { countStrokes } from '../util/hangul';
 import { EventBus, Events } from '../EventBus';
 
-export interface EnemyState {
-  id: string;
-  name: string;
-  sheet: string;
-  hp: number;
-  maxHp: number;
-  scale: number;
-}
-
-export interface BattleSnapshot {
-  targetIndex: number;
-  targetTotal: number;
-  target: ContentUnit | null;
-  combo: number;
-  maxCombo: number;
-  score: number;
-  playerHp: number;
-  playerMaxHp: number;
-  timeLeft: number;
-  timeLimit: number;
-  accuracy: number;
-  cpm: number;
-  enemy: EnemyState | null;
-  enemyIndex: number;
-  enemyTotal: number;
-  totalEnemyHp: number;
-  dealtDamage: number;
-  perfectCount: number;
-  wordsDone: number;
-  elapsedSec: number;
-  feverLevel: FeverLevel;
-  feverLeft: number;
-  bombLeft: number | null;
-  shielded: boolean;
-  coins: number;
-  nextHint: string | null;
-  /** 모드별 부가 정보 (HUD가 있으면 쓰고 없으면 무시) */
-  enemyLabel?: string;
-  race?: import('./RaceSystem').RaceInfo;
-  letter?: import('./LetterSystem').LetterInfo;
-  telegram?: import('./TelegramSystem').TelegramInfo;
-  boss?: import('./BossSystem').BossInfo;
-}
-
-/** BattleScreen 이 모드별 규칙 클래스를 같은 방식으로 다루기 위한 최소 인터페이스 */
-export interface TypingMode {
-  readonly stage: StageDef;
-  readonly run: TypingRun;
-  finished: boolean;
-  start(): void;
-  tick(dt: number): void;
-  pause(): void;
-  resume(): void;
-  commit(value: string): void;
-  submit(value: string, usedBackspace: boolean): void;
-  /** 점프: 현재 목표 건너뛰기 (남은 횟수 없으면 false) */
-  skip(): boolean;
-  /** 방향키 이동 (모드가 지원할 때만) */
-  move?(dir: 'left' | 'right' | 'up' | 'down', pressed: boolean): void;
-  snapshot(): BattleSnapshot;
-  wordsSeen(): string[];
-}
+// Historical implementation retained for reference; not registered or bundled by the game.
+import type { EnemyState, BattleSnapshot, TypingMode } from './BattleState';
+export type { EnemyState, BattleSnapshot, TypingMode } from './BattleState';
 
 export class BattleSystem implements TypingMode {
   readonly stage: StageDef;

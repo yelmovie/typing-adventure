@@ -11,7 +11,10 @@ function ensureGlobalClose() {
   globalCloseBound = true;
   document.addEventListener('click', (e) => {
     document.querySelectorAll('.sound-popover.open').forEach((p) => {
-      if (!p.parentElement?.contains(e.target as Node)) p.classList.remove('open');
+      if (!p.parentElement?.contains(e.target as Node)) {
+        p.classList.remove('open');
+        p.parentElement?.querySelector('button[aria-expanded]')?.setAttribute('aria-expanded', 'false');
+      }
     });
   });
 }
@@ -49,13 +52,21 @@ export function soundButton(): HTMLElement {
 
   const popover = h('div', { class: 'panel panel-glass sound-popover' }, muteRow, slider('배경 음악', 'bgmVolume'), slider('효과음', 'sfxVolume'));
 
-  const btn = h('button', { class: 'icon-btn', title: '소리 설정', onclick: (e: Event) => {
+  const btn = h('button', { type: 'button', class: 'icon-btn', title: '소리 설정', 'aria-label': '소리 설정', 'aria-expanded': 'false', onclick: (e: Event) => {
     e.stopPropagation();
     AudioManager.sfx('click');
     popover.classList.toggle('open');
+    btn.setAttribute('aria-expanded', String(popover.classList.contains('open')));
   } }, btnIcon);
-
-  return h('div', { class: 'sound-pop-wrap' }, btn, popover);
+  const wrap = h('div', { class: 'sound-pop-wrap' }, btn, popover);
+  wrap.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || !popover.classList.contains('open')) return;
+    event.stopPropagation();
+    popover.classList.remove('open');
+    btn.setAttribute('aria-expanded', 'false');
+    btn.focus();
+  });
+  return wrap;
 }
 
 /** 다른 곳(설정 모달 등)에서 bgm/sfx 를 껐다 켰을 때 소리 버튼 아이콘을 동기화 */
@@ -71,13 +82,13 @@ export function refreshSoundIcon(wrap: HTMLElement) {
  * 전투처럼 나가기 전 확인이 필요한 화면은 onHome 에 직접 confirmModal → navigate 로직을 넘긴다.
  */
 export function commonTopBar(opts: { onHome?: () => void; onReset?: () => void; hideHome?: boolean } = {}): HTMLElement {
-  const homeBtn = h('button', { class: 'icon-btn', title: '홈으로', onclick: () => {
+  const homeBtn = h('button', { class: 'icon-btn', title: '홈으로', 'aria-label': '홈으로', onclick: () => {
     AudioManager.sfx('click');
     if (opts.onHome) opts.onHome();
     else void navigate('home');
   } }, icon('home'));
 
-  const settingsBtn = h('button', { class: 'icon-btn', title: '설정', onclick: () => {
+  const settingsBtn = h('button', { class: 'icon-btn', title: '설정', 'aria-label': '설정', onclick: () => {
     AudioManager.sfx('click');
     settingsModal({ onReset: opts.onReset });
   } }, icon('settings'));

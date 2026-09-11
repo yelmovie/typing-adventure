@@ -1,0 +1,122 @@
+/* Scenic windows: only the material is translucent; type and controls stay solid. */
+#ui-stage {
+  --popup-fill: rgba(18, 29, 57, .86);
+  --popup-line: #9aaec9;
+  --popup-copy: max(24px, calc(16 * var(--ui-unit)));
+}
+#ui-stage .modal-backdrop:not(.finale-backdrop) {
+  background: rgba(5, 12, 27, .24);
+  padding: max(24px, calc(12 * var(--ui-unit)));
+  overflow: visible;
+}
+#ui-stage .modal:not(.finale-player),
+#ui-stage .setup-panel,
+#ui-stage .intro-panel,
+#ui-stage .result-fit-panel,
+#ui-stage .sound-popover,
+#ui-stage .setup-preview-name {
+  --panel-fill: var(--popup-fill);
+  --panel-line: var(--popup-line);
+}
+#ui-stage .modal.panel-cream { --panel-fill: rgba(249, 240, 216, .94); --panel-line: #c6ab70; }
+#ui-stage .modal:not(.finale-player)::before,
+#ui-stage .setup-panel::before,
+#ui-stage .intro-panel::before,
+#ui-stage .result-fit-panel::before,
+#ui-stage .sound-popover::before,
+#ui-stage .setup-preview-name::before {
+  background: var(--panel-fill);
+  backdrop-filter: none;
+}
+#ui-stage .modal:not(.finale-player) {
+  width: min(1280px, max(760px, calc(560 * var(--ui-unit))));
+  max-width: 100%; height: auto; min-height: 0;
+  max-height: 100%; padding: 28px 32px;
+  gap: 22px;
+}
+#ui-stage .modal.modal-lg, #ui-stage .modal.modal-xl,
+#ui-stage .modal.popup-paged { width: min(1500px, max(1040px, calc(680 * var(--ui-unit)))); }
+#ui-stage .modal:not(.finale-player) > .panel-title {
+  position: static; align-self: center; transform: none;
+  margin: 0 calc(var(--touch-size) + 12px); padding: 10px 24px;
+  max-width: calc(100% - 2 * var(--touch-size) - 24px);
+  white-space: normal; text-align: center; line-height: 1.15;
+  font-size: var(--read-title); letter-spacing: 0;
+}
+#ui-stage .modal:not(.finale-player) .modal-close { top: 24px; right: 24px; }
+#ui-stage .modal:not(.finale-player) .modal-body {
+  flex: 0 0 auto; overflow: visible; font-size: var(--popup-copy); line-height: 1.5;
+}
+#ui-stage .modal:not(.finale-player) .modal-actions {
+  margin: 0; gap: 16px; padding-top: 14px;
+  border-top: 2px solid rgba(157, 184, 217, .32);
+}
+#ui-stage .modal:not(.finale-player) .btn {
+  padding: 10px 18px; min-height: var(--touch-size); min-width: var(--touch-size);
+  font-size: var(--popup-copy); letter-spacing: 0;
+}
+#ui-stage .modal .detail-modal-header { min-height: var(--touch-size); }
+#ui-stage .modal .detail-modal-body { flex: 0 0 auto; overflow: visible; padding: 0; scrollbar-gutter: auto; }
+#ui-stage .modal .detail-modal-actions { margin: 0; }
+#ui-stage .sound-popover { padding: 16px 24px; }
+#ui-stage .sound-popover .setting-row { padding: 10px 4px; }
+
+/* A small menu window replaces the home disclosure's clipped scroll area. */
+#ui-stage .home-menu-dialog { width: min(1320px, calc(660 * var(--ui-unit))); }
+#ui-stage .home-menu-dialog .home-extra-grid { display: grid; grid-template-columns: 1fr 1fr; gap: calc(10 * var(--ui-unit)); padding: 0; }
+#ui-stage .home-menu-dialog .home-extra-grid .btn { min-width: 0; margin: 0; justify-content: center; white-space: normal; }
+#ui-stage .home-menu-dialog .home-extra-grid .btn-icon { display: none; }
+
+/* Classroom-distance copy gets a real 20px floor on full-height displays.
+   Compact landscape retains its separate readable, space-aware arrangement. */
+@media (min-width: 1200px) and (min-height: 600px) {
+  #ui-stage :is(.modal:not(.finale-player), .setup-fit, .home) {
+    --read-copy: max(22px, calc(var(--classroom-body) * var(--ui-unit)));
+    --read-main: max(28px, calc(var(--classroom-heading) * var(--ui-unit)));
+    --read-title: max(36px, calc(var(--classroom-title) * var(--ui-unit)));
+    --popup-copy: var(--read-copy);
+  }
+  #ui-stage .modal:not(.finale-player) .btn { font-size: var(--read-copy); }
+  #ui-stage .modal:not(.finale-player) .popup-page-title { font-size: var(--read-main); }
+  #ui-stage .home .home-menu .btn.btn-lg { font-size: var(--read-main); }
+  #ui-stage .home .home-logo .logo-tag { font-size: var(--read-copy); }
+  #ui-stage :is(.bt-progress .row, .race-track .tk-row, .race-track .tk-gap, .bb-target-desc, .bb-target-lbl, .bb-target-lbl .bb-kbd-toggle, .bb-hint) {
+    font-size: max(28px, calc(var(--classroom-body) * var(--ui-unit)));
+  }
+}
+#ui-stage .home-version { font-size: max(18px, calc(var(--classroom-caption) * var(--ui-unit))); }
+#ui-stage.short-display .modal:not(.finale-player) { padding: 22px 28px; gap: 16px; }
+
+/* Mission remains beside the cast; optional reading opens its own small window. */
+#ui-stage .journey-intro-panel {
+  height: auto; max-height: none; top: 120px; width: 940px;
+  padding: 30px; gap: 20px; animation: none;
+}
+#ui-stage .journey-intro-panel > .panel-title {
+  position: static; transform: none; align-self: flex-start; margin: 0;
+  padding: 8px 20px; font-size: var(--read-copy); line-height: 1.2;
+}
+#ui-stage .journey-intro-body { flex: 0 0 auto; overflow: visible; padding: 0; }
+#ui-stage.small-display .journey-intro-panel { height: auto; max-height: none; }
+#ui-stage .journey-intro-body .intro-stage-num { display: none; }
+#ui-stage .journey-intro-body .intro-name { font-size: max(44px, calc(26 * var(--ui-unit))); }
+#ui-stage .journey-intro-body .intro-practice-status { margin: 14px 0; font-size: var(--read-copy); line-height: 1.35; }
+#ui-stage .journey-intro-panel .intro-actions { margin: 0; gap: 14px; padding-top: 18px; flex-wrap: wrap; }
+#ui-stage .journey-intro-panel .intro-actions .btn { flex: 1 1 0; min-width: 0; padding: 10px; font-size: var(--read-copy); }
+#ui-stage .journey-intro-body .intro-help { width: 100%; font-size: var(--read-copy); padding: 10px 18px; }
+#ui-stage .intro-help-pages .intro-row2 { display: flex; flex-direction: column; gap: 18px; }
+#ui-stage .intro-help-pages :is(.intro-focus, .intro-diff, .intro-enemy, .intro-reward, .muted, .journey-keytip, .journey-star-goal) { font-size: var(--popup-copy); line-height: 1.4; }
+#ui-stage .intro-help-pages .intro-block { margin: 0; }
+#ui-stage .intro-help-pages h4 { margin: 0 0 14px; font-size: var(--read-title); color: #ffe6a3; }
+#ui-stage .intro-help-pages .intro-rewards { gap: 14px; }
+#ui-stage .intro-help-pages .intro-reward { padding: 10px 14px; }
+#ui-stage.short-display .journey-intro-panel { top: 130px; width: 1080px; padding: 24px; gap: 14px; }
+#ui-stage.short-display .journey-intro-panel > .panel-title { position: absolute; top: 24px; right: 24px; left: auto; }
+#ui-stage.short-display .journey-intro-body .intro-name { padding-right: calc(94 * var(--ui-unit)); }
+#ui-stage.short-display .journey-intro-body .journey-relic { margin: 10px 0; }
+#ui-stage.short-display .journey-intro-body .journey-relic-mark { display: none; }
+#ui-stage.short-display .journey-intro-body .intro-practice-status { margin: 10px 0; padding: 8px 12px; }
+#ui-stage.short-display .journey-intro-body .journey-mission { margin-top: 8px; }
+#ui-stage.short-display .journey-intro-body .journey-mechanic { margin: 8px 0; }
+#ui-stage.short-display .journey-intro-body .intro-assist .intro-diff { gap: 10px; }
+#ui-stage.short-display .journey-intro-body .intro-assist { margin-top: 10px; }

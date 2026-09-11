@@ -10,7 +10,7 @@ import { getEnemy } from '../data/enemies';
 import { EventBus, Events } from '../EventBus';
 import { AudioManager, STAGE_BGM } from '../systems/AudioManager';
 import type { StageId, ContentUnit } from '../types';
-import type { EnemyState } from '../systems/BattleSystem';
+import type { EnemyState } from '../systems/BattleState';
 import { playClassFx } from './ClassFx';
 
 const PLAYER_POS = { x: 560, y: 790 };

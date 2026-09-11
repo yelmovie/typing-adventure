@@ -1,6 +1,7 @@
 // 공통 타입 정의 (data/typing_adventure_design_package 기준)
 
 export type Difficulty = 'beginner' | 'normal' | 'challenge';
+export type GameLanguage = 'ko' | 'en';
 export type StageId = 'stage_1' | 'stage_2' | 'stage_3' | 'stage_4' | 'stage_5' | 'daily';
 export type ContentType = 'word' | 'sentence';
 /** 변화구 단어: 보물(코인·점수) / 하트(HP·시간 회복) / 폭탄(5초 제한, 실패 시 콤보만 초기화) */
@@ -91,6 +92,9 @@ export interface SaveProfile {
   canDo?: string;
 }
 export interface SaveProgress {
+  tutorialCompleted?: boolean;
+  /** First-time preparation, archived independently for Korean and English. */
+  practicedParts?: Array<'consonants' | 'vowels' | 'sentences' | 'story'>;
   unlockedStage: number;
   stageStars: Record<string, number>;
   clearedStages: string[];
@@ -106,9 +110,50 @@ export interface SaveRecords {
   bestCombo: number;
   bestScoreByStage: Record<string, number>;
   /** 레이스 고스트(어제의 나): 스테이지별 최고 기록의 1초 간격 거리 샘플 */
-  ghosts: Record<string, { samples: number[]; finishSec: number }>;
+  ghosts: Record<string, RaceGhost>;
   /** 오늘의 도전: 날짜(YYYY-MM-DD)별 최고 기록 */
   daily: Record<string, { cpm: number; accuracy: number; score: number; maxCombo: number }>;
+  learning?: LearningProgress;
+  replay?: { day: string; completed: string[]; stamps: number };
+}
+
+export type LearningPattern = 'letters' | 'batchim' | 'vowel' | 'spacing' | 'punctuation';
+export interface LearningAttempt {
+  targetId: string;
+  target: string;
+  typed: string;
+  outcome: 'correct' | 'wrong' | 'skipped';
+  corrected: boolean;
+}
+export interface LearningFocus {
+  mistakes: number;
+  corrections: number;
+  newSuccesses: number;
+  delayedSuccesses: number;
+  lastTarget: string;
+  lastTyped: string;
+  lastErrorAt: string;
+  pendingTargets?: string[];
+  transferTargets?: string[];
+  /** Texts whose original error was compared with the target (not a mastery score). */
+  comparedTargets?: string[];
+  resolvedAt?: string;
+}
+export interface LearningSession {
+  at: string;
+  stageId: StageId;
+  source: 'game' | 'practice';
+  accuracy: number;
+  cpm: number;
+  correct: number;
+  corrected: number;
+  skipped: number;
+  newSuccesses: number;
+}
+export interface LearningProgress {
+  patterns: Partial<Record<LearningPattern, LearningFocus>>;
+  recent: LearningSession[];
+  seen: string[];
 }
 export interface SaveCollection {
   badges: string[];
@@ -118,6 +163,7 @@ export interface SaveCollection {
   enemiesSeen: string[];
 }
 export interface SaveSettings {
+  language?: GameLanguage;
   bgm: boolean;
   sfx: boolean;
   screenShake: boolean;
@@ -128,6 +174,7 @@ export interface SaveSettings {
   prologueSeen: boolean;
 }
 export interface SaveData {
+  languageArchives?: Partial<Record<GameLanguage, SaveSnapshot>>;
   version: string;
   profile: SaveProfile;
   progress: SaveProgress;
@@ -143,7 +190,16 @@ export interface SaveData {
 }
 
 // ---- 전투 결과 ----
+export type SaveSnapshot = Pick<SaveData, 'profile' | 'progress' | 'records' | 'collection' | 'stats'>;
+export interface RaceGhost {
+  samples: number[];
+  finishSec: number;
+  goalDistance?: number;
+  rulesVersion?: number;
+}
 export interface BattleResult {
+  remix?: boolean;
+  replayRewards?: string[];
   stageId: StageId;
   cleared: boolean;
   failReason?: 'time' | 'hp';
@@ -157,7 +213,7 @@ export interface BattleResult {
   perfectCount: number;
   coins: number;
   /** 레이스: 이번 판 고스트 기록 (더 빠르면 저장) / 어제의 나를 이겼는지 */
-  ghost?: { samples: number[]; finishSec: number };
+  ghost?: RaceGhost;
   beatGhost?: boolean;
   /** 이번 판으로 새로 열린 캐릭터/펫 이름 */
   newUnlocks?: string[];
@@ -167,6 +223,10 @@ export interface BattleResult {
   newTitles?: string[];
   /** 오답 노트: 틀렸던 낱말·문장 */
   mistakes?: string[];
+  learningAttempts?: LearningAttempt[];
+  attemptedCount?: number;
+  skippedCount?: number;
+  correctedCount?: number;
   stars: number;
   newBadges: string[];
   isNewCpm: boolean;
@@ -176,4 +236,4 @@ export interface BattleResult {
   wordsSeen: string[];
 }
 
-export type ScreenName = 'home' | 'setup' | 'worldmap' | 'intro' | 'battle' | 'result';
+export type ScreenName = 'home' | 'setup' | 'tutorial' | 'worldmap' | 'intro' | 'battle' | 'result';

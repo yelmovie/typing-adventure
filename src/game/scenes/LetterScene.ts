@@ -9,13 +9,13 @@ import { EventBus, Events } from '../EventBus';
 import { AudioManager, STAGE_BGM } from '../systems/AudioManager';
 import { DESIGN_W, DESIGN_H } from '../Game';
 import type { StageId } from '../types';
-import type { BattleSnapshot } from '../systems/BattleSystem';
+import type { BattleSnapshot } from '../systems/BattleState';
 import { LETTER } from '../systems/LetterSystem';
 
 // 콤보(y≤290) 아래 · 룬 줄(≈746)까지 하단 패널(830) 위.
 // x=840 인 이유: compact 에서 좌측 패널이 340px 로 넓어져 오른쪽 끝이 370 이라, 폭을 유지한 채 양피지를 오른쪽으로 밀어 겹침을 피한다(양피지 400~1280).
-const PAPER = { x: 840, y: 520, w: 880, h: 360 };
-const GATE = { x: 1560, y: 470 };
+const PAPER = { x: 840, y: 500, w: 880, h: 360 };
+const GATE = { x: 1570, y: 470 };
 
 /**
  * 사막 유적 편지 복원 연출. 가운데 양피지에 완성된 문장이 쌓이고, 어절 룬이 켜지고, 오른쪽 황금문의 자물쇠가 하나씩 열린다.
@@ -23,7 +23,10 @@ const GATE = { x: 1560, y: 470 };
 export class LetterScene extends Phaser.Scene {
   private player?: Player;
   private pet?: Pet;
-  private lineTexts: Phaser.GameObjects.Text[] = [];
+  private currentLine?: Phaser.GameObjects.Text;
+  private restoredLine?: Phaser.GameObjects.Text;
+  private progressText?: Phaser.GameObjects.Text;
+  private english = false;
   private runes: Phaser.GameObjects.Container[] = [];
   private runeRow?: Phaser.GameObjects.Container;
   private locks: Phaser.GameObjects.Image[] = [];
@@ -47,36 +50,43 @@ export class LetterScene extends Phaser.Scene {
     addBackground(this, stage.bgBattle);
     ensureParticleTextures(this);
     const save = SaveSystem.get();
-    this.lineTexts = [];
+    this.english = save.settings.language === 'en';
     this.runes = [];
     this.locks = [];
 
-    // 양피지
+    // 종이 위에 현재 문장과 직전에 복원한 문장만 크게 읽힌다.
+    // 완료하지 않은 줄을 점으로 채우거나, 긴 영문을 여섯 줄에 억지로 축소하지 않는다.
+    const font = Math.max(30, Math.ceil(16 * DESIGN_W / Math.max(320, this.game.canvas.getBoundingClientRect().width)));
+    const left = PAPER.x - PAPER.w / 2;
+    const top = PAPER.y - PAPER.h / 2;
     const g = this.add.graphics().setDepth(4);
-    g.fillStyle(0x1a1f4a, 0.9);
-    g.fillRoundedRect(PAPER.x - PAPER.w / 2 + 8, PAPER.y - PAPER.h / 2 + 10, PAPER.w, PAPER.h, 22);
-    g.fillStyle(0xf3e5c0, 1);
-    g.fillRoundedRect(PAPER.x - PAPER.w / 2, PAPER.y - PAPER.h / 2, PAPER.w, PAPER.h, 22);
-    g.lineStyle(6, 0x8a6a3a, 1);
-    g.strokeRoundedRect(PAPER.x - PAPER.w / 2, PAPER.y - PAPER.h / 2, PAPER.w, PAPER.h, 22);
-    this.add.text(PAPER.x, PAPER.y - PAPER.h / 2 + 34, '잊힌 탐험가의 편지', { ...styleText(30, '#5a3a10', '#f3e5c0'), strokeThickness: 2, shadow: undefined }).setOrigin(0.5).setDepth(5);
-    for (let i = 0; i < LETTER.sentences; i++) {
-      const t = this.add.text(PAPER.x - PAPER.w / 2 + 50, PAPER.y - PAPER.h / 2 + 86 + i * 44, '· · · · · · · · · · · ·', { ...styleText(28, '#b9a888', '#f3e5c0'), strokeThickness: 0, shadow: undefined }).setOrigin(0, 0.5).setDepth(5);
-      this.lineTexts.push(t);
+    g.fillStyle(0x251d22, 0.9).fillRoundedRect(left + 8, top + 10, PAPER.w, PAPER.h, 12);
+    g.fillStyle(0xf3e5c0).fillRoundedRect(left, top, PAPER.w, PAPER.h, 12);
+    g.lineStyle(5, 0x8a6a3a).strokeRoundedRect(left, top, PAPER.w, PAPER.h, 12);
+    g.lineStyle(2, 0xc8b586).strokeRoundedRect(left + 14, top + 14, PAPER.w - 28, PAPER.h - 28, 4);
+    g.fillStyle(0xdcc795).fillRect(left + 32, top + 85, PAPER.w - 64, 2);
+    for (let y = top + 10; y < top + PAPER.h - 10; y += 8) {
+      g.lineStyle(1, 0x7a5320, 0.025).lineBetween(left + 20, y, left + PAPER.w - 20, y);
     }
+    const paperStyle = { ...styleText(font, '#493518', '#f3e5c0'), fontFamily: 'Noto Sans KR', strokeThickness: 0, shadow: undefined, wordWrap: { width: PAPER.w - 100 } };
+    this.add.text(left + 42, top + 24, this.english ? 'THE LOST LETTER' : '잊힌 탐험가의 편지', { ...paperStyle, fontStyle: 'bold' }).setDepth(5);
+    this.progressText = this.add.text(left + 42, top + 106, this.english ? 'Restore each sentence to open the seals.' : '문장을 완성해 편지와 봉인을 되찾아요.', { ...paperStyle, color: '#6b5739', fontSize: font }).setDepth(5);
+    this.currentLine = this.add.text(left + 42, top + 156, '', { ...paperStyle, fontStyle: 'bold', color: '#203c49', fontSize: font + 4, maxLines: 2 }).setDepth(5);
+    this.restoredLine = this.add.text(left + 42, top + 286, this.english ? 'Your restored words will appear here.' : '되찾은 문장이 여기 남아요.', { ...paperStyle, fontSize: font, color: '#66543a', maxLines: 1 }).setDepth(5);
     this.runeRow = this.add.container(PAPER.x, PAPER.y + PAPER.h / 2 + 46).setDepth(6);
 
-    // 황금문 + 자물쇠 3개
+    // 배경의 석조 황금문은 그대로 보존하고 작은 봉인 3개만 켠다.
     const door = this.add.graphics().setDepth(3);
-    door.fillStyle(0x3a2a10, 1);
-    door.fillRoundedRect(GATE.x - 150, GATE.y - 260, 300, 520, { tl: 150, tr: 150, bl: 10, br: 10 });
-    door.fillStyle(0xd9a52a, 1);
-    door.fillRoundedRect(GATE.x - 130, GATE.y - 240, 260, 480, { tl: 130, tr: 130, bl: 8, br: 8 });
-    door.lineStyle(8, 0x7a4a00, 1);
-    door.strokeRoundedRect(GATE.x - 130, GATE.y - 240, 260, 480, { tl: 130, tr: 130, bl: 8, br: 8 });
-    this.gateGlow = this.add.ellipse(GATE.x, GATE.y, 340, 560, 0xfff2b0, 0).setDepth(2).setBlendMode(Phaser.BlendModes.ADD);
+    door.fillStyle(0x19223b, 0.96).fillRoundedRect(GATE.x - 245, GATE.y - 150, 490, 260, 12);
+    door.lineStyle(5, 0x96784e).strokeRoundedRect(GATE.x - 245, GATE.y - 150, 490, 260, 12);
+    this.add.text(GATE.x, GATE.y - 116, this.english ? 'THREE ANCIENT SEALS' : '황금문의 봉인', { ...styleText(font + 4, '#ffe59a'), strokeThickness: 0 }).setOrigin(0.5).setDepth(5);
+    this.add.text(GATE.x, GATE.y + 74, this.english ? '2 sentences = 1 seal' : '문장 2개마다 하나씩 열려요', { ...styleText(font, '#fff8e6'), strokeThickness: 0 }).setOrigin(0.5).setDepth(5);
+    this.gateGlow = this.add.ellipse(GATE.x, GATE.y, 460, 300, 0xfff2b0, 0).setDepth(2).setBlendMode(Phaser.BlendModes.ADD);
     for (let i = 0; i < LETTER.locks; i++) {
-      const l = this.add.image(GATE.x, GATE.y - 120 + i * 130, 'ui_lock').setDisplaySize(84, 84).setDepth(5);
+      const x = GATE.x - 145 + i * 145;
+      door.fillStyle(0x0d1429).fillRoundedRect(x - 58, GATE.y - 64, 116, 108, 8);
+      door.lineStyle(2, 0x687698).strokeRoundedRect(x - 58, GATE.y - 64, 116, 108, 8);
+      const l = this.add.image(x, GATE.y - 10, 'ui_lock').setDisplaySize(72, 72).setDepth(5);
       this.locks.push(l);
     }
 
@@ -103,7 +113,7 @@ export class LetterScene extends Phaser.Scene {
     this.bind(Events.PET_ACTIVE, () => this.pet?.skill());
     this.bind(Events.IDLE_DRAIN, () => { this.player?.hit(); AudioManager.sfx('hurt', { gain: 0.5 }); });
     this.bind(Events.PET_PASSIVE, () => this.pet?.skill());
-    this.bind(Events.LETTER_IDLE, (d: { idle: boolean }) => this.tweens.add({ targets: this.hourglass, alpha: d.idle ? 1 : 0, duration: 300 }));
+    this.bind(Events.LETTER_IDLE, (d: { idle: boolean }) => this.tweens.add({ targets: this.hourglass, alpha: d.idle ? 0.5 : 0, duration: 300 }));
     this.bind(Events.LETTER_GATE, () => this.openGate());
     this.bind(Events.INPUT_CORRECT, (d: { perfect: boolean; combo: number }) => this.onCorrect(d));
     this.bind(Events.INPUT_WRONG, (d: { forgiven: boolean }) => { if (!d.forgiven) AudioManager.sfx('miss'); });
@@ -130,6 +140,8 @@ export class LetterScene extends Phaser.Scene {
   private buildRunes(s: BattleSnapshot) {
     const info = s.letter;
     if (!this.runeRow || !info) return;
+    this.progressText?.setText(this.english ? `${info.lines.length} / ${LETTER.sentences} sentences restored` : `되찾은 문장 ${info.lines.length} / ${LETTER.sentences}`);
+    this.currentLine?.setText(info.current ?? (this.english ? 'The letter is whole again.' : '편지를 모두 되찾았어요.'));
     this.runeRow.removeAll(true);
     this.runes = [];
     const n = info.runes.length;
@@ -173,10 +185,10 @@ export class LetterScene extends Phaser.Scene {
   }
 
   private writeLine(d: { index: number; text: string; perfect: boolean; wrong?: boolean }) {
-    const t = this.lineTexts[d.index];
+    const t = this.restoredLine;
     if (!t) return;
-    t.setText(d.text).setColor(d.wrong ? '#b56a6a' : d.perfect ? '#b8600a' : '#3a2a10').setAlpha(0);
-    this.tweens.add({ targets: t, alpha: 1, x: t.x + 6, duration: 400, ease: 'Sine.easeOut' });
+    t.setText(`${d.wrong ? '↻' : '✓'} ${d.text}`).setColor(d.wrong ? '#8d3c36' : '#315b3a').setAlpha(0);
+    this.tweens.add({ targets: t, alpha: 1, duration: 400, ease: 'Sine.easeOut' });
     this.sparkle?.explode(d.perfect ? 30 : 14, t.x + 200, t.y);
   }
 
@@ -186,7 +198,7 @@ export class LetterScene extends Phaser.Scene {
     AudioManager.sfx('coin', { rate: 0.8 + i * 0.15 });
     this.tweens.add({ targets: l, scale: l.scale * 1.4, angle: -15, duration: 200, yoyo: true, onYoyo: () => l.setTexture('ui_unlock') });
     this.sparkle?.explode(40, l.x, l.y);
-    this.cameras.main.shake(120, 0.003);
+    if (SaveSystem.get().settings.screenShake && !matchMedia('(prefers-reduced-motion: reduce)').matches) this.cameras.main.shake(120, 0.003);
   }
 
   private onCorrect(d: { perfect: boolean; combo: number }) {

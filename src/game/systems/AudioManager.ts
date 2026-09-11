@@ -36,7 +36,6 @@ class AudioManagerImpl {
   private bgmEl: HTMLAudioElement | null = null;
   private bgmName = '';
   private rate = 1;
-  private available = new Map<string, boolean>();
   /** 자동재생 정책에 막힌 BGM: 다음 사용자 입력(unlock)에서 재시도 */
   private bgmPending = false;
 
@@ -55,7 +54,7 @@ class AudioManagerImpl {
   unlock() {
     const c = this.ensureCtx();
     if (c && c.state === 'suspended') void c.resume();
-    if (this.bgmPending && this.bgmEl) this.playBgmEl(this.bgmEl);
+    if (this.bgmOn && this.bgmPending && this.bgmEl) this.playBgmEl(this.bgmEl);
     if (c && !this.preloaded) {
       this.preloaded = true;
       for (const n of SFX_NAMES) void this.loadSfx(n);
@@ -92,19 +91,6 @@ class AudioManagerImpl {
   }
   get bgmOn() {
     return SaveSystem.get().settings.bgm;
-  }
-
-  private async fileExists(url: string): Promise<boolean> {
-    if (this.available.has(url)) return this.available.get(url)!;
-    try {
-      const res = await fetch(url, { method: 'HEAD' });
-      const ok = res.ok && !(res.headers.get('content-type') ?? '').includes('text/html');
-      this.available.set(url, ok);
-      return ok;
-    } catch {
-      this.available.set(url, false);
-      return false;
-    }
   }
 
   /**
@@ -148,7 +134,7 @@ class AudioManagerImpl {
       g.gain.setValueAtTime(0.0001, t + delay);
       g.gain.exponentialRampToValueAtTime(gain, t + delay + 0.01);
       g.gain.exponentialRampToValueAtTime(0.0001, t + delay + dur);
-      o.connect(g).connect(c.destination);
+      o.connect(g).connect(this.bus(c));
       o.start(t + delay);
       o.stop(t + delay + dur + 0.02);
     };
@@ -181,8 +167,8 @@ class AudioManagerImpl {
     this.bgmName = name;
     if (!this.bgmOn) return;
     const url = `./assets/bgm/${BGM_FILES[name]}`;
-    if (!(await this.fileExists(url))) return; // 파일 없음: 조용히 무시
-    if (this.bgmName !== name) return;
+    // The media element uses GET, allowing prepared offline caches to serve audio.
+    if (this.bgmName !== name || !this.bgmOn) return;
     const el = new Audio(url);
     el.loop = name !== 'result';
     el.volume = (BGM_GAIN[name] ?? 0.5) * ((SaveSystem.get().settings.bgmVolume ?? 0.7) / 0.7);
@@ -229,7 +215,11 @@ class AudioManagerImpl {
     const st = SaveSystem.get().settings;
     if (this.sfxBus) this.sfxBus.gain.value = st.sfxVolume ?? 0.9;
     if (this.bgmEl) this.bgmEl.volume = (BGM_GAIN[this.bgmName] ?? 0.5) * ((st.bgmVolume ?? 0.7) / 0.7);
-    if (!this.bgmOn) this.stopBgm();
+    if (!this.bgmOn) {
+      this.bgmEl?.pause();
+      this.bgmPending = false;
+    }
+    else if (this.bgmEl) this.playBgmEl(this.bgmEl);
     else if (this.bgmName) {
       const n = this.bgmName;
       this.bgmName = '';

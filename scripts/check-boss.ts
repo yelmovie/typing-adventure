@@ -2,6 +2,8 @@
 import assert from 'node:assert/strict';
 import { BossSystem, BOSS } from '../src/game/systems/BossSystem';
 import type { ContentUnit, PetDef, StageDef } from '../src/game/types';
+import { getContentForStage } from '../src/game/data/content';
+import { setLanguage } from '../src/game/i18n/Locale';
 
 const stage = { id: 'stage_5', index: 5, mode: 'boss', targets: 20, timeLimitSec: 300 } as StageDef;
 const pet: PetDef = { id: 'dragon', name: '', desc: '', sheet: '', passive: 'strong_bonus', passiveDesc: '', active: 'fire_aoe', activeDesc: '' };
@@ -52,4 +54,200 @@ assert.ok(B.finished && B.finalDone && B.bossHp === 0);
 assert.equal(count('BOSS_FINAL'), 1);
 assert.equal(count('STAGE_CLEAR'), 1);
 
+type Hit = { damage: number; hp: number; weak?: boolean; phase?: number; hits?: number };
+const make = (pool = words) => {
+  const emitted: [string, any][] = [];
+  const mode = new BossSystem(stage, 'normal', pet, pool, '', (ev, data) => emitted.push([ev, data]), { random: () => 0.37 });
+  mode.start();
+  return { mode, emitted };
+};
+const reachRush = (mode: BossSystem) => {
+  while (mode.phase === 1) mode.submit(mode.run.current!.text, false);
+  while (!mode.run.current && !mode.finished) mode.tick(0.1);
+  assert.equal(mode.phase, 2);
+};
+const reachFinal = (mode: BossSystem) => {
+  let turns = 0;
+  while (mode.phase !== 3 && !mode.finished && turns++ < 1000) {
+    if (mode.run.current) mode.submit(mode.run.current.text, false);
+    mode.tick(0.1);
+  }
+  assert.equal(mode.phase, 3);
+};
+
+// 오답은 새 문장을 주지 않는다. 실제 오타 교정이 끝나야 같은 목표가 성공한다.
+{
+  const { mode, emitted } = make();
+  const target = mode.run.current!.text, score = mode.score, left = mode.crystals.length;
+  mode.submit('틀린 답', false);
+  assert.equal(mode.run.current!.text, target);
+  assert.equal(mode.score, score);
+  assert.equal(mode.crystals.filter((c) => !c.broken).length, left);
+  assert.equal(emitted.filter(([ev]) => ev === 'BOSS_CRYSTAL_BREAK').length, 0);
+  mode.submit(target, true);
+  assert.equal(mode.run.correctedCount, 1);
+  assert.equal(mode.crystals.filter((c) => !c.broken).length, left - 1);
+}
+
+// 마지막 결정에서 효과 없는 점프를 차감하지 않는다.
+{
+  const { mode } = make();
+  for (let i = 0; i < 4; i++) mode.submit(mode.run.current!.text, false);
+  const target = mode.run.current!.text, skips = mode.run.skipsLeft;
+  assert.equal(mode.skip(), false);
+  assert.equal(mode.run.skipsLeft, skips);
+  assert.equal(mode.run.current!.text, target);
+  assert.equal(mode.phase, 1);
+  mode.submit(target, false);
+  assert.equal(mode.phase, 2);
+}
+
+// 큐가 하나여도 점프는 다른 낱말로 전환한다. 미완료 낱말은 뒤에 남고 점수·피해는 없다.
+{
+  const { mode } = make(); reachRush(mode);
+  assert.equal(mode.queue.length, 1);
+  const original = mode.run.current!.text, score = mode.score, done = mode.run.wordsDone;
+  assert.ok(mode.skip());
+  assert.notEqual(mode.run.current!.text, original);
+  assert.equal(mode.queue[1].text, original);
+  assert.equal(mode.run.skippedCount, 1);
+  assert.equal(mode.run.wordsDone, done);
+  assert.equal(mode.score, score);
+  assert.equal(mode.bossHp, BOSS.hp);
+  mode.submit(mode.run.current!.text, false);
+  assert.equal(mode.run.current!.text, original);
+}
+
+// 후보가 하나뿐인 호환 풀은 같은 큐 항목을 복제하지 않고 효과 없는 점프를 거절한다.
+{
+  const { mode } = make({ ...words, rush: [w('유일한낱말'), w('유일한낱말')] }); reachRush(mode);
+  assert.equal(mode.skip(), false);
+  assert.equal(mode.run.skipsLeft, 3);
+  mode.tick(3);
+  assert.equal(mode.queue.length, 1);
+}
+
+// P2/P3 접두어 타격은 연출 이벤트만: 같은 접두어 삭제/재입력으로 피해·점수를 얻지 않는다.
+for (const phase of [2, 3] as const) {
+  const pool = { ...words, rush: ['반짝별', '마법문', '친구들', '달빛길', '빛나는용기', '새로운힘', '따뜻한마음'].map((text) => w(text)) };
+  const { mode, emitted } = make(pool);
+  if (phase === 2) reachRush(mode); else reachFinal(mode);
+  const target = mode.run.current!.text, hp = mode.bossHp, score = mode.score;
+  const beforeHits = emitted.filter(([ev]) => ev === 'BOSS_HIT').length;
+  mode.commit(target.slice(0, 1));
+  const firstHits = emitted.filter(([ev]) => ev === 'BOSS_HIT');
+  assert.equal(firstHits.length, beforeHits + 1);
+  assert.deepEqual({ damage: firstHits[firstHits.length - 1][1].damage, weak: firstHits[firstHits.length - 1][1].weak, phase: firstHits[firstHits.length - 1][1].phase }, { damage: 0, weak: true, phase });
+  mode.commit(''); mode.commit(target.slice(0, 1)); mode.commit('!틀림');
+  assert.equal(emitted.filter(([ev]) => ev === 'BOSS_HIT').length, beforeHits + 1);
+  assert.equal(mode.bossHp, hp);
+  assert.equal(mode.score, score);
+  mode.submit(target, true);
+  const hits = emitted.filter(([ev]) => ev === 'BOSS_HIT');
+  assert.ok(hits[hits.length - 1][1].damage > 0);
+  assert.equal(hits[hits.length - 1][1].weak, false);
+}
+
+const roles = ['갑옷', '코어', '마무리'];
+function rolePool(prefix: string) {
+  return {
+    crystals: Array.from({ length: 8 }, (_, i) => w(`${prefix} crystal ${i}`)),
+    rush: Array.from({ length: 24 }, (_, i) => w(`${prefix} rush ${i}`)),
+    final: roles.flatMap((role, step) => Array.from({ length: 4 }, (_, i) => ({ ...w(`${prefix} final ${step} option ${i}.`, 'sentence'), tags: ['최종', role] }))),
+  };
+}
+function finishSentences(mode: BossSystem): string[] {
+  const targets: string[] = [];
+  while (!mode.finished) {
+    targets.push(mode.run.current!.text);
+    assert.equal(mode.snapshot().boss!.finalStep, targets.length);
+    mode.submit(mode.run.current!.text, false);
+  }
+  return targets;
+}
+
+// 상수 RNG여도 직전 같은 후보 세트를 재사용하지 않는다. 언어 후보 이력은 서로 간섭하지 않는다.
+const ko = rolePool('한글'), en = rolePool('English');
+const firstKo = make(ko), firstEn = make(en);
+reachFinal(firstKo.mode); reachFinal(firstEn.mode);
+const chosenKo = finishSentences(firstKo.mode), chosenEn = finishSentences(firstEn.mode);
+for (const [pool, previous] of [[ko, chosenKo], [en, chosenEn]] as const) {
+  const { mode, emitted } = make(pool); reachFinal(mode);
+  const chosen = finishSentences(mode);
+  assert.equal(new Set(chosen).size, 3);
+  assert.notDeepEqual([...chosen].sort(), [...previous].sort());
+  chosen.forEach((text, i) => assert.ok(pool.final.find((u) => u.text === text)!.tags.includes(roles[i])));
+  const strongHits = emitted.filter(([ev, hit]) => ev === 'BOSS_HIT' && !hit.weak).map(([, hit]) => hit as Hit);
+  assert.equal(strongHits.filter((hit) => hit.phase === 2).reduce((sum, hit) => sum + hit.damage, 0), 70, 'P2 표시 피해 합계도 실제 100→30과 같다');
+  assert.equal(strongHits.filter((hit) => hit.phase === 3).reduce((sum, hit) => sum + hit.damage, 0), 30, '마지막 문장 타격을 포함해 실제 30→0을 표시한다');
+  assert.equal(emitted.filter(([ev]) => ev === 'BOSS_CORE').length, 1);
+  assert.equal(emitted.filter(([ev]) => ev === 'BOSS_FINAL').length, 1);
+}
+
+// 최종 점프는 역할과 진도를 유지하며 새 문장으로 바뀐다. 3회 점프·오답만으로 갑옷이 열리지 않는다.
+{
+  const { mode, emitted } = make(rolePool('교정')); reachFinal(mode);
+  const seen = new Set([mode.run.current!.text]);
+  const done = mode.run.wordsDone;
+  for (let i = 0; i < 3; i++) {
+    assert.ok(mode.skip());
+    assert.ok(!seen.has(mode.run.current!.text));
+    seen.add(mode.run.current!.text);
+    assert.equal(mode.snapshot().boss!.finalRole, 'armor');
+    assert.equal(mode.snapshot().boss!.finalStep, 1);
+    mode.submit('오답', false);
+  }
+  assert.equal(mode.run.wordsDone, done);
+  assert.equal(mode.bossHp, 30);
+  assert.equal(mode.armorBroken, false);
+  assert.equal(emitted.filter(([ev]) => ev === 'STAGE_CLEAR').length, 0);
+  mode.submit(mode.run.current!.text, true);
+  assert.equal(mode.snapshot().boss!.finalRole, 'core');
+  assert.equal(mode.bossHp, 20);
+  mode.submit(mode.run.current!.text, false);
+  assert.ok(mode.coreExposed && !mode.finalDone);
+  assert.equal(mode.snapshot().boss!.finalRole, 'finale');
+  mode.submit(mode.run.current!.text, false);
+  assert.ok(mode.finalDone && mode.finished);
+  assert.equal(mode.run.wordsDone, done + 3);
+}
+
+// 점프로 대체한 실제 완주 세트를 기억한다. 다음 판은 생성 당시의 오래된 세트와 비교하지 않는다.
+{
+  const pool = rolePool('점프 뒤 재도전');
+  const first = make(pool); reachFinal(first.mode);
+  assert.ok(first.mode.skip());
+  const completed = finishSentences(first.mode);
+  const retry = make(pool); reachFinal(retry.mode);
+  const next = finishSentences(retry.mode);
+  assert.notDeepEqual([...next].sort(), [...completed].sort(), '상수 RNG에서도 점프 후 실제 완주 세트가 연달아 나오지 않는다');
+}
+
+// 중복된 콘텐츠 입력도 결정/문장/대기 큐로 복제되지 않고 미출제 러시부터 나온다.
+{
+  const base = rolePool('다양성');
+  const pool = { crystals: [...base.crystals, base.crystals[0]], rush: [...base.crystals, ...base.rush, base.rush[0]], final: [...base.final, base.final[0]] };
+  const { mode, emitted } = make(pool); reachRush(mode);
+  for (let i = 0; i < 80; i++) mode.tick(0.1);
+  assert.equal(new Set(mode.crystals.map((c) => c.word.text)).size, 5);
+  assert.equal(new Set(mode.queue.map((u) => u.text)).size, mode.queue.length);
+  reachFinal(mode);
+  const presented = emitted.filter(([ev, data]) => ev === 'BOSS_QUEUE' && data.added).map(([, data]) => data.added as string);
+  assert.equal(new Set(presented).size, presented.length, '미출제 후보가 남아 있는 동안 러시 재출제 없음');
+  assert.ok(presented.every((text) => !mode.crystals.some((c) => c.word.text === text)), '결정에서 이미 본 낱말보다 새 낱말 우선');
+}
+
+// 실제 한국어/영어 콘텐츠도 정상 정답으로 완주하며 한 판의 최종 문장은 중복되지 않는다.
+for (const language of ['ko', 'en'] as const) {
+  setLanguage(language);
+  const content = getContentForStage('stage_5');
+  const pool = { crystals: content.filter((u) => u.tags.includes('결정')), rush: content.filter((u) => u.tags.includes('러시')), final: content.filter((u) => u.tags.includes('최종')) };
+  const { mode } = make(pool); reachFinal(mode);
+  const chosen = finishSentences(mode);
+  assert.equal(chosen.length, 3);
+  assert.equal(new Set(chosen).size, 3);
+  assert.ok(mode.finalDone);
+  console.log(`check-boss: ${language} actual content, ${pool.final.length} final candidates, 3 unique correct sentences, clear passed`);
+}
+setLanguage('ko');
 console.log('check-boss: all passed');

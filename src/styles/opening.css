@@ -1,0 +1,48 @@
+/* Intro controls stay readable at the actual display size; the film keeps its full frame. */
+#ui-stage .opening-player .opening-video { object-fit: contain; }
+#ui-stage .opening-controls {
+  position: absolute;
+  inset: auto 0 0;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: calc(20 * var(--ui-unit));
+  padding: calc(52 * var(--ui-unit)) calc(24 * var(--ui-unit)) calc(22 * var(--ui-unit));
+  background: linear-gradient(transparent, #091326ed);
+  color: #fff8e6;
+}
+#ui-stage .opening-message { min-width: 0; max-width: 64%; }
+#ui-stage .opening-message h2 {
+  margin: 0;
+  font: var(--read-title)/1.3 var(--font-title);
+  text-shadow: 0 2px 3px #071023;
+}
+#ui-stage .opening-status {
+  margin: calc(6 * var(--ui-unit)) 0 0;
+  font-size: var(--read-copy);
+  line-height: 1.45;
+  color: #d7e4f5;
+}
+#ui-stage .opening-actions { display: flex; flex: none; gap: calc(12 * var(--ui-unit)); }
+#ui-stage .opening-actions .btn {
+  min-height: var(--touch-size);
+  min-width: calc(116 * var(--ui-unit));
+  padding: calc(10 * var(--ui-unit)) calc(14 * var(--ui-unit));
+  font-size: var(--read-main);
+  white-space: nowrap;
+}
+#ui-stage.short-display .opening-controls { padding: calc(38 * var(--ui-unit)) calc(16 * var(--ui-unit)) calc(14 * var(--ui-unit)); }
+#ui-stage.short-display .opening-message { max-width: 54%; }
+#ui-stage .home-menu .home-intro { grid-column: 1 / -1; }
+#ui-stage .has-save .home-menu .home-intro { grid-column: auto; order: 10; }
+#ui-stage .has-save .home-menu {
+  bottom: auto;
+  overflow: visible;
+  align-content: start;
+  padding: 4px 10px 12px;
+  scrollbar-gutter: auto;
+}
+#ui-stage.short-display .home-menu { bottom: auto; overflow: visible; }
+@media (prefers-reduced-motion: reduce) {
+  .opening-player, .opening-player * { animation: none !important; }
+}

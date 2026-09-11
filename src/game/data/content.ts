@@ -1,10 +1,15 @@
 import type { ContentUnit, StageId, WordVariant } from '../types';
 import raw from './content.json';
+import { ENGLISH_CONTENT } from './content-en';
+import { getLanguage } from '../i18n/Locale';
+import { withBossVariety } from './boss-content';
+import { buildRemixStory } from './remixStories';
 
-const ALL: ContentUnit[] = (raw.units as ContentUnit[]).map((u) => ({ ...u, text: u.text.normalize('NFC') }));
+const ALL: ContentUnit[] = withBossVariety((raw.units as ContentUnit[]).map((u) => ({ ...u, text: u.text.normalize('NFC') })), 'ko');
+const ENGLISH = withBossVariety(ENGLISH_CONTENT, 'en');
 
 export function getContentForStage(stage: StageId): ContentUnit[] {
-  return ALL.filter((u) => u.stage === stage);
+  return allContent().filter((u) => u.stage === stage);
 }
 
 function shuffle<T>(arr: T[], rnd: () => number = Math.random): T[] {
@@ -67,5 +72,31 @@ export function applyVariant(u: ContentUnit, rnd: () => number = Math.random): C
 }
 
 export function allContent(): ContentUnit[] {
-  return ALL;
+  return getLanguage() === 'en' ? ENGLISH : ALL;
+}
+
+/** Same rules, a fresh combination of suitable targets on every replay. */
+export function getRemixContent(stage: StageId): ContentUnit[] {
+  const originals = getContentForStage(stage);
+  // BossSystem draws fresh role-based targets; unrelated stories break its finale.
+  if (stage === 'stage_5') return originals;
+  const story = buildRemixStory(stage, getLanguage(), originals);
+  if (story) return story;
+  const groups = new Map<string, ContentUnit[]>();
+  const replacements = new Map<string, ContentUnit>();
+  for (const unit of originals) {
+    const tags = unit.tags.filter(tag => ['받침', '이중모음', '박쥐', '대장'].includes(tag)).sort();
+    const key = JSON.stringify([unit.type, unit.difficulty, unit.text.length, tags]);
+    groups.set(key, [...(groups.get(key) ?? []), unit]);
+  }
+  // A cycle within each equivalent group preserves every word exactly once.
+  // Even the last entry gets a valid replacement instead of duplicating a used fallback.
+  for (const group of groups.values()) {
+    const order = shuffle(group);
+    order.forEach((unit, i) => replacements.set(unit.id, order[(i + 1) % order.length]));
+  }
+  return originals.map((base, index) => {
+    const chosen = replacements.get(base.id) ?? base;
+    return { ...base, id: `remix-${stage}-${index}-${chosen.id}`, text: chosen.text };
+  });
 }

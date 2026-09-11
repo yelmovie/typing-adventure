@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { addBackground, addAmbientSparkles } from './common';
+import { addBackground, addAmbientSparkles, prefersReducedMotion } from './common';
 import { Player } from '../entities/Player';
 import { Pet } from '../entities/Pet';
 import { SaveSystem } from '../systems/SaveSystem';
@@ -34,7 +34,7 @@ export class WorldMapScene extends Phaser.Scene {
     this.pet.setDepth(10);
     // 발밑 빛무리: 배경에 캐릭터가 묻히지 않게
     this.footGlow = this.add.ellipse(this.player.x, this.player.y + 6, 150, 46, 0xffe59a, 0.5).setDepth(9);
-    this.tweens.add({ targets: this.footGlow, scaleX: 1.18, scaleY: 1.18, alpha: 0.32, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    if (!prefersReducedMotion()) this.tweens.add({ targets: this.footGlow, scaleX: 1.18, scaleY: 1.18, alpha: 0.32, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
     EventBus.on(Events.MAP_FOCUS, this.onFocus);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => EventBus.off(Events.MAP_FOCUS, this.onFocus));
@@ -86,6 +86,12 @@ export class WorldMapScene extends Phaser.Scene {
     const dx = tx - this.player.x;
     const dir = Math.abs(dx) > 40 ? (dx > 0 ? 'right' : 'left') : ty < this.player.y ? 'back' : 'front';
     const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, tx, ty);
+    if (prefersReducedMotion()) {
+      this.player.setPosition(tx, ty);
+      this.pet.setPosition(tx + 80, ty);
+      then?.();
+      return;
+    }
     if (dist < 5) {
       then?.();
       return;

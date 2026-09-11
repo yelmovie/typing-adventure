@@ -1,7 +1,7 @@
 {
   "name": "typing-adventure",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.4.0",
   "type": "module",
   "description": "타이핑 어드벤처 - 초등학생용 한글 타자 판타지 모험 웹게임 (정적 웹앱, localStorage 전용)",
   "scripts": {
@@ -10,9 +10,19 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "assets": "node scripts/build-assets.mjs",
-    "check": "esbuild scripts/check-typing-run.ts scripts/check-wave.ts scripts/check-race.ts scripts/check-letter.ts scripts/check-telegram.ts scripts/check-boss.ts scripts/check-daily.ts --bundle --platform=node --format=esm --outdir=node_modules/.cache/checks --log-level=warning && node node_modules/.cache/checks/check-typing-run.js && node node_modules/.cache/checks/check-wave.js && node node_modules/.cache/checks/check-race.js && node node_modules/.cache/checks/check-letter.js && node node_modules/.cache/checks/check-telegram.js && node node_modules/.cache/checks/check-boss.js && node node_modules/.cache/checks/check-daily.js",
+    "assets:motion": "node scripts/build-motion-assets.mjs",
+    "assets:walk": "node scripts/build-walk-v2-assets.mjs",
+    "check": "esbuild scripts/check-typing-run.ts scripts/check-wave.ts scripts/check-race.ts scripts/check-letter.ts scripts/check-telegram.ts scripts/check-boss.ts scripts/check-daily.ts scripts/check-learning-contracts.ts scripts/check-progress.ts scripts/check-journey.ts --bundle --platform=node --format=esm --outdir=node_modules/.cache/checks --log-level=warning && node node_modules/.cache/checks/check-typing-run.js && node node_modules/.cache/checks/check-wave.js && node node_modules/.cache/checks/check-race.js && node node_modules/.cache/checks/check-letter.js && node node_modules/.cache/checks/check-telegram.js && node node_modules/.cache/checks/check-boss.js && node node_modules/.cache/checks/check-daily.js && node node_modules/.cache/checks/check-learning-contracts.js && node node_modules/.cache/checks/check-progress.js && node node_modules/.cache/checks/check-journey.js && node scripts/check-score-rewards.mjs",
     "sfx": "node scripts/gen-sfx.mjs",
-    "check:layout": "node scripts/check-layout.mjs"
+    "check:layout": "node scripts/check-layout.mjs",
+    "check:finale": "node scripts/check-finale.mjs",
+    "check:delivery": "node scripts/check-delivery.mjs",
+    "check:battle": "node scripts/check-battle-flow.mjs",
+    "check:learning": "node scripts/check-learning-flow.mjs",
+    "check:save": "node scripts/check-save-flow.mjs",
+    "check:gameplay": "esbuild scripts/check-tutorial.ts scripts/check-race-pacing.ts --bundle --platform=node --format=esm --outdir=node_modules/.cache/checks --log-level=warning && node node_modules/.cache/checks/check-tutorial.js && node node_modules/.cache/checks/check-race-pacing.js && node scripts/check-content.mjs",
+    "check:tutorial": "node scripts/check-tutorial-flow.mjs",
+    "check:opening": "node scripts/check-opening.mjs"
   },
   "dependencies": {
     "phaser": "^3.87.0"

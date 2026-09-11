@@ -1,10 +1,11 @@
+import { t as tr } from '../i18n/Locale';
 import Phaser from 'phaser';
-import { ensureParticleTextures, styleText } from './common';
+import { ensureParticleTextures, styleText, prefersReducedMotion } from './common';
 import { DESIGN_W, DESIGN_H } from '../Game';
 import { Player } from '../entities/Player';
 import { Pet } from '../entities/Pet';
 import { Enemy } from '../entities/Enemy';
-import { registerSheetAnims, anim } from '../entities/anims';
+import { registerSheetAnims, anim, strideGroundSpeed } from '../entities/anims';
 import { SaveSystem } from '../systems/SaveSystem';
 import { getCharacter, getPet } from '../data/characters';
 import { getStage } from '../data/stages';
@@ -29,11 +30,16 @@ class Mob {
   word: string;
   done = 0;
   dead = false;
+  danger = false;
+  targeted = false;
+  private restColor = '#ffffff'; // 변화구 색 — 위험 표시가 끝나면 이 색으로 되돌린다
   labelLift = 0; // 몬스터가 몰릴 때 라벨이 겹치지 않게 번갈아 높이를 다르게
   constructor(private scene: Phaser.Scene, m: WaveMonster) {
     this.word = m.word.text;
     this.targetX = SPAWN_X;
-    this.labelLift = (m.uid % 3) * 58;
+    // 머리 바로 위에 붙인다. 몬스터가 겹칠 때만 한 단 올려 낱말끼리 포개지는 걸 피한다.
+    // 단 간격이 크면 "이 낱말이 누구 것인지" 가 안 읽힌다 — 52px 도 여전히 떠 보였다.
+    this.labelLift = (m.uid % 2) * 30;
     // 대장 전용 시트가 없으면 초록 슬라임을 키워 쓰던 예전 방식으로 폴백
     const sheet = scene.textures.exists(m.sheet) ? m.sheet : 'mon_green_slime';
     const ownSheet = sheet === m.sheet;
@@ -48,16 +54,31 @@ class Mob {
     this.labelDone = scene.add.text(0, 0, '', styleText(46, '#63e074')).setOrigin(0, 1).setDepth(12);
     this.labelRest = scene.add.text(0, 0, '', styleText(46, '#ffffff')).setOrigin(0, 1).setDepth(12);
     const v = m.word.variant;
-    if (v) this.labelRest.setColor(v === 'treasure' ? '#ffd34d' : v === 'heart' ? '#ff7ab6' : '#ff6b6b');
+    if (v) this.restColor = v === 'treasure' ? '#ffd34d' : v === 'heart' ? '#ff7ab6' : '#ff6b6b';
+    this.labelRest.setColor(this.restColor);
     this.layout();
   }
   get x() {
     return this.enemy.sprite.x;
   }
   setTargeted(on: boolean) {
-    this.ring.setFillStyle(0xffd34d, on ? 0.35 : 0);
-    this.labelRest.setFontSize(on ? 56 : 46);
-    this.labelDone.setFontSize(on ? 56 : 46);
+    this.targeted = on;
+    this.ring.setFillStyle(this.danger ? 0xff5a5a : 0xffd34d, on || this.danger ? 0.35 : 0);
+    this.applyLabelSize();
+  }
+  /** 곧 닿는다 — 낱말을 빨갛게 키우고 발밑 고리를 켜서 "이건 위험해" 를 눈으로 알린다 */
+  setDanger(on: boolean) {
+    if (this.danger === on) return;
+    this.danger = on;
+    this.labelRest.setColor(on ? '#ff5a5a' : this.restColor);
+    this.ring.setFillStyle(on ? 0xff5a5a : 0xffd34d, on || this.targeted ? 0.35 : 0);
+    this.applyLabelSize();
+    if (on && !prefersReducedMotion()) this.scene.tweens.add({ targets: [this.labelRest, this.labelDone], scaleX: 1.12, scaleY: 1.12, duration: 220, yoyo: true, repeat: 2 });
+  }
+  private applyLabelSize() {
+    const size = this.danger ? 60 : this.targeted ? 56 : 46;
+    this.labelRest.setFontSize(size);
+    this.labelDone.setFontSize(size);
     this.layout();
   }
   setDone(n: number) {
@@ -69,7 +90,8 @@ class Mob {
     this.labelDone.setText(chars.slice(0, this.done).join(''));
     this.labelRest.setText(chars.slice(this.done).join(''));
     const w = this.labelDone.width + this.labelRest.width;
-    const top = this.enemy.sprite.y - this.enemy.sprite.displayHeight - 16 - this.labelLift;
+    // 글자 상자는 origin(0,1) 이라 이 값이 글자의 아래끝이다. 머리 끝에 살짝 겹치게 붙인다.
+    const top = this.enemy.sprite.y - this.enemy.sprite.displayHeight + 10 - this.labelLift;
     const x0 = this.enemy.sprite.x - w / 2;
     this.labelDone.setPosition(x0, top);
     this.labelRest.setPosition(x0 + this.labelDone.width, top);
@@ -147,7 +169,7 @@ export class WaveScene extends Phaser.Scene {
     this.bgNear.tilePositionY = (src.height - 160 / sc);
     ensureParticleTextures(this);
     const save = SaveSystem.get();
-    this.shakeOn = save.settings.screenShake;
+    this.shakeOn = save.settings.screenShake && !prefersReducedMotion();
     this.cls = save.profile.characterId;
     this.mobs.clear();
 
@@ -156,7 +178,7 @@ export class WaveScene extends Phaser.Scene {
       this.gate = this.add.image(1700, GROUND_Y + 10, 'fx_gate', 'c0_r0').setOrigin(0.5, 1).setScale(1.35).setDepth(2);
     }
     const light = this.add.ellipse(960, 810, 1700, 220, 0xffe59a, 0.08);
-    this.tweens.add({ targets: light, alpha: 0.14, duration: 2000, yoyo: true, repeat: -1 });
+    if (!prefersReducedMotion()) this.tweens.add({ targets: light, alpha: 0.14, duration: 2000, yoyo: true, repeat: -1 });
     // 웨이브가 지날수록 낮 → 노을로 (배경 색 온도 변화)
     this.duskOverlay = this.add.rectangle(DESIGN_W / 2, DESIGN_H / 2, DESIGN_W, DESIGN_H, 0xff7a3d, 0).setDepth(2).setBlendMode(Phaser.BlendModes.MULTIPLY);
 
@@ -166,7 +188,7 @@ export class WaveScene extends Phaser.Scene {
     this.player.setDepth(7);
     this.pet = new Pet(this, PLAYER_POS.x - 170, PLAYER_POS.y + 10, getPet(save.profile.petId).sheet, 0.62);
     this.pet.setDepth(6);
-    this.pet.walk('right');
+    this.pet.run('right');
 
     this.hitBurst = this.add.particles(0, 0, 'p_star', {
       lifespan: { min: 300, max: 650 }, speed: { min: 180, max: 420 }, scale: { start: 1.1, end: 0 }, rotate: { min: 0, max: 360 }, gravityY: 500,
@@ -187,6 +209,7 @@ export class WaveScene extends Phaser.Scene {
     this.bind(Events.WAVE_SWEEP, (d: { combo: number; count: number }) => this.onSweep(d));
     this.bind(Events.ITEM_DROP, (d: { uid: number; item: string; score: number }) => this.onDrop(d));
     this.bind(Events.DODGE, (d: { uid: number; kind: string }) => this.onDodge(d));
+    this.bind(Events.RALLY, (d: { heal: number }) => this.onRally(d));
     this.bind(Events.PLAYER_MOVE, (d: { dir: 'left' | 'right' | 'up' | 'down'; pressed: boolean }) => this.onPlayerMove(d));
     this.bind(Events.HP_HEAL, (d: { amount: number }) => this.onHeal(d));
     this.bind(Events.INPUT_CORRECT, (d: { perfect: boolean; combo: number }) => this.onCorrect(d));
@@ -196,7 +219,7 @@ export class WaveScene extends Phaser.Scene {
     this.bind(Events.IDLE_DRAIN, () => { this.player?.hit(); AudioManager.sfx('hurt', { gain: 0.5 }); });
     this.bind(Events.PET_PASSIVE, () => this.pet?.skill());
     this.bind(Events.STAGE_FAILED, () => this.player?.hit());
-    this.bind(Events.SETTINGS_CHANGED, (s: { screenShake: boolean }) => (this.shakeOn = s.screenShake));
+    this.bind(Events.SETTINGS_CHANGED, (s: { screenShake: boolean }) => (this.shakeOn = s.screenShake && !prefersReducedMotion()));
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       for (const [ev, fn] of this.handlers) EventBus.off(ev, fn);
@@ -214,19 +237,48 @@ export class WaveScene extends Phaser.Scene {
 
   update(_t: number, dtMs: number) {
     for (const m of this.mobs.values()) m.update();
-    const px = (dtMs / 1000) * 70; // 느긋한 걸음 속도
-    if (this.bgFar) this.bgFar.tilePositionX += px * 0.35;
-    if (this.bgNear) this.bgNear.tilePositionX += px * 1.3;
+    // The painted path at the feet is in bgFar. The lower decorative strip sits
+    // behind the typing panel, so moving only that strip cannot support a step.
+    const px = (dtMs / 1000) * strideGroundSpeed();
+    if (this.bgFar && !prefersReducedMotion()) this.bgFar.tilePositionX += px / this.bgFar.scaleX;
+    if (this.bgNear && !prefersReducedMotion()) this.bgNear.tilePositionX += px * 1.3 / this.bgNear.scaleX;
+  }
+
+  private stillNotice(text: string, color: string) {
+    const label = this.add.text(960, 380, tr(text), styleText(58, color)).setOrigin(0.5).setDepth(30);
+    this.time.delayedCall(900, () => label.destroy());
   }
 
   /** 5콤보 소탕: 화면 번쩍 + 문구 */
   private onSweep(d: { combo: number; count: number }) {
     AudioManager.sfx('fever', { rate: 1.2 });
+    if (prefersReducedMotion()) { this.stillNotice(`${d.combo}콤보 소탕!`, '#ffd34d'); return; }
     this.cameras.main.flash(220, 255, 240, 160);
     if (this.shakeOn) this.cameras.main.shake(220, 0.008);
     this.player?.dash(400);
-    const t = this.add.text(960, 420, `${d.combo}콤보 소탕!`, styleText(84, '#ffd34d')).setOrigin(0.5).setDepth(30).setScale(0.5).setAlpha(0);
+    const t = this.add.text(960, 420, tr(`${d.combo}콤보 소탕!`), styleText(84, '#ffd34d')).setOrigin(0.5).setDepth(30).setScale(0.5).setAlpha(0);
     this.tweens.add({ targets: t, alpha: 1, scale: 1.1, duration: 220, ease: 'Back.easeOut', yoyo: true, hold: 700, onComplete: () => t.destroy() });
+  }
+
+  /**
+   * 기운내기: 적이 전부 뒤로 밀려 멈추고 캐릭터가 빛난다.
+   * 소탕(노란 섬광)과 헷갈리지 않게 파란 섬광 + 다른 문구를 쓴다.
+   */
+  private onRally(d: { heal: number }) {
+    AudioManager.sfx('clear', { rate: 0.9 });
+    if (!prefersReducedMotion()) {
+      this.cameras.main.flash(320, 150, 210, 255);
+      this.player?.dash(320);
+    }
+    for (const mob of this.mobs.values()) {
+      if (mob.dead) continue;
+      mob.setDanger(false);
+      this.tweens.add({ targets: [mob.enemy.sprite, mob.enemy.shadow], x: mob.enemy.sprite.x + 220, duration: 260, ease: 'Quad.easeOut' });
+    }
+    if (prefersReducedMotion()) { this.stillNotice('기운내기!', '#8fe0ff'); return; }
+    const t = this.add.text(960, 400, tr('기운내기!'), styleText(88, '#8fe0ff')).setOrigin(0.5).setDepth(30).setScale(0.5).setAlpha(0);
+    const s = this.add.text(960, 480, tr(`HP +${d.heal} · 잠깐 숨 돌리자`), styleText(44, '#ffffff')).setOrigin(0.5).setDepth(30).setAlpha(0);
+    this.tweens.add({ targets: [t, s], alpha: 1, scale: 1, duration: 240, ease: 'Back.easeOut', yoyo: true, hold: 1100, onComplete: () => { t.destroy(); s.destroy(); } });
   }
 
   /** 아이템 드롭: 몬스터 자리에서 튀어오른 뒤 캐릭터에게 날아가 점수·효과로 */
@@ -250,7 +302,7 @@ export class WaveScene extends Phaser.Scene {
         this.hitBurst?.explode(14, PLAYER_POS.x, PLAYER_POS.y - 120);
         const label = d.score > 0 ? `+${d.score}` : d.item === 'heart' ? '+HP' : d.item === 'shield' ? '방패!' : '느려짐!';
         const color = d.item === 'coin' ? '#ffd34d' : d.item === 'gem' ? '#8fe0ff' : d.item === 'star' ? '#ff7ab6' : d.item === 'heart' ? '#63e074' : d.item === 'shield' ? '#8fb4ff' : '#fff2b0';
-        const s = this.add.text(PLAYER_POS.x, PLAYER_POS.y - 170, label, styleText(44, color)).setOrigin(0.5).setDepth(23);
+        const s = this.add.text(PLAYER_POS.x, PLAYER_POS.y - 170, tr(label), styleText(44, color)).setOrigin(0.5).setDepth(23);
         this.tweens.add({ targets: s, y: s.y - 90, alpha: 0, duration: 650, onComplete: () => s.destroy() });
       } });
     } });
@@ -280,7 +332,7 @@ export class WaveScene extends Phaser.Scene {
     const x = mob?.x ?? PLAYER_POS.x + 260;
     const y = (mob?.enemy.sprite.y ?? GROUND_Y) - 170;
     this.playFx(0, (x + PLAYER_POS.x) / 2, y + 80, 0.9);
-    const t = this.add.text(x, y, '회피!', styleText(52, '#8fe0ff')).setOrigin(0.5).setDepth(24).setScale(0.6).setAlpha(0);
+    const t = this.add.text(x, y, tr('회피!'), styleText(52, '#8fe0ff')).setOrigin(0.5).setDepth(24).setScale(0.6).setAlpha(0);
     this.tweens.add({ targets: t, alpha: 1, scale: 1.05, y: y - 40, duration: 260, ease: 'Back.easeOut', yoyo: true, hold: 260, onComplete: () => t.destroy() });
   }
 
@@ -319,6 +371,7 @@ export class WaveScene extends Phaser.Scene {
       const mob = this.mobs.get(m.uid);
       if (!mob || mob.dead) continue;
       mob.targetX = SPAWN_X - m.x * (SPAWN_X - TOUCH_X);
+      mob.setDanger(!!m.danger);
       mob.setTargeted(m.uid === d.targetUid);
       mob.setDone(m.maxHp - m.hp);
     }
@@ -402,16 +455,18 @@ export class WaveScene extends Phaser.Scene {
     this.pet?.skill();
     if (d.level !== 1) return; // FEVER 이상은 onFever가 별도로 다룬다
     AudioManager.sfx('combo', { rate: 1.25 });
+    if (prefersReducedMotion()) { this.stillNotice('펫 스킬 발동!', '#a78bfa'); return; }
     this.tweens.add({ targets: this.cameras.main, zoom: 1.045, duration: 150, yoyo: true, ease: 'Quad.easeOut' });
     const flash = this.add.rectangle(960, 540, 1920, 1080, 0xa78bfa, 0.32).setDepth(29);
     this.tweens.add({ targets: flash, alpha: 0, duration: 380, onComplete: () => flash.destroy() });
-    const t = this.add.text(960, 360, '펫 스킬 발동!', styleText(58, '#a78bfa')).setOrigin(0.5).setDepth(30).setScale(0.6).setAlpha(0);
+    const t = this.add.text(960, 360, tr('펫 스킬 발동!'), styleText(58, '#a78bfa')).setOrigin(0.5).setDepth(30).setScale(0.6).setAlpha(0);
     this.tweens.add({ targets: t, alpha: 1, scale: 1, duration: 200, ease: 'Back.easeOut', yoyo: true, hold: 600, onComplete: () => t.destroy() });
   }
 
   /** 20(+) 콤보 FEVER: 백색 플래시 + 주황 문구 + 강한 흔들림·줌 — 소탕·펫 스킬과 뚜렷이 다르게 */
   private onFever(level: number) {
     if (level < 2) return;
+    if (prefersReducedMotion()) { this.stillNotice(level >= 3 ? 'FINAL FEVER!' : 'FEVER!', '#ffd34d'); return; }
     this.player?.dash(900);
     this.pet?.cheer();
     const flash = this.add.rectangle(960, 540, 1920, 1080, 0xffffff, 0.55).setDepth(30);

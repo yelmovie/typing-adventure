@@ -3,7 +3,7 @@
  *  - 위험 지점까지 280m, 열차는 초당 2m 씩 다가간다(기초 난이도는 느리게).
  *  - 전보 3문장. 전송률 = 완료 어절 / 전체 어절. 어절 완료마다 TELE_WORD.
  *  - 문장 완료 → 브레이크 1단(속도 25% 감소). 3문장 완료 → 비상 브레이크 → 열차 정지(클리어).
- *  - 오타 확정 → 1.5초 통신 끊김(그동안 입력 판정 정지). 10콤보 POWER → 전송률 +5% 보너스. FEVER(20) → 급감속(속도 절반).
+ *  - 오타 확정 → 1.5초 통신 끊김(제출은 복구 후 처리). 2문장 연속 성공 → 친구 도움. FEVER → 급감속(속도 절반).
  *  - 거리 0 전에 미완 → 급정지 실패.
  * 순수 로직. emit 주입.
  */
@@ -12,7 +12,7 @@ import { DIFFICULTY_RULES } from '../data/stages';
 import { calcWordScore } from './TypingStats';
 import { TypingRun, RULES, type Emit } from './TypingRun';
 import { countStrokes } from '../util/hangul';
-import type { BattleSnapshot, TypingMode } from './BattleSystem';
+import type { BattleSnapshot, TypingMode } from './BattleState';
 
 export const TELE = {
   dist: 280,
@@ -20,7 +20,6 @@ export const TELE = {
   brakeMul: 0.75,
   outageSec: 1.5,
   feverMul: 0.5,
-  powerBonus: 0.05,
   sentenceBonus: 300,
 };
 
@@ -67,7 +66,7 @@ export class TelegramSystem implements TypingMode {
     this.stage = stage;
     this.difficulty = difficulty;
     this.emit = emit;
-    this.sentences = sentences;
+    this.sentences = [...sentences];
     this.wordsTotal = sentences.reduce((a, s) => a + this.words(s.text).length, 0);
     const rule = DIFFICULTY_RULES[difficulty];
     this.playerMaxHp = rule.playerHp;
@@ -101,14 +100,18 @@ export class TelegramSystem implements TypingMode {
   }
 
   transfer(): number {
-    const bonus = this.run.feverLevel >= 1 ? TELE.powerBonus : 0;
-    return Math.min(1, (this.wordsDoneBefore + this.wordsCur) / this.wordsTotal + bonus);
+    // 학습 진행률은 실제로 완성한 어절만 표시한다. 친구 능력은 물리적 여유에 반영한다.
+    return this.wordsTotal > 0 ? Math.min(1, (this.wordsDoneBefore + this.wordsCur) / this.wordsTotal) : 0;
   }
 
   tick(dt: number) {
     if (!this.running || this.finished) return;
     this.elapsed += dt;
-    this.run.tick(dt);
+    // 통신 복구 연출 때문에 제출을 받지 못하는 시간은 입력 속도에서 제외한다.
+    const blockedSec = Math.min(dt, this.outageLeft);
+    const activeSec = dt - blockedSec;
+    this.run.stats.tick(blockedSec, false);
+    if (activeSec > 0) this.run.tick(activeSec);
     if (this.outageLeft > 0) {
       this.outageLeft = Math.max(0, this.outageLeft - dt);
       if (this.outageLeft === 0) {
@@ -120,7 +123,7 @@ export class TelegramSystem implements TypingMode {
         }
       }
     }
-    const drain = this.run.idleDrain(dt);
+    const drain = this.run.idleDrain(activeSec);
     if (drain > 0) {
       this.playerHp = Math.max(0, this.playerHp - drain);
       this.emit('IDLE_DRAIN', { hpLoss: drain, hp: this.playerHp, idle: this.run.idleSeconds });
@@ -141,6 +144,7 @@ export class TelegramSystem implements TypingMode {
     if (!cur) return;
     const { wrongIndex } = this.run.onCommit(value);
     if (wrongIndex >= 0) {
+      this.wordsCur = 0;
       this.outageLeft = TELE.outageSec;
       this.emit('TELE_OUTAGE', { on: true });
       return;
@@ -156,7 +160,7 @@ export class TelegramSystem implements TypingMode {
       else break;
       acc += 1;
     }
-    if (done > this.wordsCur) {
+    if (done !== this.wordsCur) {
       this.wordsCur = done;
       this.emit('TELE_WORD', { done: this.wordsDoneBefore + done, total: this.wordsTotal, transfer: this.transfer() });
     }
@@ -174,14 +178,9 @@ export class TelegramSystem implements TypingMode {
     if (!t) return false;
     const r = this.run.skip();
     if (!r) return false;
-    this.lines.push(t.text);
-    this.wordsDoneBefore += this.wordsCur;
+    this.queued = null;
+    this.sentences.push(this.sentences.splice(this.idx, 1)[0]);
     this.wordsCur = 0;
-    this.idx++;
-    if (this.lines.length >= this.sentences.length) {
-      this.clear();
-      return true;
-    }
     this.run.advance();
     this.emit('TARGET_CHANGED', this.snapshot());
     return true;
@@ -203,18 +202,10 @@ export class TelegramSystem implements TypingMode {
         this.emit('TELE_OUTAGE', { on: true });
       }
       this.applyHp(r.hpDelta);
-      this.emit('INPUT_WRONG', { typed: value, target: cur, hpLoss: r.hpDelta < 0 ? -r.hpDelta : 0, timeLoss: 0, forgiven: r.forgiven, shielded: false, snapshot: this.snapshot() });
-      // 틀린 채 Enter → 그 전보 문장은 넘긴다 (점수 없음). 브레이크는 걸리지 않는다.
-      this.lines.push(cur.text);
-      this.wordsDoneBefore += this.wordsCur;
+      this.emit('INPUT_WRONG', { typed: value, target: cur, hpLoss: r.hpDelta < 0 ? -r.hpDelta : 0, timeLoss: 0, forgiven: r.forgiven, shielded: this.run.isShielded(), snapshot: this.snapshot() });
+      // 잘못 전송한 문장은 고쳐 다시 보내야 한다. 오답으로 브레이크를 걸 수 없다.
       this.wordsCur = 0;
-      this.idx++;
-      if (this.lines.length >= this.sentences.length) {
-        this.clear();
-        return;
-      }
       if (this.playerHp <= 0) { this.fail('hp'); return; }
-      this.run.advance();
       this.emit('TARGET_CHANGED', this.snapshot());
       return;
     }
@@ -227,7 +218,7 @@ export class TelegramSystem implements TypingMode {
     this.idx++;
     this.brake++;
     if (r.petActive === 'time_plus') this.dist += 20; // 토끼: 거리 +20m 여유
-    this.emit('INPUT_CORRECT', { target: cur, perfect: r.perfect, damage: 0, gained: 0, combo, mult: r.mult, variant: r.variant, snapshot: this.snapshot() });
+    this.emit('INPUT_CORRECT', { target: cur, perfect: r.perfect, corrected: r.corrected, damage: 0, gained: 0, combo, mult: r.mult, variant: r.variant, snapshot: this.snapshot() });
     this.emit('TELE_BRAKE', { stage: this.brake, total: this.sentences.length, speed: this.speed() });
     if (this.lines.length >= this.sentences.length) {
       this.clear();

@@ -1,0 +1,46 @@
+.finale-player { --read-copy: max(22px, calc(var(--classroom-body) * var(--ui-unit))); --read-main: max(28px, calc(var(--classroom-heading) * var(--ui-unit))); --read-title: max(36px, calc(var(--classroom-title) * var(--ui-unit))); position: relative; width: 100%; height: 100%; overflow: hidden; background: #0c1030; }
+/* The shared backdrop also serves the opening; only the finale gets this layout. */
+.modal-backdrop.finale-backdrop { padding: 0; overflow: hidden; background: #0c1030; }
+#ui-stage .finale-player:not(.opening-player) {
+  --read-copy: max(22px, calc(var(--classroom-body) * var(--ui-unit)));
+  --read-main: max(28px, calc(var(--classroom-heading) * var(--ui-unit)));
+  --read-title: max(36px, calc(var(--classroom-title) * var(--ui-unit)));
+  position: relative; width: 100%; height: 100%; overflow: hidden;
+  display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: calc(16 * var(--ui-unit)); padding: calc(24 * var(--ui-unit)); color: #fff5d8;
+  background: linear-gradient(#091328b8, #101c3a54 48%, #08152de8), url('/assets/backgrounds/bg_bright_castle.webp') center / cover;
+}
+.finale-heading { text-align: center; }
+#ui-stage .finale-heading h2 { margin: 0; font: var(--read-title)/1.2 var(--font-title); text-shadow: 0 3px 3px #051128; overflow-wrap: anywhere; }
+.finale-eyebrow { margin: 0 0 calc(6 * var(--ui-unit)); color: #ffe098; font-size: var(--read-copy); line-height: 1.5; }
+.finale-celebration { display: grid; grid-template-columns: 0.9fr 1.1fr; align-items: center; gap: calc(24 * var(--ui-unit)); min-height: 0; }
+.finale-cast { max-height: 620px; height: 100%; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; }
+.finale-cast-actors { display: flex; justify-content: center; align-items: end; gap: 5%; min-height: 0; padding: 20px 10px; }
+.finale-cast-sprite { position: relative; display: inline-flex; align-items: end; justify-content: center; flex: 0 1 auto; max-width: 58%; filter: drop-shadow(0 8px 3px #07132888); transform-origin: 50% 100%; }
+.finale-cast-hero { height: 94%; animation: finale-cheer 1.5s ease-in-out 2; }
+.finale-cast-pet { height: 45%; max-width: 36%; animation: finale-cheer 1.5s .18s ease-in-out 2; }
+.finale-portrait { width: 100%; height: 100%; object-fit: contain; }
+.finale-sprite-frame { display: none; position: relative; height: 100%; overflow: hidden; }
+.finale-sprite-frame img { position: absolute; max-width: none; }
+.finale-cast-sprite.is-ready .finale-portrait { display: none; }
+.finale-cast-sprite.is-ready .finale-sprite-frame { display: block; }
+.finale-cast-label { margin: calc(6 * var(--ui-unit)) 0 0; text-align: center; font: var(--read-main)/1.25 var(--font-title); text-shadow: 0 2px 3px #051128; }
+.finale-film { margin: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; height: 100%; max-height: 620px; overflow: hidden; border: 3px solid #e2c884; border-radius: 16px; background: #061124; box-shadow: 0 12px 36px #050b1f77; }
+.finale-video { display: block; width: 100%; height: 100%; min-height: 0; object-fit: contain; }
+.finale-film-caption { padding: calc(10 * var(--ui-unit)); text-align: center; font-size: var(--read-copy); line-height: 1.3; color: #fff1c7; background: #101c39; }
+#ui-stage .finale-footer { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: calc(20 * var(--ui-unit)); padding: calc(12 * var(--ui-unit)) calc(16 * var(--ui-unit)); border: 2px solid #748bafa8; border-radius: 16px; background: #09162be8; }
+.finale-status { margin: 0; font-size: var(--read-copy); line-height: 1.35; color: #e0edf9; }
+.finale-actions { display: flex; align-items: center; gap: calc(12 * var(--ui-unit)); }
+#ui-stage .finale-actions .btn { min-height: var(--touch-size); min-width: calc(112 * var(--ui-unit)); padding: calc(10 * var(--ui-unit)) calc(14 * var(--ui-unit)); font-size: var(--read-main); white-space: nowrap; }
+.finale-sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); }
+.finale-player.is-paused .finale-cast-sprite { animation-play-state: paused; }
+#ui-stage.short-display .finale-player:not(.opening-player) { padding: calc(12 * var(--ui-unit)) calc(16 * var(--ui-unit)); gap: calc(10 * var(--ui-unit)); }
+#ui-stage.short-display .finale-celebration { gap: calc(14 * var(--ui-unit)); }
+#ui-stage.short-display .finale-eyebrow { display: none; }
+#ui-stage.short-display .finale-film-caption { padding: calc(6 * var(--ui-unit)); }
+#ui-stage.short-display .finale-footer { padding: calc(8 * var(--ui-unit)) calc(10 * var(--ui-unit)); gap: calc(10 * var(--ui-unit)); }
+@keyframes finale-cheer { 0%, 100% { transform: translateY(0) rotate(0); } 28% { transform: translateY(-9px) rotate(-2deg); } 65% { transform: translateY(-3px) rotate(2deg); } }
+@media (prefers-reduced-motion: reduce) { .modal-backdrop.finale-backdrop, .finale-player * { animation: none !important; } }
+
+
+

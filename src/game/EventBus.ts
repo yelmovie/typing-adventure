@@ -35,6 +35,10 @@ export const Events = {
   HP_HEAL: 'HP_HEAL', // 콤보 회복·PERFECT 회복 { amount, hp }
   PLAYER_MOVE: 'PLAYER_MOVE', // 방향키 입력 { dir, pressed } — 씬이 연출만
   DODGE: 'DODGE', // 점프/앉기로 몬스터 접촉 회피 { uid, kind }
+  RALLY: 'RALLY', // 기운내기 — HP 가 바닥날 뻔했을 때 판당 1회 적 정지 + 회복 { hp, heal, stunSec }
+  // 소개 화면에서 캐릭터·펫·몬스터가 자리를 잡았다. DOM 말풍선이 이 좌표에 붙는다
+  // { anchors: [{ who, x, y }] } — x 는 가운데, y 는 머리 끝(디자인 1920×1080 좌표)
+  INTRO_ANCHORS: 'INTRO_ANCHORS',
   // 스테이지 1 웨이브
   WAVE_SPAWN: 'WAVE_SPAWN',
   WAVE_TICK: 'WAVE_TICK',

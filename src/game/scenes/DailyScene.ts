@@ -1,3 +1,4 @@
+import { t as tr } from '../i18n/Locale';
 import Phaser from 'phaser';
 import { addBackground, ensureParticleTextures, addAmbientSparkles, styleText } from './common';
 import { Player } from '../entities/Player';
@@ -33,7 +34,7 @@ export class DailyScene extends Phaser.Scene {
     this.player.setLively(true);
     this.pet = new Pet(this, 390, 780, getPet(save.profile.petId).sheet, 0.62);
     this.pet.setDepth(6);
-    this.add.text(DESIGN_W / 2, 340, '오늘의 도전', styleText(56, '#ffd34d')).setOrigin(0.5).setDepth(10); // 콤보(≤290) 아래
+    this.add.text(DESIGN_W / 2, 340, tr('오늘의 도전'), styleText(56, '#ffd34d')).setOrigin(0.5).setDepth(10); // 콤보(≤290) 아래
     this.burst = this.add.particles(0, 0, 'p_star', {
       lifespan: { min: 300, max: 700 }, speed: { min: 150, max: 400 }, scale: { start: 1.1, end: 0 }, gravityY: 300, emitting: false, blendMode: Phaser.BlendModes.ADD, tint: [0xffd34d, 0xfff2b0, 0x8fe0ff, 0xffffff],
     }).setDepth(20);

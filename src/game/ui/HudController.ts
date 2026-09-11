@@ -1,10 +1,12 @@
 import { h, fmt, icon, uiImg } from '../util/dom';
-import type { BattleSnapshot } from '../systems/BattleSystem';
+import type { BattleSnapshot } from '../systems/BattleState';
 import { diffChars } from '../util/hangul';
 import type { WordVariant } from '../types';
 import { AudioManager } from '../systems/AudioManager';
 import { soundButton } from './TopBar';
 import { settingsModal } from './ModalController';
+import { getLanguage } from '../i18n/Locale';
+import { BOSS } from '../systems/BossSystem';
 
 const VARIANT_LABEL: Record<WordVariant, string> = { treasure: '보물 낱말', heart: '하트 낱말', bomb: '폭탄 낱말' };
 const FEVER_TXT = ['COMBO', 'POWER', 'FEVER', 'FINAL FEVER'];
@@ -33,9 +35,13 @@ export class HudController {
   private trackGhost: HTMLElement;
   private trackChaser: HTMLElement;
   private trackDist: HTMLElement;
+  private trackGoal: HTMLElement;
+  private trackGap: HTMLElement;
 
   private wordCur: HTMLElement;
   private wordTot: HTMLElement;
+  private progressNote: HTMLElement;
+  private progressKind: 'targets' | 'words' | 'distance' | 'phase';
   private progressFill: HTMLElement;
   private timeVal: HTMLElement;
   private scoreVal: HTMLElement;
@@ -56,9 +62,11 @@ export class HudController {
   private lastCombo = 0;
   private lastTargetKey = '';
 
-  constructor(opts: { stageIndex: number; stageName: string; playerName: string; level: number; portrait: string; petName: string; petPortrait: string; petSkill: string; countLabel?: string; bestCpm?: number; race?: boolean; timeLabel?: string; hideEnemy?: boolean; telegram?: boolean; title?: string; petActive?: string; onHome?: () => void }) {
+  constructor(opts: { stageIndex: number; stageName: string; playerName: string; level: number; portrait: string; petName: string; petPortrait: string; petSkill: string; countLabel?: string; progressKind?: 'targets' | 'words' | 'distance' | 'phase'; bestCpm?: number; race?: boolean; timeLabel?: string; hideEnemy?: boolean; telegram?: boolean; title?: string; petActive?: string; onHome?: () => void }) {
+    this.progressKind = opts.progressKind ?? 'words';
     this.wordCur = h('span', { class: 'cur' }, '0');
     this.wordTot = h('span', {}, '0');
+    this.progressNote = h('span', { class: 'bt-progress-note' }, '진행도');
     this.progressFill = h('div', { class: 'gauge-fill sky', style: { width: '0%' } });
     this.timeVal = h('div', { class: 'val' }, '0:00');
     this.scoreVal = h('div', { class: 'val' }, '0');
@@ -72,7 +80,7 @@ export class HudController {
       h(
         'div',
         { class: 'bt-progress' },
-        h('div', { class: 'row' }, h('span', {}, `${opts.countLabel ?? '낱말'} `, this.wordCur, ' / ', this.wordTot), h('span', {}, '진행도')),
+        h('div', { class: 'row' }, h('span', {}, `${opts.countLabel ?? '낱말'} `, this.wordCur, ' / ', this.wordTot), this.progressNote),
         h('div', { class: 'gauge' }, this.progressFill),
       ),
       h(
@@ -94,7 +102,7 @@ export class HudController {
     this.left = h(
       'div',
       { class: 'panel panel-glass battle-left' },
-      h('div', { class: 'pl-head' }, h('img', { class: 'pl-portrait', src: opts.portrait, alt: '' }), h('div', {}, h('div', { class: 'pl-name' }, opts.playerName), h('div', { class: 'pl-level' }, `Lv.${opts.level} ${opts.title ?? '모험가'}`))),
+      h('div', { class: 'pl-head' }, h('img', { class: 'pl-portrait', src: opts.portrait, alt: '' }), h('div', {}, h('div', { class: 'pl-name', 'data-no-translate': 'true' }, opts.playerName), h('div', { class: 'pl-level' }, `Lv.${opts.level} ${opts.title ?? '모험가'}`))),
       h('div', { class: 'pl-hp-label' }, h('span', {}, icon('heart'), ' HP ', this.shieldEl), this.hpText),
       h('div', { class: 'gauge' }, this.hpFill),
       h('div', { class: 'pl-pet' }, h('img', { src: opts.petPortrait, alt: '' }), h('div', {}, h('div', { class: 'pl-pet-name' }, `${opts.petName}`), h('div', { class: 'pl-pet-skill', title: opts.petSkill }, opts.petActive ? uiImg(`item_${opts.petActive}`) : null, ' ', opts.petSkill))),
@@ -122,7 +130,9 @@ export class HudController {
     this.trackGhost = h('div', { class: 'tk-mark ghost' }, '어제');
     this.trackChaser = h('div', { class: 'tk-mark chaser' }, '추격');
     this.trackDist = h('span', { class: 'tk-dist' }, '0 m');
-    this.track = h('div', { class: `panel panel-glass race-track ${opts.race ? '' : 'hidden'}` }, h('div', { class: 'tk-row' }, h('span', {}, icon('flag'), ' GOAL 1000m'), this.trackDist), h('div', { class: 'tk-bar' }, this.trackChaser, this.trackGhost, this.trackYou, h('span', { class: 'tk-goal' }, icon('flag'))));
+    this.trackGoal = h('span', {}, 'GOAL');
+    this.trackGap = h('div', { class: 'tk-gap', 'data-no-translate': 'true' });
+    this.track = h('div', { class: `panel panel-glass race-track ${opts.race ? '' : 'hidden'}` }, h('div', { class: 'tk-row' }, this.trackGoal, this.trackDist), h('div', { class: 'tk-bar' }, this.trackChaser, this.trackGhost, this.trackYou, h('span', { class: 'tk-goal' }, icon('flag'))), this.trackGap);
     this.teleDist = h('span', { class: 'td-dist' }, '280 m');
     this.teleSpeed = h('div', { class: 'gauge-fill red', style: { width: '100%' } });
     this.teleXfer = h('div', { class: 'gauge-fill sky', style: { width: '0%' } });
@@ -142,9 +152,16 @@ export class HudController {
   }
 
   update(s: BattleSnapshot) {
-    this.wordCur.textContent = String(s.wordsDone);
-    this.wordTot.textContent = String(s.targetTotal);
-    const prog = s.totalEnemyHp > 0 ? (s.dealtDamage / s.totalEnemyHp) * 100 : 0;
+    const current = this.progressKind === 'distance' && s.race ? Math.floor(s.race.player) : this.progressKind === 'phase' && s.boss ? s.boss.phase : this.progressKind === 'targets' ? s.targetIndex : s.wordsDone;
+    this.wordCur.textContent = String(current);
+    this.wordTot.textContent = this.progressKind === 'distance' && s.race ? `${s.race.goal} m` : String(s.targetTotal);
+    let prog = s.totalEnemyHp > 0 ? (s.dealtDamage / s.totalEnemyHp) * 100 : 0;
+    if (s.boss) {
+      const b = s.boss;
+      const fraction = b.phase === 1 ? b.crystals.filter((c) => c.broken).length / Math.max(1, b.crystals.length) : b.phase === 2 ? 1 + (b.maxHp - b.hp) / (b.maxHp - BOSS.phase3At) : 2 + (BOSS.phase3At - b.hp) / BOSS.phase3At;
+      prog = fraction / 3 * 100;
+    }
+    this.progressNote.textContent = 'wave' in s ? (getLanguage() === 'en' ? `${s.wordsDone} typed correctly` : `입력 성공 ${s.wordsDone}회`) : getLanguage() === 'en' ? 'Progress' : '진행도';
     this.progressFill.style.width = `${Math.min(100, prog)}%`;
     this.timeVal.textContent = fmt.time(s.timeLeft);
     this.timeVal.classList.toggle('warn', s.timeLimit > 0 && s.timeLeft <= 15);
@@ -165,10 +182,27 @@ export class HudController {
       this.enemyCount.textContent = s.enemyLabel ?? `${s.enemyIndex + 1} / ${s.enemyTotal} 마리`;
       this.enemyFill.style.width = `${(s.enemy.hp / s.enemy.maxHp) * 100}%`;
       this.enemyHpText.textContent = `${s.enemy.hp} / ${s.enemy.maxHp}`;
+      if (s.boss) {
+        const b = s.boss, en = getLanguage() === 'en';
+        this.enemyCount.dataset.noTranslate = 'true';
+        this.enemyHpText.dataset.noTranslate = 'true';
+        this.enemyFill.classList.toggle('boss-shield', b.phase === 1);
+        if (b.phase === 1) {
+          const left = b.crystals.filter(c => !c.broken).length;
+          this.enemyFill.style.width = `${left / Math.max(1, b.crystals.length) * 100}%`;
+          this.enemyHpText.textContent = en ? `Crystals ${left}/${b.crystals.length}` : `남은 결정 ${left}/${b.crystals.length}`;
+          this.enemyCount.textContent = en ? '1/3 · Break the shield' : '1/3 · 보호막 깨기';
+        } else if (b.phase === 2) {
+          this.enemyCount.textContent = en ? '2/3 · Counterattack' : '2/3 · 낱말 반격';
+        } else {
+          const role = b.finalRole === 'core' ? (en ? 'Core' : '코어') : b.finalRole === 'finale' ? (en ? 'Final strike' : '마지막 일격') : (en ? 'Armor' : '갑옷');
+          this.enemyCount.textContent = `${role} · ${b.finalStep}/${b.finalTotal}`;
+        }
+      }
     }
     this.setCombo(s.combo, s.feverLevel, s.feverLeft);
     this.renderVariant(s);
-    this.hintEl.textContent = s.nextHint ? `다음 낱말: ${s.nextHint}` : '';
+    this.hintEl.textContent = s.nextHint ? `${getLanguage() === 'en' ? 'Next target' : '다음 입력'}: ${s.nextHint}` : '';
     if (s.telegram) {
       const t = s.telegram;
       this.teleDist.textContent = `${Math.ceil(t.dist)} m`;
@@ -186,8 +220,12 @@ export class HudController {
       this.trackChaser.style.left = pct(r.chaser);
       this.trackGhost.style.left = pct(r.ghost ?? -1);
       this.trackGhost.hidden = r.ghost == null;
-      this.trackDist.textContent = `${Math.round(r.player)} m · ${r.speed.toFixed(1)} m/s${r.turboLeft > 0 ? ' TURBO' : r.slowLeft > 0 ? ' 감속' : ''}`;
-      this.track.classList.toggle('danger', r.player - r.chaser < 15);
+      this.trackGoal.textContent = `GOAL ${r.goal}m`;
+      this.trackDist.textContent = `${Math.round(r.player)} m${r.turboLeft > 0 ? ' · TURBO' : ''}`;
+      const en = getLanguage() === 'en';
+      const status = r.catchRecoveryLeft > 0 ? (en ? 'Recovering' : '다시 달려요') : r.threat > 0.65 ? (en ? 'Close behind!' : '바로 뒤예요!') : r.speed > r.chaserSpeed ? (en ? 'Pulling ahead' : '거리를 벌려요') : (en ? 'Closing in' : '따라오고 있어요');
+      this.trackGap.textContent = en ? `${Math.ceil(r.gap)}m behind · ${status}` : `${Math.ceil(r.gap)}m 뒤 · ${status}`;
+      this.track.classList.toggle('danger', r.threat > 0.65);
     }
   }
 

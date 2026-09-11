@@ -1,5 +1,6 @@
+import { getLanguage } from '../i18n/Locale';
 import Phaser from 'phaser';
-import { styleText } from './common';
+import { styleText, prefersReducedMotion } from './common';
 
 /**
  * 직업별 공격 연출 (판정·피해는 동일, 보이는 것만 다르다). 이펙트 시트가 오기 전까지 코드 그래픽으로.
@@ -15,8 +16,16 @@ const ROW: Record<FxLevel, number> = { weak: 0, strong: 1, perfect: 2, fever: 3 
 
 /** 시트가 있으면 시트 애니메이션(5프레임), 없으면 코드 그래픽 */
 export function playClassFx(scene: Phaser.Scene, cls: string, level: FxLevel, from: { x: number; y: number }, to: { x: number; y: number }) {
+  if (prefersReducedMotion()) {
+    const mark = scene.add.circle(to.x, to.y, 30).setStrokeStyle(4, level === 'perfect' ? 0xffd34d : 0x8fe0ff, 0.7).setDepth(23);
+    scene.time.delayedCall(280, () => mark.destroy());
+    return;
+  }
   const sheet = FX_SHEET[cls as ClassId] ?? 'fx_warrior';
-  if (scene.textures.exists(sheet)) return playSheetFx(scene, sheet, cls as ClassId, level, from, to);
+  // The scholar atlas has Hangul painted into its pixels. Its code effect uses
+  // the active language, so English keeps English letters even after switching.
+  const paintedHangul = cls === 'glasses_boy' && getLanguage() === 'en';
+  if (!paintedHangul && scene.textures.exists(sheet)) return playSheetFx(scene, sheet, cls as ClassId, level, from, to);
   switch (cls as ClassId) {
     case 'pink_girl':
       return mage(scene, level, from, to);
@@ -103,12 +112,12 @@ function scholar(scene: Phaser.Scene, level: FxLevel, from: { x: number; y: numb
     scene.tweens.add({ targets: p, x: to.x + Phaser.Math.Between(-40, 40), y: to.y + Phaser.Math.Between(-60, 20), angle: 360, duration: 220 + i * 40, ease: 'Quad.easeIn', onComplete: () => fade(scene, p, 200, { scale: 0.3 }) });
   }
   if (level !== 'weak') {
-    const stamp = scene.add.text(to.x, to.y - 20, level === 'perfect' ? '완' : '봉', styleText(level === 'perfect' ? 96 : 64, '#ff6b6b', '#fff2b0')).setOrigin(0.5).setDepth(24).setScale(2).setAlpha(0);
+    const stamp = scene.add.text(to.x, to.y - 20, getLanguage() === 'en' ? (level === 'perfect' ? 'A+' : 'OK') : level === 'perfect' ? '완' : '봉', styleText(level === 'perfect' ? 96 : 64, '#ff6b6b', '#fff2b0')).setOrigin(0.5).setDepth(24).setScale(2).setAlpha(0);
     scene.tweens.add({ targets: stamp, scale: 1, alpha: 1, duration: 140, ease: 'Quad.easeIn', delay: 200, onComplete: () => fade(scene, stamp, 400, { delay: 250 }) });
   }
   if (level === 'fever') {
     for (let i = 0; i < 16; i++) {
-      const ch = scene.add.text(to.x + Phaser.Math.Between(-200, 200), to.y + Phaser.Math.Between(-200, 100), HANGUL[i % HANGUL.length], styleText(40, '#fff2b0')).setOrigin(0.5).setDepth(24).setAlpha(0);
+      const ch = scene.add.text(to.x + Phaser.Math.Between(-200, 200), to.y + Phaser.Math.Between(-200, 100), getLanguage() === 'en' ? String.fromCharCode(65 + i % 26) : HANGUL[i % HANGUL.length], styleText(40, '#fff2b0')).setOrigin(0.5).setDepth(24).setAlpha(0);
       scene.tweens.add({ targets: ch, alpha: 1, y: ch.y - 120, angle: Phaser.Math.Between(-30, 30), duration: 500, delay: i * 25, yoyo: true, onComplete: () => ch.destroy() });
     }
   }

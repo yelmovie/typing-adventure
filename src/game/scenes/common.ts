@@ -1,12 +1,17 @@
 import Phaser from 'phaser';
 import { DESIGN_W, DESIGN_H } from '../Game';
 
+/** OS 접근성 설정. 게임의 화면 흔들림 옵션과는 별개다. */
+export function prefersReducedMotion() {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
 /** 16:9 배경을 화면에 cover 로 깔기 */
 export function addBackground(scene: Phaser.Scene, key: string, opts: { dim?: number; zoom?: boolean } = {}) {
   const img = scene.add.image(DESIGN_W / 2, DESIGN_H / 2, key);
   const s = Math.max(DESIGN_W / img.width, DESIGN_H / img.height);
   img.setScale(s);
-  if (opts.zoom) {
+  if (opts.zoom && !prefersReducedMotion()) {
     scene.tweens.add({ targets: img, scale: s * 1.04, duration: 14000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
   }
   if (opts.dim) {
@@ -61,6 +66,7 @@ export function addAmbientSparkles(scene: Phaser.Scene, tint = 0xffe59a, quantit
     rotate: { min: 0, max: 360 },
     tint,
     frequency: 380 / quantity,
+    emitting: !prefersReducedMotion(),
     blendMode: Phaser.BlendModes.ADD,
   });
 }
