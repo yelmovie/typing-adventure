@@ -38,6 +38,7 @@ class AudioManagerImpl {
   private rate = 1;
   /** 자동재생 정책에 막힌 BGM: 다음 사용자 입력(unlock)에서 재시도 */
   private bgmPending = false;
+  private userActivated = false;
 
   private ensureCtx(): AudioContext | null {
     if (this.ctx) return this.ctx;
@@ -52,6 +53,8 @@ class AudioManagerImpl {
 
   /** 사용자 입력 이후 호출: AudioContext 재개 + 효과음 미리 받기 */
   unlock() {
+    this.userActivated = true;
+    if (this.bgmOn && this.bgmName && !this.bgmEl) void this.bgm(this.bgmName);
     const c = this.ensureCtx();
     if (c && c.state === 'suspended') void c.resume();
     if (this.bgmOn && this.bgmPending && this.bgmEl) this.playBgmEl(this.bgmEl);
@@ -165,7 +168,8 @@ class AudioManagerImpl {
     if (this.bgmName === name && this.bgmEl) return;
     this.stopBgm();
     this.bgmName = name;
-    if (!this.bgmOn) return;
+    // Remember the scene without downloading a track that autoplay would block.
+    if (!this.bgmOn || !this.userActivated) return;
     const url = `./assets/bgm/${BGM_FILES[name]}`;
     // The media element uses GET, allowing prepared offline caches to serve audio.
     if (this.bgmName !== name || !this.bgmOn) return;
