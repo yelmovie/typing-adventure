@@ -18,6 +18,9 @@ try {
  const meta=await page.evaluate(()=>({og:document.querySelector('meta[property="og:image"]')?.content,url:document.querySelector('meta[property="og:url"]')?.content,canonical:document.querySelector('link[rel="canonical"]')?.href}));
  assert.equal(meta.og,new URL('/icons/social-preview.jpg',BASE).href);assert.equal(meta.url,BASE);assert.equal(meta.canonical,BASE);proof.meta=meta;
  assert.equal(await page.evaluate(()=>typeof window.__game),'undefined');
+ await page.getByRole('button',{name:'소리 설정',exact:true}).click();
+ await page.locator('.sound-popover.open input[type=range]').first().fill('25');
+ await page.keyboard.press('Escape');
  const key='typing_adventure_save_v1';const before=await page.evaluate(key=>localStorage.getItem(key),key);assert.ok(before);
  await page.goto('about:blank');await page.goBack({waitUntil:'domcontentloaded'});
  await page.waitForFunction(()=>document.querySelector('.opening-skip')||document.querySelector('.home-menu')?.getClientRects().length);

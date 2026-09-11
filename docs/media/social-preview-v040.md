@@ -21,3 +21,5 @@ Use case: ads-marketing. Edit the supplied existing Typing Adventure promotional
 ## 배포 산출물 확인
 
 2026-09-12 통합 빌드의 `http://127.0.0.1:4180/icons/social-preview.jpg`를 HTTP로 읽어 로컬 최적화 JPG와 바이트가 완전히 같음을 확인했다. JPEG 1200×600, 252,863B. 실제 HTML의 OG 이미지 width/height/MIME/alt와 Twitter image/alt도 확인했다. 외부 공개 URL의 절대 메타 주소 및 실제 SNS 캐시 미리보기는 배포 담당자가 URL 확정 후 검증한다.
+
+공개 서비스 주소 확정: https://typing-adventure-six.vercel.app/ . OG·Twitter 이미지 절대주소는 https://typing-adventure-six.vercel.app/icons/social-preview.jpg 이며 canonical/og:url도 같은 서비스 주소다. 외부 SNS 게시물을 작성하거나 전송하지 않았다.
