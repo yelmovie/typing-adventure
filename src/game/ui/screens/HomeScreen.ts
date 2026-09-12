@@ -10,10 +10,8 @@ import { currentTitle, nextTitle, unlockedDecors } from '../../data/titles';
 import { ABOUT } from '../../data/about';
 import { commonTopBar } from '../TopBar';
 import { getLanguage, setLanguage } from '../../i18n/Locale';
+import { openingWasOffered, markOpeningOffered } from '../OpeningSession';
 import { journeyFor, journeyProgress } from '../../data/worldJourney';
-
-// Deliberately page-scoped: a reload offers the film again, returning home does not.
-let openingOffered = false;
 
 export class HomeScreen extends Screen {
   private openingFrame?: number;
@@ -105,7 +103,7 @@ export class HomeScreen extends Screen {
       this.btn(icon('book'), '도감', 'btn-gray btn-md', () => collectionModal()),
       this.btn(icon('trophy'), '인증서', 'btn-gray btn-md', () => certificateModal()),
       this.btn(icon('star_on'), language === 'en' ? 'Replay intro' : '인트로 다시보기', 'btn-gray btn-md home-intro', () => {
-        openingOffered = true;
+        markOpeningOffered();
         this.cancelOpening();
         this.openingCancel = introMovieModal();
       }),
@@ -144,8 +142,8 @@ export class HomeScreen extends Screen {
       ? h('div', { class: 'home-tip', 'data-no-translate': 'true' }, language === 'en' ? `${playerName}, one step at a time!` : `${playerName} 모험가, 오늘도 한 걸음씩!`)
       : h('div', { class: 'home-tip' }, '모험가와 친구를 골라 잃어버린 글자를 찾아요'));
     this.el.append(h('div', { class: 'home-version' }, `${ABOUT.version} · 기록은 이 기기에만 저장돼요 · © ${ABOUT.year} ${ABOUT.author}`));
-    if (!openingOffered) {
-      openingOffered = true;
+    if (!openingWasOffered()) {
+      markOpeningOffered();
       const ready = () => {
         this.openingFrame = undefined;
         if (currentScreen() !== 'home' || !this.el.isConnected || this.el.style.display === 'none') return;

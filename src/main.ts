@@ -14,31 +14,30 @@ import './styles/popups.css';
 import './styles/popup-content.css';
 import './styles/setup-fit.css';
 import './styles/update-notice.css';
-import { createGame, currentScreen } from './game/Game';
-import { AudioManager } from './game/systems/AudioManager';
-import { installSaveNotice } from './game/ui/SaveNotice';
-import { setLanguage, installLocaleObserver, installTranslations } from './game/i18n/Locale';
-import { EN, translateDynamic } from './game/i18n/en';
-import { SaveSystem } from './game/systems/SaveSystem';
-import { installUpdateNotice } from './game/ui/UpdateNotice';
+import { setLanguage } from './game/i18n/Locale';
+import { readBootstrapLanguage } from './game/systems/BootstrapSettings';
+import { startOpening } from './game/ui/OpeningStartup';
+import { setupUiScale } from './game/ui/Viewport';
 
-// Use the saved corpus immediately; fonts swap in without blocking the first screen.
-setLanguage(SaveSystem.get().settings.language ?? 'ko');
-installTranslations(EN, translateDynamic);
-installLocaleObserver();
-createGame();
-installSaveNotice();
-installUpdateNotice({
-  canOffer: () => ['home', 'worldmap'].includes(currentScreen() ?? '')
-    && !document.querySelector('.opening-player, #modal-root .modal-backdrop, #fade.on, #ui-stage[aria-busy]'),
-  save: () => SaveSystem.status().state !== 'recovered' && SaveSystem.save(),
-});
-
-// 첫 사용자 입력 시 오디오 컨텍스트 잠금 해제
-const unlock = () => {
-  AudioManager.unlock();
-  window.removeEventListener('pointerdown', unlock);
-  window.removeEventListener('keydown', unlock);
+setLanguage(readBootstrapLanguage());
+setupUiScale();
+let activated = false;
+const recordActivation = () => {
+  activated = true;
+  window.removeEventListener('pointerdown', recordActivation);
+  window.removeEventListener('keydown', recordActivation);
 };
-window.addEventListener('pointerdown', unlock);
-window.addEventListener('keydown', unlock);
+window.addEventListener('pointerdown', recordActivation);
+window.addEventListener('keydown', recordActivation);
+let runtime: Promise<void> | undefined;
+const start = () => {
+  if (!runtime) {
+    runtime = import('./runtime')
+      .then(module => module.startRuntime(activated))
+      .catch((error) => { runtime = undefined; throw error; });
+  }
+  return runtime;
+};
+// Developer scene shortcuts intentionally enter their requested scene directly.
+if (import.meta.env.DEV && new URLSearchParams(location.search).has('go')) void start();
+else startOpening(start);

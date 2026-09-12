@@ -2,14 +2,38 @@ import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { fileURLToPath, URL } from 'node:url';
 import { createHash } from 'node:crypto';
-import { readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve, isAbsolute } from 'node:path';
+import excludedPublicPaths from './scripts/delivery-exclusions.json';
 
 const publicRoot = fileURLToPath(new URL('./public', import.meta.url));
 const projectRoot = fileURLToPath(new URL('.', import.meta.url));
 let deliveredDirectory: string | undefined;
 const classroomCache = `typing-classroom-${Date.now().toString(36)}`;
-const excludedPublic = (path: string) => path.startsWith('assets/og/') || path === 'assets/video/finale-poster-v1.png';
+// One list governs both the downloadable manifest and generated deployment copies.
+const excludedPublic = (path: string) => excludedPublicPaths.some((entry) => entry.endsWith('/') ? path.startsWith(entry) : path === entry);
+const isWithin = (root: string, path: string) => {
+  const child = relative(root, path);
+  return !!child && child !== '..' && !child.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) && !isAbsolute(child);
+};
+const assertNoLinkedPath = (path: string) => {
+  let current = projectRoot;
+  if (lstatSync(current).isSymbolicLink()) throw new Error('Build paths must not cross symbolic links or junctions.');
+  for (const part of relative(projectRoot, path).split(/[\\/]/)) {
+    current = join(current, part);
+    if (existsSync(current) && lstatSync(current).isSymbolicLink()) throw new Error('Build paths must not cross symbolic links or junctions.');
+  }
+};
+const safeDeliveryDirectory = (directory: string) => {
+  const dist = resolve(directory);
+  if (!isWithin(projectRoot, dist)) throw new Error('Build output must be a directory inside this project.');
+  for (const protectedName of ['public', 'assets', 'src', 'scripts', '.git']) {
+    const source = join(projectRoot, protectedName);
+    if (dist === source || isWithin(source, dist) || isWithin(dist, source)) throw new Error('Build output must not overlap source directories.');
+  }
+  assertNoLinkedPath(dist);
+  return dist;
+};
 const publicAssets = (directory = publicRoot): { url: string; bytes: number; revision: string }[] => readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
   const full = join(directory, entry.name);
   if (entry.isDirectory()) return publicAssets(full);
@@ -29,6 +53,9 @@ export default defineConfig({
   plugins: [
     {
       name: 'classroom-delivery-manifest',
+      configResolved(config) {
+        if (config.command === 'build') safeDeliveryDirectory(resolve(config.root, config.build.outDir));
+      },
       generateBundle(_options, bundle) {
         const assets = publicAssets();
         for (const [name, entry] of Object.entries(bundle)) {
@@ -41,9 +68,7 @@ export default defineConfig({
       },
       writeBundle(options) {
         // Vite can finalize CSS after generateBundle. Hash actual delivered bytes.
-        const dist = resolve(options.dir ?? join(projectRoot, 'dist'));
-        const withinProject = relative(projectRoot, dist);
-        if (!withinProject || withinProject.startsWith('..') || isAbsolute(withinProject)) throw new Error('Build output must be a directory inside this project.');
+        const dist = safeDeliveryDirectory(options.dir ?? join(projectRoot, 'dist'));
         deliveredDirectory = dist;
         const manifestPath = join(dist, 'classroom-manifest.json');
         const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
@@ -58,9 +83,13 @@ export default defineConfig({
       closeBundle() {
         // Only generated deployment copies are removed. Authoring sources in public/ remain intact.
         if (!deliveredDirectory) return;
-        const dist = deliveredDirectory;
-        rmSync(join(dist, 'assets/og'), { recursive: true, force: true });
-        rmSync(join(dist, 'assets/video/finale-poster-v1.png'), { force: true });
+        const dist = safeDeliveryDirectory(deliveredDirectory);
+        for (const entry of excludedPublicPaths) {
+          const target = resolve(dist, entry);
+          if (!isWithin(dist, target)) throw new Error('Excluded asset path must stay inside the generated build.');
+          assertNoLinkedPath(target);
+          rmSync(target, { recursive: entry.endsWith('/'), force: true });
+        }
       },
     },
     VitePWA({

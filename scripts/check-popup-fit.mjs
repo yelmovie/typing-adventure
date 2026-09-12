@@ -192,12 +192,10 @@ try {
       await page.locator('.opening-skip').click({ timeout: 60000 });
       await page.waitForFunction(() => !document.querySelector('.opening-player') && !document.querySelector('#fade.on') && !document.getElementById('ui-stage').inert);
       await page.evaluate(async () => {
-        const exact = path => performance.getEntriesByType('resource').map(e => e.name).find(url => new URL(url).pathname === path);
-        const path = exact('/src/game/ui/ModalController.ts');
-        if (!path) throw new Error('Popup fixture requires the source dev server');
-        window.__popupQA = await import(path);
-        const { SaveSystem } = await import(exact('/src/game/systems/SaveSystem.ts'));
-        const { ENEMIES } = await import(exact('/src/game/data/enemies.ts'));
+        if (!document.querySelector('script[src="/@vite/client"]')) throw new Error('Popup fixture requires the source dev server');
+        window.__popupQA = await import('/src/game/ui/ModalController.ts');
+        const { SaveSystem } = await import('/src/game/systems/SaveSystem.ts');
+        const { ENEMIES } = await import('/src/game/data/enemies.ts');
         // Display complete descriptions instead of the shorter locked-card copy.
         SaveSystem.get().collection.enemiesSeen = ENEMIES.map(enemy => enemy.id);
         SaveSystem.save();
@@ -246,6 +244,12 @@ try {
                 await page.locator('.story-actions .btn-gold').click();
               }
             } else if (kind === 'practice') {
+              if (await page.locator('.practice-reflection').isVisible()) {
+                await record(page, `${label}-comparison`, states, shots);
+                await page.locator('.practice-reason-choices [data-pattern="spacing"]').click();
+                await record(page, `${label}-comparison-answer`, states, false);
+                await page.locator('.practice-reflection .btn-primary').click();
+              }
               for (let item = 0; item < 3; item++) {
                 await record(page, `${label}-item${item}`, states, shots && item === 0);
                 const input = page.locator('.practice-input');

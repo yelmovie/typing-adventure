@@ -11,13 +11,14 @@ async function run(name, action, options = {}, init) {
   browser = await chromium.launch({channel:'chrome'});
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers:'block', ...options });
   if (init) await context.addInitScript(init);
-  const page = await context.newPage(), errors = [];
+  const page = await context.newPage(), errors = [], requests = [];
   page.setDefaultTimeout(30000);
   // Disable dev HMR in these isolated checks so media playback isn't interrupted by source reloads.
   await context.routeWebSocket('**', socket => { socket.onMessage(() => {}); socket.send(JSON.stringify({ type: 'connected' })); });
   page.on('pageerror', e => errors.push(e.message));
+  page.on('request', request => requests.push(request.url()));
   try {
-    await action(page, context);
+    await action(page, context, requests);
     assert.deepEqual(errors, []);
     results.push({ name, pass: true }); console.log(`PASS opening: ${name}`);
   } catch (error) {
@@ -29,6 +30,23 @@ const playing = page => page.waitForFunction(() => { const video = document.quer
 const enter = async page => { await page.goto(BASE, {waitUntil:'domcontentloaded',timeout:60000}); await page.waitForSelector('.opening-player'); const boxes = await page.locator('.opening-video').evaluate(video => { const a=video.getBoundingClientRect(), b=video.parentElement.getBoundingClientRect(); return {width:a.width, height:a.height, parentWidth:b.width, parentHeight:b.height, fit:getComputedStyle(video).objectFit}; }); assert.ok(Math.abs(boxes.width-boxes.parentWidth)<1 && Math.abs(boxes.height-boxes.parentHeight)<1, 'Opening video keeps the full player area'); assert.equal(boxes.fit,'contain'); };
 const closed = page => page.locator('.opening-player').waitFor({ state: 'detached' });
 try {
+  await run('opening first frame gates the heavy game runtime', async (page, _context, requests) => {
+    await page.addInitScript(() => {
+      const original = HTMLVideoElement.prototype.requestVideoFrameCallback;
+      HTMLVideoElement.prototype.requestVideoFrameCallback = function(callback) {
+        window.__releaseOpeningFrame = () => original.call(this, callback);
+        return 1;
+      };
+    });
+    await enter(page);
+    await page.waitForFunction(() => typeof window.__releaseOpeningFrame === 'function');
+    assert.equal(requests.some(url => /\/phaser-[^/]+\.js(?:\?|$)/.test(url)), false, 'Phaser is not requested before the first video frame');
+    await page.evaluate(() => window.__releaseOpeningFrame());
+    await page.waitForFunction(() => document.querySelector('#game-root canvas'));
+    assert.equal(requests.some(url => /\/phaser-[^/]+\.js(?:\?|$)/.test(url)), true, 'The game runtime starts after the first video frame');
+    await page.locator('.opening-skip').click(); await closed(page);
+    await page.locator('.home-menu').waitFor();
+  });
   await run('automatic muted playback, pause, resume, skip, tutorial return, replay', async page => {
     await enter(page); await playing(page);
     const video = await page.locator('.opening-video').evaluate(v => ({ muted: v.muted, duration: v.duration, width: v.videoWidth, height: v.videoHeight, src: v.currentSrc }));
@@ -77,6 +95,21 @@ try {
     assert.equal(await page.locator('.opening-playback').isEnabled(), true);
     await page.locator('.opening-skip').click(); await closed(page);
     await page.locator('.home-tutorial').click(); await page.locator('.tutorial-part-card').first().click(); await page.waitForSelector('#tutorial-input');
+  });
+  await run('game runtime missing offers a working full-page retry', async (page, context) => {
+    let blocked = false;
+    await context.route(/\/runtime-[^/]+\.js(?:\?|$)/, route => {
+      if (!blocked) { blocked = true; return route.abort(); }
+      return route.continue();
+    });
+    await enter(page);
+    await page.locator('.opening-skip').click(); await closed(page);
+    await page.locator('.loading-retry').waitFor();
+    assert.ok((await page.locator('#loading-text').innerText()).includes('모험을 시작하지 못했어'));
+    await page.locator('.loading-retry').click();
+    await enter(page);
+    await page.locator('.opening-skip').click(); await closed(page);
+    await page.locator('.home-menu').waitFor();
   });
   await run('English opening copy and keyboard focus loop', async page => {
     await enter(page);

@@ -2,8 +2,9 @@ import type { SaveData, Difficulty, SaveSettings } from '../types';
 import { EventBus, Events } from '../EventBus';
 import { defaultSave, validateSave, hasInvalidStructure } from './SaveValidation';
 import { nameForCharacter } from '../data/characters';
+import { STORAGE_KEY } from './SaveKey';
 
-export const STORAGE_KEY = 'typing_adventure_save_v1';
+export { STORAGE_KEY } from './SaveKey';
 export interface SaveStatus { state: 'saved' | 'recovered' | 'memory'; message: string }
 class SaveSystemImpl {
   private data: SaveData = defaultSave();

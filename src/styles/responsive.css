@@ -43,6 +43,7 @@ html, body {
   /* transform은 JS에서 설정 */
   pointer-events: none;
 }
+#ui-stage.opening-active { z-index: 210; }
 #ui-root, #modal-root, #toast-root {
   position: absolute;
   inset: 0;
@@ -103,6 +104,8 @@ html, body {
   transition: width 0.2s ease;
 }
 .loading-text { margin-top: 14px; font-size: 18px; color: var(--sky-300); }
+.loading-retry { margin-left: 10px; padding: 10px 16px; border: 2px solid var(--outline); border-radius: 10px; font: inherit; color: var(--navy-900); background: var(--gold-400); cursor: pointer; }
+.loading-retry:focus-visible { outline: 4px solid var(--sky-300); outline-offset: 3px; }
 
 /* 세로 화면 안내 */
 #rotate-hint {

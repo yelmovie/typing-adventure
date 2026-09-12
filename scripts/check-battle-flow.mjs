@@ -128,7 +128,8 @@ try {
     await page.locator('.bb-kbd-toggle').click();
     assert.equal(await page.locator('.kbd-guide .key.next').innerText(), text[0].toLowerCase());
     assert.equal(await page.locator('.kbd-guide .next-shift').count(), 1);
-    await page.locator('.bb-kbd-toggle').click();
+    await page.keyboard.press('Escape');
+    await page.locator('.kbd-overlay').waitFor({ state: 'hidden' });
     await page.locator('.bb-input').fill(text.toLowerCase());
     await page.locator('.bb-input').press('Enter');
     assert.equal((await snapshot(page)).wordsDone, 0);
