@@ -5,7 +5,7 @@ import { DESIGN_W, DESIGN_H } from '../Game';
 import { Player } from '../entities/Player';
 import { Pet } from '../entities/Pet';
 import { Enemy } from '../entities/Enemy';
-import { registerSheetAnims, anim, strideGroundSpeed } from '../entities/anims';
+import { registerSheetAnims, anim } from '../entities/anims';
 import { SaveSystem } from '../systems/SaveSystem';
 import { getCharacter, getPet } from '../data/characters';
 import { getStage } from '../data/stages';
@@ -15,10 +15,31 @@ import type { StageId } from '../types';
 import type { WaveMonster } from '../systems/WaveSystem';
 import { playClassFx } from './ClassFx';
 
-const PLAYER_POS = { x: 460, y: 760 }; // 발끝 760: 하단 입력 패널(830~) 위
-const SPAWN_X = 1980;
-const TOUCH_X = 640; // 몬스터 x=1 지점
-const GROUND_Y = 760;
+/**
+ * 푸른 숲은 화면 중앙을 지키는 8방향 로그라이트 전투다. WaveSystem 의 x(0→1)는
+ * 진행률로 그대로 두고, 씬에서만 타원형 진입로의 바깥→안쪽 좌표로 바꾼다.
+ * 로직과 연출 좌표를 분리해 난이도·저장·점수 규칙은 기존 검증을 그대로 사용한다.
+ */
+const PLAYER_POS = { x: 960, y: 520 };
+const ARENA_OUTER = { x: 830, y: 345 };
+const ARENA_TOUCH = { x: 125, y: 58 };
+const LANE_ORDER = [0, 4, 2, 6, 1, 5, 3, 7]; // 같은 쪽만 연달아 나오지 않게 반대편을 번갈아 배치
+
+function laneAngle(uid: number) {
+  return -Math.PI / 2 + LANE_ORDER[(uid - 1) % LANE_ORDER.length] * Math.PI / 4;
+}
+
+function lanePoint(angle: number, progress: number) {
+  const rx = Phaser.Math.Linear(ARENA_OUTER.x, ARENA_TOUCH.x, progress);
+  const ry = Phaser.Math.Linear(ARENA_OUTER.y, ARENA_TOUCH.y, progress);
+  return { x: PLAYER_POS.x + Math.cos(angle) * rx, y: PLAYER_POS.y + Math.sin(angle) * ry };
+}
+
+function approachDirection(angle: number): 'front' | 'back' | 'left' | 'right' {
+  const dx = -Math.cos(angle), dy = -Math.sin(angle);
+  if (Math.abs(dx) > Math.abs(dy)) return dx < 0 ? 'left' : 'right';
+  return dy < 0 ? 'back' : 'front';
+}
 
 /** 화면 위 몬스터 하나: 스프라이트 + 머리 위 낱말 라벨 */
 class Mob {
@@ -26,33 +47,36 @@ class Mob {
   readonly labelDone: Phaser.GameObjects.Text;
   readonly labelRest: Phaser.GameObjects.Text;
   readonly ring: Phaser.GameObjects.Ellipse;
+  readonly path: Phaser.GameObjects.Graphics;
   targetX: number;
+  targetY: number;
+  readonly angle: number;
   word: string;
   done = 0;
   dead = false;
   danger = false;
   targeted = false;
   private restColor = '#ffffff'; // 변화구 색 — 위험 표시가 끝나면 이 색으로 되돌린다
-  labelLift = 0; // 몬스터가 몰릴 때 라벨이 겹치지 않게 번갈아 높이를 다르게
   constructor(private scene: Phaser.Scene, m: WaveMonster) {
     this.word = m.word.text;
-    this.targetX = SPAWN_X;
-    // 머리 바로 위에 붙인다. 몬스터가 겹칠 때만 한 단 올려 낱말끼리 포개지는 걸 피한다.
-    // 단 간격이 크면 "이 낱말이 누구 것인지" 가 안 읽힌다 — 52px 도 여전히 떠 보였다.
-    this.labelLift = (m.uid % 2) * 30;
+    this.angle = laneAngle(m.uid);
+    const spawn = lanePoint(this.angle, 0);
+    this.targetX = spawn.x;
+    this.targetY = spawn.y;
     // 대장 전용 시트가 없으면 초록 슬라임을 키워 쓰던 예전 방식으로 폴백
     const sheet = scene.textures.exists(m.sheet) ? m.sheet : 'mon_green_slime';
     const ownSheet = sheet === m.sheet;
     registerSheetAnims(scene, sheet);
     // 전용 대장 시트는 그림 자체가 크고 왕관이 있으니 덜 키우고 틴트도 안 입힌다
     const scale = m.big ? 1.05 * (ownSheet ? 1.25 : 1.8) : m.kind === 'bat' ? 1.0 : 1.05;
-    this.enemy = new Enemy(scene, SPAWN_X, GROUND_Y + (m.kind === 'bat' ? -120 : 0), sheet, scale);
+    this.enemy = new Enemy(scene, spawn.x, spawn.y, sheet, scale);
     if (m.big && !ownSheet) this.enemy.sprite.setTint(0xffcf7a);
-    this.enemy.setDepth(6);
-    this.enemy.sprite.play(anim(sheet, 'walk_left'));
-    this.ring = scene.add.ellipse(SPAWN_X, GROUND_Y + 8, 190, 50, 0xffd34d, 0).setDepth(4);
-    this.labelDone = scene.add.text(0, 0, '', styleText(46, '#63e074')).setOrigin(0, 1).setDepth(12);
-    this.labelRest = scene.add.text(0, 0, '', styleText(46, '#ffffff')).setOrigin(0, 1).setDepth(12);
+    this.enemy.setDepth(8);
+    this.enemy.sprite.play(anim(sheet, `walk_${approachDirection(this.angle)}`));
+    this.path = scene.add.graphics().setDepth(3);
+    this.ring = scene.add.ellipse(spawn.x, spawn.y + 8, 174, 52, 0xffd34d, 0).setDepth(5);
+    this.labelDone = scene.add.text(0, 0, '', styleText(43, '#6dff9c')).setOrigin(0, 1).setDepth(18);
+    this.labelRest = scene.add.text(0, 0, '', styleText(43, '#ffffff')).setOrigin(0, 1).setDepth(18);
     const v = m.word.variant;
     if (v) this.restColor = v === 'treasure' ? '#ffd34d' : v === 'heart' ? '#ff7ab6' : '#ff6b6b';
     this.labelRest.setColor(this.restColor);
@@ -60,6 +84,9 @@ class Mob {
   }
   get x() {
     return this.enemy.sprite.x;
+  }
+  get y() {
+    return this.enemy.sprite.y;
   }
   setTargeted(on: boolean) {
     this.targeted = on;
@@ -91,19 +118,48 @@ class Mob {
     this.labelRest.setText(chars.slice(this.done).join(''));
     const w = this.labelDone.width + this.labelRest.width;
     // 글자 상자는 origin(0,1) 이라 이 값이 글자의 아래끝이다. 머리 끝에 살짝 겹치게 붙인다.
-    const top = this.enemy.sprite.y - this.enemy.sprite.displayHeight + 10 - this.labelLift;
+    const top = this.enemy.sprite.y - this.enemy.sprite.displayHeight + 12;
     const x0 = this.enemy.sprite.x - w / 2;
     this.labelDone.setPosition(x0, top);
     this.labelRest.setPosition(x0 + this.labelDone.width, top);
-    this.ring.setPosition(this.enemy.sprite.x, GROUND_Y + 8);
+    this.ring.setPosition(this.enemy.sprite.x, this.enemy.sprite.y + 8);
+    this.drawPath();
   }
-  /** 매 프레임: 목표 x 로 부드럽게 */
+  setProgress(progress: number) {
+    const p = lanePoint(this.angle, Phaser.Math.Clamp(progress, 0, 1));
+    this.targetX = p.x;
+    this.targetY = p.y;
+  }
+  private drawPath() {
+    this.path.clear();
+    if (!this.targeted && !this.danger) return;
+    const color = this.danger ? 0xff5a5a : 0xffd34d;
+    const alpha = this.danger ? 0.58 : 0.42;
+    this.path.lineStyle(this.danger ? 8 : 5, color, alpha);
+    this.path.beginPath();
+    this.path.moveTo(PLAYER_POS.x, PLAYER_POS.y);
+    this.path.lineTo(this.x, this.y);
+    this.path.strokePath();
+    if (this.danger) {
+      const dx = PLAYER_POS.x - this.x, dy = PLAYER_POS.y - this.y;
+      const len = Math.max(1, Math.hypot(dx, dy));
+      const ux = dx / len, uy = dy / len, px = -uy * 32, py = ux * 32;
+      const tipX = PLAYER_POS.x - ux * 76, tipY = PLAYER_POS.y - uy * 76;
+      const baseX = tipX - ux * 110, baseY = tipY - uy * 110;
+      this.path.fillStyle(0xff5a5a, 0.24);
+      this.path.fillTriangle(tipX, tipY, baseX + px, baseY + py, baseX - px, baseY - py);
+    }
+  }
+  /** 매 프레임: 방사형 진입로의 목표 좌표로 부드럽게 */
   update() {
     if (this.dead) return;
     const s = this.enemy.sprite;
     const nx = Phaser.Math.Linear(s.x, this.targetX, 0.18);
-    s.setX(nx);
-    this.enemy.shadow.setX(nx);
+    const ny = Phaser.Math.Linear(s.y, this.targetY, 0.18);
+    s.setPosition(nx, ny);
+    this.enemy.shadow.setPosition(nx, ny + 6);
+    const depth = 7 + Math.round((ny / DESIGN_H) * 5);
+    this.enemy.setDepth(depth);
     this.layout();
   }
   flash() {
@@ -115,13 +171,30 @@ class Mob {
   }
   lunge(onHit: () => void) {
     const s = this.enemy.sprite;
-    this.scene.tweens.add({ targets: [s, this.enemy.shadow], x: s.x - 90, duration: 120, yoyo: true, ease: 'Quad.easeOut', onYoyo: onHit });
+    const dx = PLAYER_POS.x - s.x, dy = PLAYER_POS.y - s.y;
+    const len = Math.max(1, Math.hypot(dx, dy));
+    this.scene.tweens.add({ targets: [s, this.enemy.shadow], x: s.x + dx / len * 78, y: s.y + dy / len * 78, duration: 120, yoyo: true, ease: 'Quad.easeOut', onYoyo: onHit });
+  }
+  pushOut(distance = 170) {
+    const dx = this.x - PLAYER_POS.x, dy = this.y - PLAYER_POS.y;
+    const len = Math.max(1, Math.hypot(dx, dy));
+    this.scene.tweens.add({ targets: [this.enemy.sprite, this.enemy.shadow], x: this.x + dx / len * distance, y: this.y + dy / len * distance, duration: 260, ease: 'Quad.easeOut' });
+  }
+  flee(onDone: () => void) {
+    this.dead = true;
+    this.path.clear();
+    this.labelDone.destroy();
+    this.labelRest.destroy();
+    this.ring.destroy();
+    const dx = Math.cos(this.angle) * 520, dy = Math.sin(this.angle) * 300;
+    this.scene.tweens.add({ targets: [this.enemy.sprite, this.enemy.shadow], x: `+=${dx}`, y: `+=${dy}`, alpha: 0, duration: 520, ease: 'Quad.easeIn', onComplete: () => { this.enemy.destroy(); this.path.destroy(); onDone(); } });
   }
   die(onDone: () => void) {
     this.dead = true;
     this.labelDone.destroy();
     this.labelRest.destroy();
     this.ring.destroy();
+    this.path.destroy();
     this.enemy.defeat(() => {
       this.enemy.destroy();
       onDone();
@@ -131,6 +204,7 @@ class Mob {
     this.labelDone.destroy();
     this.labelRest.destroy();
     this.ring.destroy();
+    this.path.destroy();
     this.enemy.destroy();
   }
 }
@@ -147,13 +221,11 @@ export class WaveScene extends Phaser.Scene {
   private shakeOn = true;
   private handlers: [string, (...args: never[]) => void][] = [];
   private waveText?: Phaser.GameObjects.Text;
-  private gate?: Phaser.GameObjects.Image;
-  private bgFar?: Phaser.GameObjects.TileSprite;
-  private bgNear?: Phaser.GameObjects.TileSprite;
   private duskOverlay?: Phaser.GameObjects.Rectangle;
   private cls = 'brown_boy';
   private lastPerfect = false;
   private curWave = 1;
+  private petFacing: 'left' | 'right' = 'right';
 
   constructor() {
     super('Wave');
@@ -161,33 +233,27 @@ export class WaveScene extends Phaser.Scene {
 
   create(data: { stageId: StageId }) {
     const stage = getStage(data.stageId);
-    // 숲길을 계속 걸어가는 느낌: 배경이 천천히 흘러간다 (원경 느리게 + 발밑 근경 빠르게)
+    // 높은 시점의 전용 배경을 화면에 고정한다. 움직임은 사방에서 모이는 몬스터와 펫의 순찰로 만든다.
     const src = this.textures.get(stage.bgBattle).getSourceImage() as HTMLImageElement;
     const sc = Math.max(DESIGN_W / src.width, DESIGN_H / src.height);
-    this.bgFar = this.add.tileSprite(DESIGN_W / 2, DESIGN_H / 2, DESIGN_W / sc, DESIGN_H / sc, stage.bgBattle).setScale(sc).setDepth(0);
-    this.bgNear = this.add.tileSprite(DESIGN_W / 2, DESIGN_H - 70, DESIGN_W / sc, 160 / sc, stage.bgBattle).setScale(sc).setDepth(1).setAlpha(0.3).setTint(0x7fc98a);
-    this.bgNear.tilePositionY = (src.height - 160 / sc);
+    this.add.image(DESIGN_W / 2, DESIGN_H / 2, stage.bgBattle).setScale(sc).setDepth(0);
     ensureParticleTextures(this);
     const save = SaveSystem.get();
     this.shakeOn = save.settings.screenShake && !prefersReducedMotion();
     this.cls = save.profile.characterId;
     this.mobs.clear();
 
-    // 숲의 문: 오른쪽에 닫힌 채. 몬스터는 이 문 뒤에서 나온다
-    if (this.textures.exists('fx_gate')) {
-      this.gate = this.add.image(1700, GROUND_Y + 10, 'fx_gate', 'c0_r0').setOrigin(0.5, 1).setScale(1.35).setDepth(2);
-    }
-    const light = this.add.ellipse(960, 810, 1700, 220, 0xffe59a, 0.08);
+    const light = this.add.ellipse(PLAYER_POS.x, PLAYER_POS.y + 22, 650, 280, 0xffe59a, 0.08).setDepth(1);
     if (!prefersReducedMotion()) this.tweens.add({ targets: light, alpha: 0.14, duration: 2000, yoyo: true, repeat: -1 });
     // 웨이브가 지날수록 낮 → 노을로 (배경 색 온도 변화)
     this.duskOverlay = this.add.rectangle(DESIGN_W / 2, DESIGN_H / 2, DESIGN_W, DESIGN_H, 0xff7a3d, 0).setDepth(2).setBlendMode(Phaser.BlendModes.MULTIPLY);
 
-    this.player = new Player(this, PLAYER_POS.x, PLAYER_POS.y, getCharacter(save.profile.characterId).sheet, 1.25);
-    this.player.walking = true; // 계속 걸어가는 씬
-    this.player.idle('right');
-    this.player.setDepth(7);
-    this.pet = new Pet(this, PLAYER_POS.x - 170, PLAYER_POS.y + 10, getPet(save.profile.petId).sheet, 0.62);
-    this.pet.setDepth(6);
+    this.player = new Player(this, PLAYER_POS.x, PLAYER_POS.y, getCharacter(save.profile.characterId).sheet, 1.03);
+    this.player.idle('front');
+    this.player.setLively(true);
+    this.player.setDepth(13);
+    this.pet = new Pet(this, PLAYER_POS.x - 118, PLAYER_POS.y + 58, getPet(save.profile.petId).sheet, 0.5);
+    this.pet.setDepth(12);
     this.pet.run('right');
 
     this.hitBurst = this.add.particles(0, 0, 'p_star', {
@@ -197,7 +263,7 @@ export class WaveScene extends Phaser.Scene {
     this.trail = this.add.particles(0, 0, 'p_dot', {
       lifespan: 350, speed: { min: 10, max: 40 }, scale: { start: 0.9, end: 0 }, alpha: { start: 0.9, end: 0 }, emitting: false, blendMode: Phaser.BlendModes.ADD, tint: [0x8fe0ff, 0xffffff, 0xa78bfa],
     }).setDepth(19);
-    this.waveText = this.add.text(960, 400, '', styleText(64, '#fff2b0')).setOrigin(0.5).setDepth(25).setAlpha(0);
+    this.waveText = this.add.text(960, 282, '', styleText(64, '#fff2b0')).setOrigin(0.5).setDepth(25).setAlpha(0);
 
     this.bind(Events.WAVE_SPAWN, (d: { monster: WaveMonster; wave: number }) => this.onSpawn(d));
     this.bind(Events.WAVE_TICK, (d: { monsters: WaveMonster[]; targetUid: number }) => this.onTick(d));
@@ -235,13 +301,21 @@ export class WaveScene extends Phaser.Scene {
     this.handlers.push([ev, fn as (...args: never[]) => void]);
   }
 
-  update(_t: number, dtMs: number) {
+  update(_t: number, _dtMs: number) {
     for (const m of this.mobs.values()) m.update();
-    // The painted path at the feet is in bgFar. The lower decorative strip sits
-    // behind the typing panel, so moving only that strip cannot support a step.
-    const px = (dtMs / 1000) * strideGroundSpeed();
-    if (this.bgFar && !prefersReducedMotion()) this.bgFar.tilePositionX += px / this.bgFar.scaleX;
-    if (this.bgNear && !prefersReducedMotion()) this.bgNear.tilePositionX += px * 1.3 / this.bgNear.scaleX;
+    // 펫은 중앙의 주인공을 작은 타원으로 순찰한다. 전투 중에도 발걸음이 멈추지 않는다.
+    if (this.pet) {
+      const phase = this.time.now / 1450;
+      const x = PLAYER_POS.x + Math.cos(phase) * 118;
+      const y = PLAYER_POS.y + 62 + Math.sin(phase) * 38;
+      this.pet.setPosition(x, y);
+      this.pet.setDepth(y > PLAYER_POS.y ? 14 : 11);
+      const facing = Math.sin(phase) > 0 ? 'left' : 'right';
+      if (facing !== this.petFacing) {
+        this.petFacing = facing;
+        this.pet.run(facing);
+      }
+    }
   }
 
   private stillNotice(text: string, color: string) {
@@ -273,7 +347,7 @@ export class WaveScene extends Phaser.Scene {
     for (const mob of this.mobs.values()) {
       if (mob.dead) continue;
       mob.setDanger(false);
-      this.tweens.add({ targets: [mob.enemy.sprite, mob.enemy.shadow], x: mob.enemy.sprite.x + 220, duration: 260, ease: 'Quad.easeOut' });
+      mob.pushOut(180);
     }
     if (prefersReducedMotion()) { this.stillNotice('기운내기!', '#8fe0ff'); return; }
     const t = this.add.text(960, 400, tr('기운내기!'), styleText(88, '#8fe0ff')).setOrigin(0.5).setDepth(30).setScale(0.5).setAlpha(0);
@@ -285,7 +359,7 @@ export class WaveScene extends Phaser.Scene {
   private onDrop(d: { uid: number; item: string; score: number }) {
     const mob = this.mobs.get(d.uid);
     const x = mob?.x ?? 1200;
-    const y = (mob?.enemy.sprite.y ?? GROUND_Y) - 90;
+    const y = (mob?.enemy.sprite.y ?? PLAYER_POS.y) - 90;
     // 아이템 아이콘 시트(fx_items c0~c5_r0 = items.ts 순서)가 있으면 그걸로, 없으면 이모지 폴백
     const ORDER = ['coin', 'gem', 'star', 'heart', 'shield', 'bolt'];
     const col = ORDER.indexOf(d.item);
@@ -330,7 +404,7 @@ export class WaveScene extends Phaser.Scene {
     const mob = this.mobs.get(d.uid);
     mob?.flash();
     const x = mob?.x ?? PLAYER_POS.x + 260;
-    const y = (mob?.enemy.sprite.y ?? GROUND_Y) - 170;
+    const y = (mob?.enemy.sprite.y ?? PLAYER_POS.y) - 170;
     this.playFx(0, (x + PLAYER_POS.x) / 2, y + 80, 0.9);
     const t = this.add.text(x, y, tr('회피!'), styleText(52, '#8fe0ff')).setOrigin(0.5).setDepth(24).setScale(0.6).setAlpha(0);
     this.tweens.add({ targets: t, alpha: 1, scale: 1.05, y: y - 40, duration: 260, ease: 'Back.easeOut', yoyo: true, hold: 260, onComplete: () => t.destroy() });
@@ -370,7 +444,7 @@ export class WaveScene extends Phaser.Scene {
     for (const m of d.monsters) {
       const mob = this.mobs.get(m.uid);
       if (!mob || mob.dead) continue;
-      mob.targetX = SPAWN_X - m.x * (SPAWN_X - TOUCH_X);
+      mob.setProgress(m.x);
       mob.setDanger(!!m.danger);
       mob.setTargeted(m.uid === d.targetUid);
       mob.setDone(m.maxHp - m.hp);
@@ -391,10 +465,18 @@ export class WaveScene extends Phaser.Scene {
   }
 
   private fireBullet(mob: Mob, strong: boolean, onArrive: () => void) {
-    const from = { x: this.player!.x + 80, y: this.player!.y - 130 };
-    const t = this.add.ellipse(from.x, from.y, strong ? 70 : 40, strong ? 46 : 28, strong ? 0xff7ab6 : 0x8fe0ff, 0.9).setDepth(21).setBlendMode(Phaser.BlendModes.ADD);
+    const dx = mob.x - this.player!.x, dy = (mob.y - 92) - (this.player!.y - 105);
+    const len = Math.max(1, Math.hypot(dx, dy));
+    const from = { x: this.player!.x + dx / len * 54, y: this.player!.y - 105 + dy / len * 28 };
+    const target = { x: mob.x - dx / len * 24, y: mob.y - 92 };
+    const angle = Phaser.Math.RadToDeg(Math.atan2(dy, dx));
+    const beam = this.add.graphics().setDepth(20).setBlendMode(Phaser.BlendModes.ADD);
+    beam.lineStyle(strong ? 18 : 10, strong ? 0xffd34d : 0x8fe0ff, strong ? 0.62 : 0.42);
+    beam.lineBetween(from.x, from.y, target.x, target.y);
+    this.tweens.add({ targets: beam, alpha: 0, duration: strong ? 260 : 170, onComplete: () => beam.destroy() });
+    const t = this.add.ellipse(from.x, from.y, strong ? 78 : 46, strong ? 28 : 18, strong ? 0xffd34d : 0x8fe0ff, 0.96).setAngle(angle).setDepth(21).setBlendMode(Phaser.BlendModes.ADD);
     this.tweens.add({
-      targets: t, x: mob.x - 30, y: mob.enemy.sprite.y - 110, duration: strong ? 200 : 150, ease: 'Quad.easeIn',
+      targets: t, x: target.x, y: target.y, duration: strong ? 210 : 150, ease: 'Quad.easeIn',
       onUpdate: () => this.trail?.emitParticleAt(t.x, t.y, 2),
       onComplete: () => { onArrive(); t.destroy(); },
     });
@@ -407,6 +489,11 @@ export class WaveScene extends Phaser.Scene {
     this.pet?.cheer();
     this.player?.attack(() => {});
     this.player?.hop();
+    const target = [...this.mobs.values()].find((mob) => mob.targeted && !mob.dead);
+    if (target && d.perfect) {
+      const stamp = this.add.text(target.x + 58, target.y - 132, tr('완벽!'), styleText(42, '#ffd34d')).setOrigin(0.5).setDepth(28).setScale(0.5).setAngle(-7);
+      this.tweens.add({ targets: stamp, scale: 1.12, y: stamp.y - 34, duration: 190, ease: 'Back.easeOut', yoyo: true, hold: 260, onComplete: () => stamp.destroy() });
+    }
     if (this.shakeOn) this.cameras.main.shake(d.perfect ? 140 : 80, d.perfect ? 0.005 : 0.003);
   }
 
@@ -414,19 +501,18 @@ export class WaveScene extends Phaser.Scene {
     const mob = this.mobs.get(d.uid);
     if (!mob || mob.dead) return;
     if (d.fled) {
-      // 오답: 몬스터가 오른쪽으로 도망 (점수 없음)
-      mob.dead = true;
-      this.tweens.add({ targets: [mob.enemy.sprite, mob.enemy.shadow], x: '+=700', alpha: 0, duration: 500, ease: 'Quad.easeIn', onComplete: () => { mob.destroy(); this.mobs.delete(d.uid); } });
+      // 오답으로 떠나는 적은 자신이 들어왔던 방향으로 물러난다.
+      mob.flee(() => this.mobs.delete(d.uid));
       return;
     }
     const go = () => {
       AudioManager.sfx('defeat', { rate: 1 + Math.random() * 0.1 });
-      this.hitBurst?.explode(d.aoe ? 26 : 40, mob.x, mob.enemy.sprite.y - 110);
+      this.hitBurst?.explode(d.aoe ? 26 : 40, mob.x, mob.y - 92);
       mob.die(() => this.mobs.delete(d.uid));
     };
     if (d.aoe) {
-      this.time.delayedCall(Phaser.Math.Between(0, 250), () => { playClassFx(this, this.cls, 'fever', { x: this.player!.x, y: this.player!.y }, { x: mob.x, y: mob.enemy.sprite.y - 110 }); go(); });
-    } else this.fireBullet(mob, true, () => { playClassFx(this, this.cls, this.lastPerfect ? 'perfect' : 'strong', { x: this.player!.x, y: this.player!.y }, { x: mob.x, y: mob.enemy.sprite.y - 110 }); go(); });
+      this.time.delayedCall(Phaser.Math.Between(0, 250), () => { playClassFx(this, this.cls, 'fever', { x: this.player!.x, y: this.player!.y }, { x: mob.x, y: mob.y - 92 }); go(); });
+    } else this.fireBullet(mob, true, () => { playClassFx(this, this.cls, this.lastPerfect ? 'perfect' : 'strong', { x: this.player!.x, y: this.player!.y }, { x: mob.x, y: mob.y - 92 }); go(); });
   }
 
   private onTouch(d: { uid: number; hpLoss: number }) {
@@ -479,17 +565,13 @@ export class WaveScene extends Phaser.Scene {
     this.tweens.add({ targets: t, alpha: 1, scale: 1.12, duration: 260, ease: 'Back.easeOut', yoyo: true, hold: 800, onComplete: () => t.destroy() });
   }
 
-  /** 20마리째: 오른쪽에서 숲의 문이 빛나며 열린다 */
+  /** 20마리째: 전장 위쪽의 숲의 문이 빛나며 열린다 */
   private onGate() {
-    if (this.gate) {
-      this.gate.setFrame('c0_r1');
-      this.time.delayedCall(450, () => this.gate?.setFrame('c0_r2'));
-      this.tweens.add({ targets: this.gate, scale: 1.45, duration: 900, ease: 'Sine.easeOut' });
-    }
-    const beam = this.add.rectangle(1700, 540, 260, 1080, 0xfff2b0, 0).setDepth(28).setBlendMode(Phaser.BlendModes.ADD);
-    this.tweens.add({ targets: beam, fillAlpha: 0.75, scaleX: 2.2, duration: 900, ease: 'Sine.easeOut', yoyo: true, hold: 600, onComplete: () => beam.destroy() });
-    this.add.particles(1700, 1000, 'p_star', {
-      lifespan: 2200, speedY: { min: -420, max: -200 }, speedX: { min: -140, max: 140 }, scale: { start: 1.2, end: 0 }, quantity: 3, frequency: 30, duration: 1800,
+    const portal = { x: 960, y: 105 };
+    const beam = this.add.circle(portal.x, portal.y, 74, 0xfff2b0, 0).setDepth(28).setBlendMode(Phaser.BlendModes.ADD);
+    this.tweens.add({ targets: beam, fillAlpha: 0.85, scale: 3.4, duration: 900, ease: 'Sine.easeOut', yoyo: true, hold: 600, onComplete: () => beam.destroy() });
+    this.add.particles(portal.x, portal.y + 50, 'p_star', {
+      lifespan: 2200, speedY: { min: -250, max: -80 }, speedX: { min: -150, max: 150 }, scale: { start: 1.2, end: 0 }, quantity: 3, frequency: 30, duration: 1800,
       tint: [0xfff2b0, 0xffd34d, 0x63e074, 0xffffff], blendMode: Phaser.BlendModes.ADD,
     }).setDepth(27);
     this.time.delayedCall(500, () => {

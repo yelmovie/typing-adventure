@@ -1,7 +1,7 @@
 {
   "name": "typing-adventure",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.5.0",
   "type": "module",
   "description": "타이핑 어드벤처 - 초등학생용 한글 타자 판타지 모험 웹게임 (정적 웹앱, localStorage 전용)",
   "scripts": {

@@ -1,7 +1,7 @@
 // 정보·크레딧·가이드 문구 (앱 안 학생/교사 대상 문구는 존댓말)
 export const ABOUT = {
   appName: '타이핑 어드벤처',
-  version: 'v0.4.0',
+  version: 'v0.5.0',
   author: '옐샘',
   platform: 'issamGPT AI Mart',
   year: 2026,

@@ -103,7 +103,7 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
       progressKind: st.mode === 'race' ? 'distance' : st.mode === 'boss' ? 'phase' : 'targets',
       telegram: st.mode === 'telegram',
       timeLabel: st.mode === 'letter' || st.mode === 'daily' ? this.copy.elapsed : st.mode === 'telegram' ? this.copy.collision : undefined,
-      hideEnemy: st.mode === 'letter' || st.mode === 'telegram' || st.mode === 'daily' || st.mode === 'race',
+      hideEnemy: st.mode === 'wave' || st.mode === 'letter' || st.mode === 'telegram' || st.mode === 'daily' || st.mode === 'race',
       race: st.mode === 'race',
       bestCpm: save.records.bestCpm,
       title: currentTitle(save.progress.coins ?? 0).name,

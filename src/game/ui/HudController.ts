@@ -89,7 +89,7 @@ export class HudController {
         h('div', { class: 'stat-box' }, h('div', { class: 'lbl' }, icon('clock'), ` ${opts.timeLabel ?? '남은 시간'}`), this.timeVal),
         h('div', { class: 'stat-box' }, h('div', { class: 'lbl' }, icon('trophy'), ' 점수'), this.scoreVal),
         h('div', { class: 'stat-box' }, h('div', { class: 'lbl' }, icon('target'), ' 정확도'), this.accVal),
-        h('div', { class: 'stat-box' }, h('div', { class: 'lbl' }, icon('bolt'), ' 타수', opts.bestCpm ? h('span', { class: 'best' }, ` 최고 ${opts.bestCpm}`) : null), this.cpmVal),
+        h('div', { class: 'stat-box' }, h('div', { class: 'lbl' }, icon('bolt'), ' 현재 타수', opts.bestCpm ? h('span', { class: 'best' }, ` · 최고 ${opts.bestCpm}`) : null), this.cpmVal),
         h('button', { class: 'icon-btn', title: '홈으로', onclick: () => { AudioManager.sfx('click'); opts.onHome?.(); } }, icon('home')),
         this.soundEl,
         h('button', { class: 'icon-btn', title: '설정', onclick: () => { AudioManager.sfx('click'); settingsModal(); } }, icon('settings')),

@@ -8,7 +8,7 @@ import { chromium } from 'playwright';
 const BASE = process.env.DELIVERY_TEST_URL || 'http://127.0.0.1:4176';
 const DIST = process.env.DELIVERY_DIST || 'dist';
 const OUT = process.env.DELIVERY_OUT || 'tmp/delivery-check';
-const MOTION_KEYS = ['char_attack_ko_v1', 'char_walk_v1', 'pet_walk_v1'];
+const MOTION_KEYS = ['char_attack_ko_v1', 'char_walk_v2', 'pet_walk_v1'];
 const MOTION_URLS = MOTION_KEYS.flatMap(key => ['webp', 'json'].map(ext => `./assets/sprites/${key}.${ext}`));
 fs.mkdirSync(OUT, { recursive: true });
 const manifest = JSON.parse(fs.readFileSync(`${DIST}/classroom-manifest.json`, 'utf8'));
@@ -29,7 +29,18 @@ assert.ok(openingMp4.indexOf('moov') < openingMp4.indexOf('mdat'), 'opening fast
 assert.ok(manifest.assets.some(a => a.url === './assets/video/intro-v1.mp4'), 'opening included in classroom preparation');
 assert.ok(manifest.assets.some(a => a.url === './assets/video/intro-poster-v1.webp'), 'opening poster included in classroom preparation');
 for (const url of MOTION_URLS) assert.ok(manifest.assets.some(a => a.url === url), `motion asset included: ${url}`);
-const harness = await build({ entryPoints: ['src/game/systems/ClassroomReady.ts'], bundle: true, format: 'iife', globalName: 'ClassroomHarness', write: false });
+const harness = await build({
+  entryPoints: ['src/game/systems/ClassroomReady.ts'],
+  bundle: true,
+  format: 'iife',
+  globalName: 'ClassroomHarness',
+  write: false,
+  // Match Vite's production substitutions inside the standalone browser harness.
+  define: {
+    'import.meta.env.DEV': 'false',
+    'import.meta.env.BASE_URL': '"./"',
+  },
+});
 const browser = await chromium.launch({ channel: process.env.DELIVERY_BROWSER_CHANNEL || 'chrome' });
 const results = { date: new Date().toISOString(), base: BASE, dist: DIST, manifestVersion: manifest.version, cacheName: manifest.cacheName, browser: browser.version(), assets: manifest.assets.length, bytes: manifest.assets.reduce((s, a) => s + a.bytes, 0), openingBytes: openingMp4.length, checks: [], performance: [], performanceSkipped: !!process.env.DELIVERY_SKIP_PERF,
   performanceNotes: 'Opening controls and first presented video frame are measured from navigation. The test then clicks Skip. homeAfterSkipMs starts at that click; navigationToHomeMs includes this short first-frame observation, never a forced 8-second viewing. ResourceTiming transfer bytes include completed page requests and can exclude in-flight/aborted media.' };
@@ -158,6 +169,7 @@ try {
   assert.equal(resumed.state, 'ready');
   results.checks.push({ label: 'Eviction detected and only missing asset resumed', pass: true });
   await page.locator('.screen.home button[title="설정"]').click();
+  await page.locator('.settings-panel .popup-page-next').click();
   await page.getByRole('button', { name: '수업 준비 · 오프라인', exact: true }).click();
   try {
     await page.waitForFunction(() => document.querySelector('.classroom-status [role="status"]')?.textContent?.startsWith('수업 준비 완료!'));
@@ -196,12 +208,12 @@ try {
   await page.getByRole('button', { name: '연습 튜토리얼', exact: true }).click();
   await page.waitForSelector('.screen.tutorial:not(.hidden)');
   await page.waitForFunction(() => !document.querySelector('#fade.on') && !document.getElementById('ui-stage')?.inert);
-  assert.equal(await page.locator('.tutorial-target').getAttribute('data-target'), '뿅');
+  await page.locator('.tutorial-part-card[data-part="consonants"]').click();
+  assert.equal(await page.locator('.tutorial-target').getAttribute('data-target'), 'ㄱ');
   assert.ok(await page.locator('#tutorial-input').isEnabled());
   await page.screenshot({ path: `${OUT}/offline-tutorial.png` });
   results.checks.push({ label: 'New practice tutorial opens offline with its target and input', pass: true });
   for (const [i, name] of ['푸른 숲', '네온 시티', '사막 유적', '폭주 열차', '어둠의 성채'].entries()) {
-    const motionStart = motionResponses.length;
     await home(page);
     await page.getByRole('button', { name: '모험 이어하기', exact: true }).click();
     await page.waitForSelector('.screen.worldmap:not(.hidden)');
@@ -239,7 +251,7 @@ try {
       console.log('CHECK offline Stage 3 complete and saved through reload');
     }
     if (i === 4) {
-      const served = motionResponses.slice(motionStart);
+      const served = motionResponses;
       for (const url of MOTION_URLS) assert.ok(served.some(r => r.url === url && r.status === 200 && r.fromServiceWorker), `offline S5 service worker response: ${url}`);
       const cached = await page.evaluate(async ({ cacheName, assets }) => {
         const cache = await caches.open(cacheName);
@@ -296,7 +308,7 @@ try {
     }
   }
   await home(page);
-  const certificate = page.locator('.home-menu button').filter({ hasText: '인증서' });
+  const certificate = page.getByRole('button', { name: '인증서', exact: true });
   await revealHomeOption(page, certificate);
   await certificate.click();
   await page.waitForFunction(() => { const video = document.querySelector('.finale-video'); return video && video.currentTime > 0 && !video.paused; });

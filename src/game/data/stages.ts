@@ -14,13 +14,13 @@ export const STAGES: StageDef[] = [
     mission: '숲에서 몰려오는 몬스터 무리를 낱말로 물리치고 숲의 문을 열자!',
     enemies: ['green_slime', 'letter_bat'],
     targets: 20,
-    // 낱말 20개를 180초에 끝내려면 낱말당 9초 — 첫 스테이지에 앉은 초보에겐 그 자체가 벽이다.
-    // 끝내는 건 넉넉하게(240초), 별 3개는 goalTimeSec 100초로 여전히 어렵게 둔다.
-    timeLimitSec: 240,
+    // 중앙을 지키는 로그라이트 전투는 짧고 밀도 있게 끝낸다. 기초 난이도는 3분 23초,
+    // 표준은 2분 30초이며 적응형 스폰·기운내기가 느린 아이의 회복 구간을 만든다.
+    timeLimitSec: 150,
     bgIntro: 'bg_practice_forest',
-    bgBattle: 'bg_forest_battle',
+    bgBattle: 'bg_forest_roguelite',
     map: { x: 300, y: 800, icon: '숲' },
-    goalTimeSec: 100,
+    goalTimeSec: 80,
     goalCombo: 15,
     playable: true,
   },

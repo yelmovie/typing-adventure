@@ -33,18 +33,24 @@ export class ResultScreen extends Screen<{ result: BattleResult }> {
     const stat = (label: string, value: string, isNew: boolean) => h('div', { class: 'result-stat' },
       h('span', { class: 'lbl' }, label), h('strong', { class: 'val' }, value),
       isNew ? h('span', { class: 'new' }, copy('최고!', 'BEST')) : null);
+    const cpmHero = h('section', { class: `result-cpm-hero ${r.isNewCpm ? 'is-best' : ''}`, 'aria-label': copy(`이번 기록 ${fmt.int(r.cpm)}타/분`, `This run ${fmt.int(r.cpm)} keys per minute`) },
+      h('span', { class: 'result-cpm-kicker' }, copy('이번 기록', 'MY SPEED')),
+      h('strong', { class: 'result-cpm-value' }, fmt.int(r.cpm)),
+      h('span', { class: 'result-cpm-unit' }, copy('타/분', 'keys/min')),
+      r.isNewCpm ? h('span', { class: 'result-cpm-best' }, copy('새로운 최고 기록!', 'NEW PERSONAL BEST!')) : null);
     const stars = h('div', { class: 'stars result-stars', 'aria-label': copy(`별 ${r.stars}개`, `${r.stars} stars`) }, [1, 2, 3].map(() => h('span', { class: 'star', 'aria-hidden': 'true' }, '★')));
     const banner = h('h1', { class: `result-banner ${r.cleared ? '' : 'fail'}`, 'data-no-translate': '' },
       r.cleared ? st.index === 5 ? copy('모험 완주!', 'Adventure complete!') : st.mode === 'daily' ? copy('오늘의 도전 완료!', 'Daily challenge complete!') : copy('스테이지 성공!', 'Stage clear!') : copy('다시 도전!', 'Try again!'));
     const sub = h('p', { class: 'result-sub' }, `${r.remix ? copy('모험 플러스 · ', 'Adventure Plus · ') : ''}${st.mode === 'daily' ? '' : `STAGE ${st.index} · `}${t(st.name)}`);
     const heading = h('header', { class: 'result-heading' }, h('div', {}, sub, banner), stars);
     const overview = h('section', { class: 'result-pane result-overview', role: 'tabpanel', id: 'result-pane-0', 'aria-labelledby': 'result-tab-0', 'data-no-translate': '' },
-      h('div', { class: 'journey-result-story' },
-        h('span', { class: 'journey-relic-mark', 'aria-hidden': 'true', style: `--journey-color:${chapter?.color ?? '#77cf91'}` }, r.cleared ? chapter?.mark ?? '✓' : '↗'),
-        h('div', {}, h('b', {}, r.cleared ? chapter ? copy(`${chapter.relic} 되찾기 성공!`, `${chapter.relic} restored!`) : copy('오늘도 한 걸음 해냈어!', 'One more step today!') : r.attemptedCount === 0 ? copy('첫 글자부터 천천히 해 보자.', 'Start slowly, one letter at a time.') : copy('해낸 만큼, 다음엔 더 멀리!', 'Build on what you completed!')),
-          h('p', { class: 'result-completed' }, copy(`정확히 완성 ${r.wordsDone}개 · 고쳐서 성공 ${r.correctedCount ?? 0}개`, `${r.wordsDone} completed · ${r.correctedCount ?? 0} corrected`)))),
+      h('div', { class: 'result-highlight-row' },
+        h('div', { class: 'journey-result-story' },
+          h('span', { class: 'journey-relic-mark', 'aria-hidden': 'true', style: `--journey-color:${chapter?.color ?? '#77cf91'}` }, r.cleared ? chapter?.mark ?? '✓' : '↗'),
+          h('div', {}, h('b', {}, r.cleared ? chapter ? copy(`${chapter.relic} 되찾기 성공!`, `${chapter.relic} restored!`) : copy('오늘도 한 걸음 해냈어!', 'One more step today!') : r.attemptedCount === 0 ? copy('첫 글자부터 천천히 해 보자.', 'Start slowly, one letter at a time.') : copy('해낸 만큼, 다음엔 더 멀리!', 'Build on what you completed!')),
+            h('p', { class: 'result-completed' }, copy(`정확히 완성 ${r.wordsDone}개 · 고쳐서 성공 ${r.correctedCount ?? 0}개`, `${r.wordsDone} completed · ${r.correctedCount ?? 0} corrected`)))),
+        cpmHero),
       h('div', { class: 'result-grid' },
-        stat(copy('타수 / 분', 'CPM'), fmt.int(r.cpm), r.isNewCpm),
         stat(copy('정확도', 'Accuracy'), r.attemptedCount === 0 ? '—' : `${fmt.pct(r.accuracy)}%`, r.isNewAccuracy),
         stat(copy('최대 콤보', 'Best combo'), String(r.maxCombo), r.isNewCombo),
         stat(copy('점수', 'Score'), fmt.int(r.score), r.isNewScore)),
