@@ -15,6 +15,7 @@ try {
   const page=await context.newPage();
   try {
    await page.goto(BASE,{waitUntil:'domcontentloaded'});
+   await page.locator('.opening-skip').click({timeout:60000});
    const retry=page.getByRole('button',{name:language==='en'?'Try again':'다시 받기',exact:true});
    await retry.waitFor({timeout:60000});
    const message=await page.locator('#loading-text').innerText();
@@ -25,7 +26,7 @@ try {
    await retry.click();
    await page.locator('.opening-skip').click({timeout:60000});
    await page.waitForFunction(()=>!document.querySelector('.opening-player')&&!document.querySelector('#fade.on')&&!document.getElementById('ui-stage').inert);
-   assert.ok(await page.locator('.home-menu').isVisible());
+   await page.locator('.home-menu').waitFor({state:'visible'});
    const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('typing_adventure_save_v1')));
    assert.equal(saved.progress.coins,123);assert.equal(saved.profile.name,'Recovery');assert.ok(saved.progress.clearedStages.includes('stage_1'));
    results.push({language,pass:true,message,retryRestoresHome:true,savePreserved:true});
