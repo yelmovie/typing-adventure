@@ -41,8 +41,34 @@ async function run(label, stage, action, language = 'ko') {
 const snapshot = (page) => page.evaluate(() => window.__battle.snapshot());
 const target = (page) => page.locator('.bb-target').innerText();
 const correct = async (page) => { await page.locator('.bb-input').fill(await target(page)); };
+const assertHandGuide = async (page, language) => {
+  const key = value => page.locator(`.kbd-guide .key[data-key="${value}"]`);
+  assert.equal(await key(language === 'ko' ? 'ㅂ' : 'q').getAttribute('data-hand'), 'left');
+  assert.equal(await key(language === 'ko' ? 'ㅛ' : 'y').getAttribute('data-hand'), 'right');
+  assert.equal(await key('Space').getAttribute('data-hand'), 'both');
+  assert.equal(await key('Backspace').getAttribute('data-hand'), 'right');
+  assert.equal(await key('ShiftLeft').getAttribute('data-hand'), 'left');
+  assert.equal(await key('ShiftRight').getAttribute('data-hand'), 'right');
+  assert.equal(await key(language === 'ko' ? 'ㅛ' : 'y').evaluate(el => el.classList.contains('hand-split')), true);
+  const copy = await page.locator('.kbd-hand-legend').innerText();
+  assert.ok(copy.includes(language === 'ko' ? '왼손' : 'Left hand'));
+  assert.ok(copy.includes(language === 'ko' ? '오른손' : 'Right hand'));
+  const colors = await page.evaluate(() => ({
+    left: getComputedStyle(document.querySelector('.kbd-guide .key.hand-left')).backgroundImage,
+    right: getComputedStyle(document.querySelector('.kbd-guide .key.hand-right')).backgroundImage,
+  }));
+  assert.notEqual(colors.left, colors.right);
+};
 
 try {
+  await run('한글 자판 왼손·오른손·양손 엄지 구분', 'stage_1', async (page) => {
+    await page.locator('.bb-kbd-toggle').click();
+    await assertHandGuide(page, 'ko');
+    await page.screenshot({ path: `${OUT}/keyboard-hands-ko.png` });
+    await page.keyboard.press('Escape');
+    await page.locator('.kbd-overlay').waitFor({ state: 'hidden' });
+  });
+
   await run('목표 등장 대기에는 입력을 멈추고 새 목표에서 재개', 'stage_1', async (page) => {
     await correct(page);
     assert.equal((await snapshot(page)).wordsDone, 1);
@@ -126,8 +152,13 @@ try {
     assert.match(text, /^[\x20-\x7e]+$/);
     assert.equal(await page.locator('.bb-input').getAttribute('lang'), 'en');
     await page.locator('.bb-kbd-toggle').click();
+    await assertHandGuide(page, 'en');
     assert.equal(await page.locator('.kbd-guide .key.next').innerText(), text[0].toLowerCase());
     assert.equal(await page.locator('.kbd-guide .next-shift').count(), 1);
+    const nextHand = await page.locator('.kbd-guide .key.next').getAttribute('data-hand');
+    const shiftHand = await page.locator('.kbd-guide .next-shift').getAttribute('data-hand');
+    assert.equal(shiftHand, nextHand === 'left' ? 'right' : 'left');
+    await page.screenshot({ path: `${OUT}/keyboard-hands-en.png` });
     await page.keyboard.press('Escape');
     await page.locator('.kbd-overlay').waitFor({ state: 'hidden' });
     await page.locator('.bb-input').fill(text.toLowerCase());

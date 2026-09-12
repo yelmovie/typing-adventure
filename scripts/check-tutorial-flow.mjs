@@ -30,6 +30,14 @@ try {
       assert.equal(await page.locator('.tutorial-part-card').count(),4);
       await page.locator('[data-part="vowels"]').click();
       assert.equal(await page.locator('.tutorial-item-progress').textContent(),language==='ko'?'1 / 21':'1 / 5','Full practice stays available');
+      assert.ok(await page.locator('.tutorial-keyboard .key.hand-left').count() >= 5);
+      assert.ok(await page.locator('.tutorial-keyboard .key.hand-right').count() >= 5);
+      assert.equal(await page.locator('.tutorial-keyboard .key[data-key="Space"]').getAttribute('data-hand'),'both');
+      const handLegend=await page.locator('.tutorial-keyboard .kbd-hand-legend').innerText();
+      assert.ok(handLegend.includes(language==='ko'?'왼손':'Left hand'));
+      assert.ok(handLegend.includes(language==='ko'?'오른손':'Right hand'));
+      const keyboardFit=await page.locator('.tutorial-keyboard').evaluate(el=>({x:el.scrollWidth-el.clientWidth,y:el.scrollHeight-el.clientHeight}));
+      assert.ok(keyboardFit.x<=1&&keyboardFit.y<=1,`Keyboard guide overflows: ${JSON.stringify(keyboardFit)}`);
       await page.locator('.tutorial-header button').focus();await page.locator('.tutorial-header button').press('Enter');await settled();
       for(const [stageId,expected] of (width===1280?[['stage_1',3],['stage_2',3],['stage_3',1],['stage_4',2]]:[['stage_4',2]])){
         await navigate('intro',stageId);

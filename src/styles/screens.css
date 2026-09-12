@@ -664,6 +664,50 @@
 .key.wide { width: 96px; font-size: 15px; }
 .key.space { width: 260px; font-size: 14px; }
 .key .alt { position: absolute; top: 1px; left: 5px; font-size: 10px; color: #8a6d3b; font-weight: 500; }
+.key.hand-left {
+  border-color: #315f86;
+  background: linear-gradient(180deg, #e5f4ff, #9fcdf4);
+  color: #102e4d;
+  box-shadow: inset 5px 0 0 #3f91cf;
+}
+.key.hand-right {
+  border-color: #87415c;
+  background: linear-gradient(180deg, #ffe8f0, #f3aec6);
+  color: #512036;
+  box-shadow: inset -5px 0 0 #d96891;
+}
+.key.hand-both {
+  border-color: #5b5590;
+  background: linear-gradient(180deg, #f0edff, #beb7ef);
+  color: #302a62;
+  box-shadow: inset 0 -4px 0 #8176c7;
+}
+.key.hand-split { margin-left: 9px; }
+.key.hand-split::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 4px;
+  bottom: 4px;
+  border-left: 2px dashed #d7efff99;
+}
+.kbd-hand-legend {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-bottom: 8px;
+  color: #f7fbff;
+  font-size: max(20px, calc(14 * var(--ui-unit)));
+  line-height: 1.2;
+}
+.kbd-hand-item { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+.kbd-hand-swatch { width: 28px; height: 18px; border: 2px solid; border-radius: 5px; }
+.kbd-hand-swatch.hand-left { border-color: #315f86; background: #9fcdf4; box-shadow: inset 5px 0 #3f91cf; }
+.kbd-hand-swatch.hand-right { border-color: #87415c; background: #f3aec6; box-shadow: inset -5px 0 #d96891; }
+.kbd-hand-swatch.hand-both { border-color: #5b5590; background: #beb7ef; box-shadow: inset 0 -4px #8176c7; }
 .key.next {
   background: linear-gradient(180deg, #ffe27a, #ffb800);
   transform: translateY(-3px);
@@ -672,6 +716,7 @@
 }
 .key.next-shift { background: linear-gradient(180deg, #b9e8ff, #4fc3f7); box-shadow: 0 0 12px rgba(79, 195, 247, 0.9); }
 .key.next-back { background: linear-gradient(180deg, #ffb3b3, var(--red-400)); box-shadow: 0 0 12px rgba(255, 107, 107, 0.9); }
+.kbd-guide .key.pressed { background: #8ee8c3; color: #0b3027; box-shadow: inset 0 3px 0 #257b61; transform: translateY(2px); }
 
 
 /* 카운트다운 */
