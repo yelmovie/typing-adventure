@@ -107,9 +107,30 @@ try {
   if (!ONLY || ONLY === '1') {
     for (const size of SIZES) await run('1-panels-' + size.join('x'), size, async page => {
       const checked = [];
-      for (const stage of ['stage_2', 'stage_4', 'stage_5']) {
+      for (const stage of ['stage_1', 'stage_2', 'stage_4', 'stage_5']) {
         await goStage(page, stage);
         checked.push({ stage, ...await inspect(page, '.battle-top,.battle-bottom,.battle-left,.tele-panel,.race-track', '.battle-top button,.bb-kbd-toggle,.bb-skip,.bb-input') });
+        if (stage === 'stage_1') {
+          const waveLayout = await page.evaluate(() => {
+            const rect = selector => { const r = document.querySelector(selector).getBoundingClientRect(); return { x: r.x, y: r.y, right: r.right, bottom: r.bottom }; };
+            const scene = window.__game.scene.getScene('Wave');
+            const mobScales = [...scene.mobs.values()].map(mob => mob.enemy.sprite.scaleX);
+            const mobLabelTops = [...scene.mobs.values()].map(mob => Math.min(mob.labelDone.getBounds().top, mob.labelRest.getBounds().top));
+            return { label: rect('.bb-target-lbl'), target: rect('.bb-target-row'), input: rect('.bb-input-wrap'), mobScales, mobLabelTops };
+          });
+          assert.ok(waveLayout.label.bottom <= Math.min(waveLayout.target.y, waveLayout.input.y) + 1, '목표 설명이 낱말·입력창 행과 겹치지 않아야 한다');
+          assert.ok(waveLayout.target.right + 4 <= waveLayout.input.x, '낱말과 입력창이 가로로 겹치지 않아야 한다');
+          assert.ok(waveLayout.mobScales.length > 0 && waveLayout.mobScales.every(scale => scale <= 1), '일반 몬스터와 전용 대장을 기존 크기의 75% 수준으로 표시한다');
+          assert.ok(waveLayout.mobLabelTops.every(top => top >= 100), '위쪽 몬스터 낱말이 상단 HUD 뒤로 숨지 않아야 한다');
+          const soundButton = page.locator('button[aria-label="소리 설정"]');
+          await soundButton.click();
+          assert.equal(await page.locator('.sound-toggle-row').count(), 2, 'BGM과 효과음을 따로 켜고 끌 수 있어야 한다');
+          assert.equal(await page.locator('.sound-toggle-row').first().locator('button').innerText(), '꺼짐');
+          await page.locator('.sound-popover input[type="range"]').first().fill('65');
+          assert.equal(await page.locator('.sound-toggle-row').first().locator('button').innerText(), '켜짐', 'BGM 음량을 올리면 음악도 켜져야 한다');
+          await page.waitForFunction(async () => { const { AudioManager } = await import('/src/game/systems/AudioManager.ts'); return AudioManager.bgmEl?.currentTime > 0.05; });
+          await soundButton.click();
+        }
         await page.screenshot({ path: OUT + '/1-' + stage + '-' + size.join('x') + '.png', animations: 'disabled' });
       }
       await page.goto(BASE + '/?go=setup&st=1', { waitUntil: 'domcontentloaded' });

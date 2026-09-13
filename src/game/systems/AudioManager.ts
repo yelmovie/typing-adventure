@@ -55,6 +55,7 @@ class AudioManagerImpl {
   unlock() {
     this.userActivated = true;
     if (this.bgmOn && this.bgmName && !this.bgmEl) void this.bgm(this.bgmName);
+    else if (this.bgmOn && this.bgmEl?.paused) this.playBgmEl(this.bgmEl);
     const c = this.ensureCtx();
     if (c && c.state === 'suspended') void c.resume();
     if (this.bgmOn && this.bgmPending && this.bgmEl) this.playBgmEl(this.bgmEl);
@@ -165,7 +166,10 @@ class AudioManagerImpl {
       this.stopBgm();
       return;
     }
-    if (this.bgmName === name && this.bgmEl) return;
+    if (this.bgmName === name && this.bgmEl) {
+      if (this.bgmOn && this.userActivated && this.bgmEl.paused) this.playBgmEl(this.bgmEl);
+      return;
+    }
     this.stopBgm();
     this.bgmName = name;
     // Remember the scene without downloading a track that autoplay would block.

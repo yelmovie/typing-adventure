@@ -96,13 +96,15 @@
 #ui-stage .mode-wave .battle-left .pl-portrait { width: 52px; height: 52px; }
 #ui-stage .mode-wave .battle-left .pl-level,
 #ui-stage .mode-wave .battle-left .pl-pet-skill { display: none; }
-#ui-stage .mode-wave .battle-bottom { min-height: 150px; padding: 10px 22px 12px; background: #111934ee; }
-#ui-stage .mode-wave .bb-main { display: grid; grid-template-columns: 270px minmax(0, 1fr); grid-template-rows: 32px 82px; column-gap: 20px; align-items: center; }
-#ui-stage .mode-wave .bb-target-lbl { grid-column: 1 / -1; align-self: start; }
-#ui-stage .mode-wave .bb-target-row { grid-column: 1; grid-row: 2; align-self: center; }
+#ui-stage .mode-wave .battle-bottom { min-height: 172px; padding: 10px 22px 12px; background: #111934ee; }
+#ui-stage .mode-wave .bb-main { display: grid; grid-template-columns: 270px minmax(0, 1fr); grid-template-rows: minmax(44px, auto) 82px; column-gap: 20px; row-gap: 6px; align-items: center; }
+#ui-stage .mode-wave .bb-target-lbl { grid-column: 1 / -1; align-self: start; min-width: 0; line-height: 1.25; }
+#ui-stage .mode-wave .bb-target-desc { flex: 1 1 auto; min-width: 0; }
+#ui-stage .mode-wave .bb-kbd-toggle { flex: 0 0 auto; }
+#ui-stage .mode-wave .bb-target-row { grid-column: 1; grid-row: 2; align-self: center; min-width: 0; }
 #ui-stage .mode-wave .bb-target { min-height: 0; font-size: max(58px, calc(32 * var(--ui-unit))); line-height: 1; }
 #ui-stage .mode-wave .bb-hint { display: none; }
-#ui-stage .mode-wave .bb-input-wrap { grid-column: 2; grid-row: 2; width: 100%; margin: 0; }
-#ui-stage .mode-wave .bb-input { min-height: 66px; padding-right: 230px; }
+#ui-stage .mode-wave .bb-input-wrap { grid-column: 2; grid-row: 2; align-self: center; width: 100%; min-width: 0; margin: 0; }
+#ui-stage .mode-wave .bb-input { min-height: var(--touch-size); padding-right: 230px; }
 #ui-stage .mode-wave .combo-box { top: 108px; }
 #ui-stage .mode-wave .judge-pop { --judge-bottom: 300px; }

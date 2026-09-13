@@ -602,6 +602,8 @@
 .sound-popover .sp-row .vol { width: 150px; }
 .sound-popover .sp-row .btn { min-height: 44px; font-size: 16px; padding: 0 14px; }
 .sound-popover .sp-row .btn .ui-icon { width: 22px; height: 22px; }
+.sound-popover .sound-toggle-row { padding-bottom: 4px; border-bottom: 0; }
+.sound-popover .sound-state { min-width: 86px; }
 
 /* 설정: 볼륨 막대·링크·가이드·이야기·정보 */
 .vol-wrap { display: flex; align-items: center; gap: 12px; }

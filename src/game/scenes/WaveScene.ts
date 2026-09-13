@@ -23,6 +23,7 @@ import { playClassFx } from './ClassFx';
 const PLAYER_POS = { x: 960, y: 520 };
 const ARENA_OUTER = { x: 830, y: 345 };
 const ARENA_TOUCH = { x: 125, y: 58 };
+const MONSTER_VISUAL_SCALE = 0.75;
 const LANE_ORDER = [0, 4, 2, 6, 1, 5, 3, 7]; // 같은 쪽만 연달아 나오지 않게 반대편을 번갈아 배치
 
 function laneAngle(uid: number) {
@@ -68,13 +69,14 @@ class Mob {
     const ownSheet = sheet === m.sheet;
     registerSheetAnims(scene, sheet);
     // 전용 대장 시트는 그림 자체가 크고 왕관이 있으니 덜 키우고 틴트도 안 입힌다
-    const scale = m.big ? 1.05 * (ownSheet ? 1.25 : 1.8) : m.kind === 'bat' ? 1.0 : 1.05;
+    const baseScale = m.big ? 1.05 * (ownSheet ? 1.25 : 1.8) : m.kind === 'bat' ? 1.0 : 1.05;
+    const scale = baseScale * MONSTER_VISUAL_SCALE;
     this.enemy = new Enemy(scene, spawn.x, spawn.y, sheet, scale);
     if (m.big && !ownSheet) this.enemy.sprite.setTint(0xffcf7a);
     this.enemy.setDepth(8);
     this.enemy.sprite.play(anim(sheet, `walk_${approachDirection(this.angle)}`));
     this.path = scene.add.graphics().setDepth(3);
-    this.ring = scene.add.ellipse(spawn.x, spawn.y + 8, 174, 52, 0xffd34d, 0).setDepth(5);
+    this.ring = scene.add.ellipse(spawn.x, spawn.y + 8, 132, 40, 0xffd34d, 0).setDepth(5);
     this.labelDone = scene.add.text(0, 0, '', styleText(43, '#6dff9c')).setOrigin(0, 1).setDepth(18);
     this.labelRest = scene.add.text(0, 0, '', styleText(43, '#ffffff')).setOrigin(0, 1).setDepth(18);
     const v = m.word.variant;
@@ -117,8 +119,11 @@ class Mob {
     this.labelDone.setText(chars.slice(0, this.done).join(''));
     this.labelRest.setText(chars.slice(this.done).join(''));
     const w = this.labelDone.width + this.labelRest.width;
-    // 글자 상자는 origin(0,1) 이라 이 값이 글자의 아래끝이다. 머리 끝에 살짝 겹치게 붙인다.
-    const top = this.enemy.sprite.y - this.enemy.sprite.displayHeight + 12;
+    // 글자 상자는 origin(0,1) 이라 이 값이 글자의 아래끝이다. 위쪽 진입로에서는
+    // HUD 뒤로 숨지 않도록 몬스터 발아래로 내려 언제나 낱말 전체가 보이게 한다.
+    const preferredBottom = this.enemy.sprite.y - this.enemy.sprite.displayHeight + 12;
+    const labelHeight = Math.max(this.labelDone.height, this.labelRest.height);
+    const top = preferredBottom - labelHeight < 112 ? this.enemy.sprite.y + labelHeight + 18 : preferredBottom;
     const x0 = this.enemy.sprite.x - w / 2;
     this.labelDone.setPosition(x0, top);
     this.labelRest.setPosition(x0 + this.labelDone.width, top);

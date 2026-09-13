@@ -19,20 +19,46 @@ function ensureGlobalClose() {
   });
 }
 
-/** 소리 버튼: 작은 팝오버로 BGM·효과음 볼륨 + 음소거 (모든 화면·전투 HUD 공용) */
+/** 소리 버튼: BGM·효과음을 따로 켜고 음량을 바로 조절한다 (모든 화면·전투 HUD 공용). */
 export function soundButton(): HTMLElement {
   ensureGlobalClose();
+  const en = SaveSystem.get().settings.language === 'en';
   const soundSrc = () => `./assets/ui/icon_${AudioManager.isMuted() ? 'sound_off' : 'sound_on'}.webp`;
   const btnIcon = icon(AudioManager.isMuted() ? 'sound_off' : 'sound_on');
-  const rowIcon = icon(AudioManager.isMuted() ? 'sound_off' : 'sound_on');
-  const refreshMute = () => { btnIcon.src = soundSrc(); rowIcon.src = soundSrc(); };
+  const stateButtons: Array<{ key: 'bgm' | 'sfx'; button: HTMLButtonElement }> = [];
+  const refreshMute = () => {
+    btnIcon.src = soundSrc();
+    for (const { key, button } of stateButtons) {
+      const on = SaveSystem.get().settings[key];
+      button.textContent = en ? on ? 'On' : 'Off' : on ? '켜짐' : '꺼짐';
+      button.classList.toggle('btn-primary', on);
+      button.classList.toggle('btn-gray', !on);
+      button.setAttribute('aria-pressed', String(on));
+    }
+  };
+
+  const toggleRow = (label: string, key: 'bgm' | 'sfx') => {
+    const button = h('button', { type: 'button', class: 'btn btn-sm sound-state' }) as HTMLButtonElement;
+    stateButtons.push({ key, button });
+    button.addEventListener('click', () => {
+      const on = !SaveSystem.get().settings[key];
+      const volumeKey = key === 'bgm' ? 'bgmVolume' : 'sfxVolume';
+      const volume = SaveSystem.get().settings[volumeKey] ?? (key === 'bgm' ? 0.7 : 0.9);
+      SaveSystem.setSettings({ [key]: on, ...(on && volume <= 0.01 ? { [volumeKey]: key === 'bgm' ? 0.7 : 0.9 } : {}) });
+      AudioManager.applySettings();
+      refreshMute();
+      AudioManager.sfx('click');
+    });
+    return h('div', { class: 'setting-row sp-row sound-toggle-row' }, h('span', {}, label), button);
+  };
 
   const slider = (label: string, key: 'bgmVolume' | 'sfxVolume') => {
     const s = SaveSystem.get().settings;
     const input = h('input', { type: 'range', min: '0', max: '100', value: String(Math.round((s[key] ?? 0.7) * 100)), class: 'vol', 'aria-label': label }) as HTMLInputElement;
     const val = h('span', { class: 'vol-val' }, `${input.value}%`);
     input.addEventListener('input', () => {
-      SaveSystem.setSettings({ [key]: Number(input.value) / 100 });
+      const volume = Number(input.value) / 100;
+      SaveSystem.setSettings({ [key]: volume, ...(volume > 0 ? { [key === 'bgmVolume' ? 'bgm' : 'sfx']: true } : {}) });
       val.textContent = `${input.value}%`;
       AudioManager.applySettings();
       refreshMute();
@@ -40,17 +66,9 @@ export function soundButton(): HTMLElement {
     return h('div', { class: 'setting-row sp-row' }, h('span', {}, label), h('div', { class: 'vol-wrap' }, input, val));
   };
 
-  const muteRow = h(
-    'div',
-    { class: 'setting-row sp-row' },
-    h('span', {}, '음소거'),
-    h('button', {
-      class: 'btn btn-sm btn-gray',
-      onclick: () => { AudioManager.toggleMute(); refreshMute(); AudioManager.sfx('click'); },
-    }, rowIcon, ' 켜기/끄기'),
-  );
-
-  const popover = h('div', { class: 'panel panel-glass sound-popover' }, muteRow, slider('배경 음악', 'bgmVolume'), slider('효과음', 'sfxVolume'));
+  const popover = h('div', { class: 'panel panel-glass sound-popover' },
+    toggleRow(en ? 'Music' : '배경 음악', 'bgm'), slider(en ? 'Music volume' : '배경 음악 음량', 'bgmVolume'),
+    toggleRow(en ? 'Sound effects' : '효과음', 'sfx'), slider(en ? 'Effects volume' : '효과음 음량', 'sfxVolume'));
 
   const btn = h('button', { type: 'button', class: 'icon-btn', title: '소리 설정', 'aria-label': '소리 설정', 'aria-expanded': 'false', onclick: (e: Event) => {
     e.stopPropagation();
@@ -58,6 +76,7 @@ export function soundButton(): HTMLElement {
     popover.classList.toggle('open');
     btn.setAttribute('aria-expanded', String(popover.classList.contains('open')));
   } }, btnIcon);
+  refreshMute();
   const wrap = h('div', { class: 'sound-pop-wrap' }, btn, popover);
   wrap.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape' || !popover.classList.contains('open')) return;
