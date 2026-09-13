@@ -112,10 +112,22 @@ export default defineConfig({
       workbox: {
         skipWaiting: false,
         clientsClaim: true,
-        // App shell only. Bulk media is downloaded only by explicit classroom preparation.
-        globPatterns: ['**/*.{js,css,html,webmanifest}', 'classroom-manifest.json', 'icons/*.png'],
+        // Keep the first screen and its short opening usable after the local preview
+        // server is restarted. Later stages remain opt-in through classroom preparation.
+        globPatterns: [
+          '**/*.{js,css,html,webmanifest}',
+          'classroom-manifest.json',
+          'icons/*.png',
+          'assets/ui/logo.webp',
+          'assets/backgrounds/bg_main_gate.webp',
+          'assets/backgrounds/bg_main_gate_blur.webp',
+          'assets/video/intro-v1.mp4',
+          'assets/video/intro-poster-v1.webp',
+          'assets/sprites/*_home.{webp,json}',
+          'assets/audio/sfx_*.ogg',
+        ],
         globIgnores: ['**/assets/og/**'],
-        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         runtimeCaching: [
           { urlPattern: ({ url }) => /\/(assets|fonts|icons|licenses)\//.test(url.pathname) && !url.searchParams.has('classroom-download'), handler: 'CacheFirst', options: { cacheName: classroomCache, rangeRequests: true, cacheableResponse: { statuses: [200] } } },
         ],
