@@ -20,7 +20,7 @@ const SAVE = {
 };
 // 실패한 해상도만 다시 검사할 때 LAYOUT_VIEWPORT=915x412 처럼 지정한다(분류 1/2).
 const VIEWPORT = process.env.LAYOUT_VIEWPORT;
-const SIZES = [[1920, 1080], [1280, 800], [1024, 768], [915, 412]].filter(size => !VIEWPORT || size.join('x') === VIEWPORT);
+const SIZES = [[1920, 1080], [1440, 900], [1280, 800], [1024, 768], [915, 412], [768, 1024], [375, 812]].filter(size => !VIEWPORT || size.join('x') === VIEWPORT);
 assert.ok(SIZES.length > 0, 'LAYOUT_VIEWPORT는 지원하는 해상도 중 하나');
 const results = [];
 const browser = await chromium.launch({ channel: CHANNEL, headless: true });
@@ -116,11 +116,16 @@ try {
             const scene = window.__game.scene.getScene('Wave');
             const mobScales = [...scene.mobs.values()].map(mob => mob.enemy.sprite.scaleX);
             const mobLabelTops = [...scene.mobs.values()].map(mob => Math.min(mob.labelDone.getBounds().top, mob.labelRest.getBounds().top));
-            return { label: rect('.bb-target-lbl'), target: rect('.bb-target-row'), input: rect('.bb-input-wrap'), mobScales, mobLabelTops };
+            const headGaps = [...scene.mobs.values()].map(mob => {
+              const s = mob.enemy.sprite;
+              return s.y + (s.frame.y - s.displayOriginY) * s.scaleY - mob.labelRest.y;
+            });
+            return { label: rect('.bb-target-lbl'), target: rect('.bb-target-row'), input: rect('.bb-input-wrap'), mobScales, mobLabelTops, headGaps };
           });
           assert.ok(waveLayout.label.bottom <= Math.min(waveLayout.target.y, waveLayout.input.y) + 1, '목표 설명이 낱말·입력창 행과 겹치지 않아야 한다');
-          assert.ok(waveLayout.target.right + 4 <= waveLayout.input.x, '낱말과 입력창이 가로로 겹치지 않아야 한다');
-          assert.ok(waveLayout.mobScales.length > 0 && waveLayout.mobScales.every(scale => scale <= 1), '일반 몬스터와 전용 대장을 기존 크기의 75% 수준으로 표시한다');
+          assert.ok(waveLayout.target.right + 4 <= waveLayout.input.x || waveLayout.target.bottom + 4 <= waveLayout.input.y, '낱말과 입력창은 가로 또는 세로로 분리되어야 한다');
+          assert.ok(waveLayout.mobScales.length > 0 && waveLayout.mobScales.every(scale => scale <= 0.66), '몬스터를 이전 표시 크기의 2/3로 축소한다');
+          assert.ok(waveLayout.headGaps.every(gap => Math.abs(gap - 6) < 1), '몬스터 머리 바로 위 6px에 낱말 하단을 붙인다');
           assert.ok(waveLayout.mobLabelTops.every(top => top >= 100), '위쪽 몬스터 낱말이 상단 HUD 뒤로 숨지 않아야 한다');
           const soundButton = page.locator('button[aria-label="소리 설정"]');
           await soundButton.click();

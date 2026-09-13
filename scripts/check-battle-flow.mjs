@@ -4,7 +4,8 @@ import { chromium } from 'playwright';
 
 // 개발 서버와 격리 저장소로 실제 입력창·버튼·결과 저장 연결을 검증한다.
 const BASE = process.env.BATTLE_TEST_URL || 'http://127.0.0.1:5180';
-const OUT = 'tmp/battle-flow-check';
+const FILTER = process.env.BATTLE_TEST_FILTER || '';
+const OUT = process.env.BATTLE_TEST_OUT || 'tmp/battle-flow-check';
 fs.mkdirSync(OUT, { recursive: true });
 const browser = await chromium.launch({ channel: process.env.BATTLE_BROWSER_CHANNEL || 'chrome' });
 const results = [];
@@ -15,6 +16,7 @@ const seed = (language = 'ko') => ({
   settings: { bgm: false, sfx: false, prologueSeen: true, showKeyboardGuide: false, language },
 });
 async function run(label, stage, action, language = 'ko') {
+  if (FILTER && !label.includes(FILTER)) return;
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   await context.addInitScript((data) => {
     localStorage.setItem('typing_adventure_save_v1', JSON.stringify(data));
@@ -41,6 +43,39 @@ async function run(label, stage, action, language = 'ko') {
 const snapshot = (page) => page.evaluate(() => window.__battle.snapshot());
 const target = (page) => page.locator('.bb-target').innerText();
 const correct = async (page) => { await page.locator('.bb-input').fill(await target(page)); };
+const observeMoves = (page) => page.evaluate(async () => {
+  const { EventBus, Events } = await import('/src/game/EventBus.ts');
+  window.__testMoves = [];
+  EventBus.on(Events.PLAYER_MOVE, ({ dir, pressed }) => window.__testMoves.push({ dir, pressed }));
+});
+const selection = (input) => input.evaluate(el => ({ start: el.selectionStart, end: el.selectionEnd }));
+const assertImeArrows = async (page) => {
+  // Synthetic IME events verify event ownership; physical keyboard IME is a separate device check.
+  const checks = await page.locator('.bb-input').evaluate(input => {
+    const checks = [];
+    for (const mode of ['composition', 'isComposing', 'legacy229']) {
+      window.__testMoves = [];
+      if (mode === 'composition') input.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
+      for (const key of ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']) {
+        for (const type of ['keydown', 'keyup']) {
+          const event = new KeyboardEvent(type, {
+            key, bubbles: true, cancelable: true,
+            isComposing: mode === 'isComposing', keyCode: mode === 'legacy229' ? 229 : 0,
+          });
+          input.dispatchEvent(event);
+          checks.push({ mode, key, type, prevented: event.defaultPrevented });
+        }
+      }
+      checks.push({ mode, moves: [...window.__testMoves] });
+      if (mode === 'composition') input.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));
+    }
+    return checks;
+  });
+  for (const check of checks) {
+    if ('moves' in check) assert.deepEqual(check.moves, [], `${check.mode}: IME arrows must not move the character`);
+    else assert.equal(check.prevented, false, `${check.mode}: ${check.type} ${check.key} belongs to the IME`);
+  }
+};
 const assertHandGuide = async (page, language) => {
   const key = value => page.locator(`.kbd-guide .key[data-key="${value}"]`);
   assert.equal(await key(language === 'ko' ? 'ㅂ' : 'q').getAttribute('data-hand'), 'left');
@@ -61,6 +96,41 @@ const assertHandGuide = async (page, language) => {
 };
 
 try {
+  for (const language of ['ko', 'en']) {
+    await run(`방향키 회귀 · ${language} 문장 커서·선택 교정·IME`, 'stage_3', async (page) => {
+      const input = page.locator('.bb-input');
+      const text = await target(page);
+      const index = Math.floor(text.length / 2);
+      const wrong = `${text.slice(0, index)}※${text.slice(index + 1)}`;
+      await observeMoves(page);
+      await input.fill(wrong);
+      assert.equal((await snapshot(page)).wordsDone, 0, 'A typo must not complete the sentence');
+      for (let i = text.length; i > index; i--) await input.press('ArrowLeft');
+      assert.deepEqual(await selection(input), { start: index, end: index }, 'Left arrow moves the native caret');
+      await input.press('ArrowRight');
+      assert.deepEqual(await selection(input), { start: index + 1, end: index + 1 }, 'Right arrow moves the native caret');
+      await input.press('Shift+ArrowLeft');
+      assert.deepEqual(await selection(input), { start: index, end: index + 1 }, 'Shift+Left selects the wrong character');
+      await page.keyboard.insertText(text[index]);
+      assert.equal((await snapshot(page)).wordsDone, 1, 'Replacing the selected typo completes the sentence');
+      assert.equal(await page.evaluate(() => window.__battle.run.correctedCount), 1, 'Caret correction preserves learning evidence');
+      assert.deepEqual(await page.evaluate(() => window.__testMoves), [], 'Sentence editing must not emit character movement');
+      await input.fill((await target(page)).slice(0, 3));
+      await assertImeArrows(page);
+    }, language);
+  }
+
+  await run('방향키 회귀 · 낱말 회피 조작 유지', 'stage_1', async (page) => {
+    const input = page.locator('.bb-input');
+    await observeMoves(page);
+    await input.fill('※※');
+    for (const key of ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']) await input.press(key);
+    assert.deepEqual(await selection(input), { start: 2, end: 2 }, 'Word mode keeps arrows assigned to game controls');
+    assert.deepEqual(await page.evaluate(() => window.__testMoves), ['left', 'right', 'up', 'down'].flatMap(dir => [{ dir, pressed: true }, { dir, pressed: false }]), 'Word mode still receives both press and release');
+    assert.equal((await snapshot(page)).wordsDone, 0, 'Movement does not complete a target');
+    await assertImeArrows(page);
+  });
+
   await run('한글 자판 왼손·오른손·양손 엄지 구분', 'stage_1', async (page) => {
     await page.locator('.bb-kbd-toggle').click();
     await assertHandGuide(page, 'ko');

@@ -40,7 +40,7 @@ export const EN: Record<string, string> = {
   '나를 닮은 모험가를 골라요': 'Choose your adventurer',
   '모험가마다 말투와 모습이 달라요. 언제든 바꿀 수 있어요.': 'Each adventurer has a different look and voice. You can change anytime.',
   '내 속도에 맞춰 시작해요': 'Start at your own pace',
-  '처음이라면 쉬움부터. 익숙해지면 더 어려운 도전으로 바꿔 봐요.': 'Start with Easy. Try a bigger challenge when you feel ready.',
+  '처음이라면 기초부터. 익숙해지면 더 어려운 도전으로 바꿔 봐요.': 'Start with Easy. Try a bigger challenge when you feel ready.',
   '함께할 친구를 골라요': 'Choose a companion',
   '친구의 도움을 살펴봐요. 새로 만난 친구도 여기서 선택해요.': 'Explore each companion’s help. Choose newly unlocked friends here, too.',
   '친구와 도전 방식을 바꿔도 모험 기록은 그대로예요.': 'Changing your companion or level keeps your adventure progress.',

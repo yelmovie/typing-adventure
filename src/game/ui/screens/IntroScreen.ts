@@ -29,7 +29,7 @@ export class IntroScreen extends Screen<{ stageId: StageId; remix?: boolean }> {
   protected render(data: { stageId: StageId; remix?: boolean }) {
     const st = getStage(data.stageId);
     const save = SaveSystem.get();
-    const diff = save.profile.difficulty;
+    const diff = save.progress.assist?.[st.id] ? 'beginner' : save.profile.difficulty;
     const rule = DIFFICULTY_RULES[diff];
     const best = save.records.bestScoreByStage[st.id];
     const fails = save.progress.fails?.[st.id] ?? 0;

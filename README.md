@@ -18,6 +18,8 @@
 처음 한 번만 지역별 1~3개의 몸풀기를 완료하며, 연습한 내용은 언어별로 기억한다. 재도전은 결과 화면에서 바로 시작한다.
 오답은 고쳐서 다시 제출하고, 건너뛴 목표는 완료로 세지 않는다. 결과에서 실제 오답의 차이를 비교하고 원문 교정과 다른 예시 두 개에 적용한다.
 
+가로 화면과 세로 화면을 지원한다. 세로에서는 지도·선택·가이드·결과를 읽는 순서로 재배치하고 긴 본문은 스크롤한다. 입력 중 가상 키보드가 화면 높이를 줄여도 입력창을 가용 영역에 배치하며, 화면 회전은 진행을 초기화하지 않는다. 최근 로컬 검수와 실기기 확인 범위는 [반응형 최종점검](docs/reviews/FINAL-CHECK-20260914.md)에 기록했다.
+
 ## 실행
 
 ```bash
@@ -40,6 +42,9 @@ npm run check:opening # 첫 인트로 재생·종료·건너뛰기·오류·포�
 node scripts/check-audio-flow.mjs # 실제 BGM 시작·재개·장면 전환·음소거 검사
 node scripts/check-delivery-translations.mjs # 한국어 보존·복합 영어 문구 회귀 검사
 npm run check:delivery # production preview:4176 + 오프라인·배포 자산 검사
+node scripts/check-portrait-panels.mjs # 세로 홈·설정·가이드·도감
+node scripts/check-result-fit.mjs # 긴 결과·교정·보상 페이지와 실제 클릭 가능 여부
+node scripts/check-viewport-resize.mjs # 입력 중 키보드 높이 변화 모델·양방향 회전
 node scripts/build-home-assets.mjs # 원본 시트에서 홈 전용 무손실 atlas 재생성
 ```
 

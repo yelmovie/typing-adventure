@@ -33,7 +33,8 @@ export function resultPages(blocks: HTMLElement[], en: boolean) {
     const chrome = [...panel.children].filter(child => !child.classList.contains('result-body'))
       .reduce((sum, child) => sum + (child as HTMLElement).offsetHeight, 0);
     controls.hidden = false;
-    const capacity = 1080 - panel.offsetTop - 36 - parseFloat(css.paddingTop) - parseFloat(css.paddingBottom)
+    const stageHeight = document.getElementById('ui-stage')?.clientHeight ?? 1080;
+    const capacity = stageHeight - panel.offsetTop - 36 - parseFloat(css.paddingTop) - parseFloat(css.paddingBottom)
       - chrome - parseFloat(css.rowGap) * 3 - controls.offsetHeight - 12;
     content.style.height = `${Math.max(120, capacity)}px`;
     pages = []; let page: HTMLElement[] = [];
@@ -60,4 +61,3 @@ export function resultPages(blocks: HTMLElement[], en: boolean) {
   void document.fonts.ready.then(refresh);
   return { el, refresh, dispose: () => { alive = false; observer.disconnect(); cancelAnimationFrame(frame); window.removeEventListener('resize', resize); } };
 }
-

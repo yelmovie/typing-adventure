@@ -17,7 +17,7 @@ function seed(language = 'ko') {
   return {
     version: '2',
     profile: { name: english ? 'English Tester' : '한글 검증', characterId: english ? 'pink_girl' : 'brown_boy', petId: english ? 'rabbit' : 'cat', difficulty: 'normal', canDo: english ? 'type a sentence' : '고쳐서 완성' },
-    progress: { unlockedStage: english ? 4 : 2, clearedStages: english ? ['stage_1', 'stage_2', 'stage_3'] : ['stage_1'], stageStars: english ? { stage_1: 3, stage_2: 2, stage_3: 1 } : { stage_1: 2 }, coins: english ? 93 : 47, fails: {}, assist: {}, tutorialCompleted: false },
+    progress: { unlockedStage: english ? 4 : 2, clearedStages: english ? ['stage_1', 'stage_2', 'stage_3'] : ['stage_1'], stageStars: english ? { stage_1: 3, stage_2: 2, stage_3: 1 } : { stage_1: 2 }, coins: english ? 93 : 47, fails: {}, assist: {}, tutorialCompleted: false, practicedParts: [], skippedPracticeStages: [] },
     records: { bestCpm: english ? 145 : 97, bestAccuracy: 94, bestCombo: 20, bestScoreByStage: { stage_1: english ? 2600 : 1700 }, ghosts: {}, daily: {}, learning: { patterns: { letters: { mistakes: 2, corrections: 1, newSuccesses: 1, delayedSuccesses: 0, lastTarget: english ? 'letter' : '낱말', lastTyped: english ? 'leter' : '낱맣', lastErrorAt: '2026-09-01T00:00:00.000Z' } }, recent: [{ at: '2026-09-01T00:00:00.000Z', stageId: 'stage_1', source: 'game', accuracy: 94, cpm: english ? 145 : 97, correct: english ? 15 : 12, corrected: 1, skipped: 0, newSuccesses: 1 }], seen: [english ? 'letter' : '낱말'] } },
     collection: { badges: ['first_clear', 'fever_master'], wordsSeen: ['seed-one'], petsUnlocked: ['cat', 'rabbit', 'dragon'], charactersUnlocked: ['brown_boy', 'pink_girl', 'glasses_boy', 'blond_explorer'], enemiesSeen: ['green_slime'] },
     settings: { language, bgm: false, sfx: false, screenShake: false, showKeyboardGuide: false, bgmVolume: 0.7, sfxVolume: 0.9, prologueSeen: true },
@@ -44,13 +44,13 @@ async function revealPopupControl(page, control) {
   throw new Error('popup pagination did not reach the requested control');
 }
 const home = async (page, freshDocument = false) => {
-  await page.waitForSelector('.home-menu', { timeout: 60000 });
-  await page.waitForFunction(() => !document.querySelector('#fade.on') && !document.getElementById('ui-stage').inert);
   // Reload/goto offers the intro again; language changes and home returns do not.
   if (freshDocument) {
     await page.locator('.opening-skip').click({ timeout: 60000 });
     await page.locator('.opening-player').waitFor({ state: 'detached' });
   }
+  await page.waitForSelector('.home-menu', { timeout: 60000 });
+  await page.waitForFunction(() => !document.querySelector('#fade.on') && !document.getElementById('ui-stage').inert);
 };
 const language = async (page, value) => {
   await page.locator(`.home-language button[lang="${value}"]`).click();
@@ -107,7 +107,8 @@ try {
   await run('잘못된 중첩 저장 구조 복구·홈 동작·복구 알림', corrupt, async (page) => {
     await page.locator('.save-notice:not([hidden])').waitFor();
     assert.match(await page.locator('.save-notice').innerText(), /복구/);
-    assert.ok(await page.locator('.home-menu button').count() >= 5);
+    assert.ok(await page.getByRole('button', { name: '모험 이어하기', exact: true }).isVisible());
+    assert.ok(await page.locator('.home-more summary').isVisible());
     await page.getByRole('button', { name: '복구한 기록 사용', exact: true }).click();
     const data = await stored(page);
     assert.deepEqual(data.progress.stageStars, {});
@@ -194,12 +195,12 @@ try {
     }
     await page.keyboard.press('Enter');
     assert.equal(await rawStored(page), before, '기본 선택으로 기록 보존');
-    assert.ok(await opener.evaluate(el => el === document.activeElement), '취소 후 원래 버튼으로 돌아온다');
-    await opener.click(); await page.keyboard.press('Escape');
+    assert.ok(await page.locator('.home-more summary').evaluate(el => el === document.activeElement), '취소 후 메뉴를 여는 버튼으로 돌아온다');
+    await page.locator('.home-more summary').click(); await opener.click(); await page.keyboard.press('Escape');
     assert.equal(await rawStored(page), before, 'Escape로 기록 보존');
-    await opener.click(); await keep.click();
+    await page.locator('.home-more summary').click(); await opener.click(); await keep.click();
     assert.equal(await rawStored(page), before, '기록 남기기로 양쪽 언어 보존');
-    await opener.click(); await erase.click();
+    await page.locator('.home-more summary').click(); await opener.click(); await erase.click();
     await page.waitForSelector('.setup-panel');
     const data = await stored(page);
     assert.equal(data.profile.name, '');

@@ -100,6 +100,12 @@ try {
     const context = await browser.newContext({ viewport: result.viewport, serviceWorkers: 'allow', reducedMotion: 'no-preference' });
     try {
       const page = await context.newPage();
+      const errors = [], warnings = [];
+      page.on('pageerror', error => errors.push(error.message));
+      page.on('console', message => {
+        if (message.type() === 'error') errors.push(message.text());
+        if (message.type() === 'warning') warnings.push(message.text());
+      });
       await page.addInitScript(() => {
         const timing = window.__openingTiming = {};
         let watchedVideo = false;
@@ -152,6 +158,7 @@ try {
       await page.locator('.opening-skip').click();
       await page.waitForFunction(() => Number.isFinite(window.__openingTiming?.homeInteractiveMs));
       const timing = await page.evaluate(() => window.__openingTiming);
+      assert.deepEqual(errors, [], 'No console errors or runtime exceptions during the production opening');
       assert.ok(timing.mutedAtFirstFrame, 'Opening autoplay is muted');
       assert.ok(timing.presentedFrames >= 1 && Number.isFinite(timing.skipClickedMs));
       const resources = await page.evaluate(() => {
@@ -166,6 +173,7 @@ try {
       assert.ok(!resources.urls.some(url => url.includes('bg_world_map.webp') || url.includes('/char_brown_boy.webp') || url.includes('/pet_cat.webp')), 'Later scenes and full combat sheets are deferred');
       const measure = {
         run,
+        errors, warnings,
         introControlsReadyMs: Math.round(timing.introControlsReadyMs),
         introFirstFrameMs: Math.round(timing.introFirstFrameMs),
         homeAfterSkipMs: Math.round(timing.homeInteractiveMs - timing.skipClickedMs),

@@ -14,6 +14,7 @@ import './styles/popups.css';
 import './styles/popup-content.css';
 import './styles/setup-fit.css';
 import './styles/update-notice.css';
+import './styles/adaptive-layout.css';
 import { setLanguage } from './game/i18n/Locale';
 import { readBootstrapLanguage } from './game/systems/BootstrapSettings';
 import { startOpening } from './game/ui/OpeningStartup';

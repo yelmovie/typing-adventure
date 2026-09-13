@@ -101,7 +101,7 @@ export default defineConfig({
         short_name: '타이핑 어드벤처',
         lang: 'ko',
         display: 'standalone',
-        orientation: 'landscape',
+        orientation: 'any',
         theme_color: '#141a3d',
         background_color: '#0c1030',
         icons: [

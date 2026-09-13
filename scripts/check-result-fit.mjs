@@ -9,7 +9,7 @@ const OUT = process.env.RESULT_FIT_OUT || 'tmp/result-fit';
 const FILTER = process.env.RESULT_FIT_FILTER || '';
 const VIEWPORT = process.env.RESULT_FIT_VIEWPORT || '';
 const KEY = 'typing_adventure_save_v1';
-const sizes = [[1280, 800], [1024, 768], [915, 412], [1920, 1080]].filter(s => !VIEWPORT || s.join('x') === VIEWPORT);
+const sizes = [[1280, 800], [1024, 768], [915, 412], [1920, 1080], [375, 812], [768, 1024]].filter(s => !VIEWPORT || VIEWPORT.split(',').includes(s.join('x')));
 assert.ok(sizes.length, 'RESULT_FIT_VIEWPORT must be a supported WIDTHxHEIGHT');
 fs.mkdirSync(OUT, { recursive: true });
 const results = [];
@@ -72,10 +72,10 @@ async function inspect(page) {
     const body = document.querySelector('.result-body'), actions = document.querySelector('.result-actions');
     const panes = [...document.querySelectorAll('[role="tabpanel"], .result-pane')].filter(visible);
     const pageParts = [...wrap.querySelectorAll('.result-pages, .result-page-content, .result-detail-card')].filter(visible);
-    const frames = [...new Set([wrap, panel, body, actions, ...panes, ...pageParts])].filter(Boolean).map(el => ({ name: el.className, ...rect(el), parent: el.classList.contains('result-detail-card') ? rect(el.parentElement) : null, overflowX: el.scrollWidth - el.clientWidth, overflowY: el.scrollHeight - el.clientHeight, scrollTop: el.scrollTop }));
+    const frames = [...new Set([wrap, panel, body, actions, ...panes, ...pageParts])].filter(Boolean).map(el => ({ name: el.className, ...rect(el), parent: el.classList.contains('result-detail-card') ? rect(el.parentElement) : null, scrolls: ['auto', 'scroll'].includes(getComputedStyle(el).overflowY), inBody: el !== body && body.contains(el), overflowX: el.scrollWidth - el.clientWidth, overflowY: el.scrollHeight - el.clientHeight, scrollTop: el.scrollTop }));
     const controls = [...wrap.querySelectorAll('button')].filter(visible).map(el => {
       const r = rect(el), hit = document.elementFromPoint((r.left + r.right) / 2, (r.top + r.bottom) / 2);
-      return { name: el.textContent.trim() || el.getAttribute('aria-label'), ...r, disabled: el.disabled, hit: hit === el || el.contains(hit), main: !!el.closest('.result-actions') };
+      return { name: el.textContent.trim() || el.getAttribute('aria-label'), ...r, disabled: el.disabled, hit: hit === el || el.contains(hit), main: !!el.closest('.result-actions'), tab: !!el.closest('.result-tabs'), inBody: body.contains(el), inBodyView: contains(rect(body), r) };
     });
     const textProblems = [];
     const walker = document.createTreeWalker(wrap, NodeFilter.SHOW_TEXT);
@@ -84,13 +84,14 @@ async function inspect(page) {
       const range = document.createRange(); range.selectNodeContents(node);
       for (const r of range.getClientRects()) {
         if (!r.width || !r.height) continue;
-        if (!contains(stage, r)) textProblems.push({ text: node.textContent.trim(), reason: 'outside game frame' });
+        if (!contains(stage, r) && !body.contains(node)) textProblems.push({ text: node.textContent.trim(), reason: 'outside game frame' });
         // Text inside an overflowing/ellipsized box is still present in the DOM.
         // Follow clipping ancestors so hiding overflow cannot disguise cut text.
         for (let parent = node.parentElement; parent && wrap.contains(parent); parent = parent.parentElement) {
           const css = getComputedStyle(parent), p = rect(parent);
           const clipsX = ['hidden', 'clip', 'auto', 'scroll'].includes(css.overflowX);
-          const clipsY = ['hidden', 'clip', 'auto', 'scroll'].includes(css.overflowY);
+          const clipsY = ['hidden', 'clip'].includes(css.overflowY);
+          // Vertical result-body scrolling is intentional; horizontal clipping never is.
           if ((clipsX && (r.left < p.left - 1 || r.right > p.right + 1)) || (clipsY && (r.top < p.top - 1 || r.bottom > p.bottom + 1))) {
             textProblems.push({ text: node.textContent.trim(), reason: `clipped by ${parent.className}`, textRect: { left: r.left, right: r.right, top: r.top, bottom: r.bottom }, parentRect: p });
             break;
@@ -109,11 +110,72 @@ async function inspect(page) {
       const xs = points.map(p => canvas.left + p.x * canvas.width / 1920), ys = points.map(p => canvas.top + p.y * canvas.height / 1080);
       return { texture: o.texture.key, frame: String(f.name), left: Math.min(...xs), right: Math.max(...xs), top: Math.min(...ys), bottom: Math.max(...ys) };
     });
-    return { stage, panel: rect(panel), viewport: { width: innerWidth, height: innerHeight }, frames, controls, textProblems, actors,
+    const stats = document.querySelector('.result-grid'), lastStat = stats?.lastElementChild;
+    return { stage, panel: rect(panel), portrait: stageEl.classList.contains('portrait-display'), castCaptionVisible: visible(document.querySelector('.result-cast-label')), statGrid: stats && visible(stats) ? rect(stats) : null, lastStat: lastStat && visible(lastStat) ? rect(lastStat) : null, viewport: { width: innerWidth, height: innerHeight }, frames, controls, textProblems, actors,
       panes: panes.length, documentOverflow: Math.max(document.documentElement.scrollHeight - innerHeight, document.documentElement.scrollWidth - innerWidth),
       selectedTabs: [...document.querySelectorAll('.result-tabs button')].filter(el => el.getAttribute('aria-selected') === 'true').length,
     };
   });
+}
+
+async function assertPinnedControls(page, label) {
+  // Hit testing follows the painted scroll position, not an intermediate compositor frame.
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  const blocked = await page.evaluate(() => [...document.querySelectorAll('.result-tabs button, .result-actions button')].filter(el => {
+    const r = el.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return r.left < -1 || r.right > innerWidth + 1 || r.top < -1 || r.bottom > innerHeight + 1 || (!el.disabled && hit !== el && !el.contains(hit));
+  }).map(el => { const r = el.getBoundingClientRect(), hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { name: el.textContent.trim(), rect: r.toJSON(), hit: hit?.className }; }));
+  assert.deepEqual(blocked, [], `${label}: tabs and primary actions stay visible while details scroll`);
+}
+
+async function assertScrollableControls(page, label) {
+  const body = page.locator('.result-body');
+  const controls = body.locator('button').filter({ visible: true });
+  for (const control of await controls.all()) {
+    if (await control.isDisabled()) continue;
+    await control.scrollIntoViewIfNeeded();
+    assert.equal(await control.evaluate(el => {
+      const r = el.getBoundingClientRect(), hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return r.top >= 0 && r.bottom <= innerHeight && (hit === el || el.contains(hit));
+    }), true, `${label}: ${await control.innerText()} must be reachable by normal scrolling`);
+    await assertPinnedControls(page, label);
+  }
+  await body.evaluate(el => { el.scrollTop = el.scrollHeight; });
+  await assertPinnedControls(page, label);
+  await body.evaluate(el => { el.scrollTop = 0; });
+}
+
+async function checkPractice(page, language, learning, label) {
+  // Restore the same long, real-pattern presentation fixture at every size.
+  await page.evaluate(async learning => {
+    const loaded = performance.getEntriesByType('resource').map(entry => entry.name).find(url => new URL(url).pathname === '/src/game/systems/SaveSystem.ts');
+    const { SaveSystem } = await import(loaded);
+    SaveSystem.get().records.learning = learning;
+  }, learning);
+  await page.getByRole('button', { name: /^(고쳐서 다시 해보기|새 낱말 도전|Correct and retry|New words) ·/ }).click();
+  const dialog = page.locator('.practice-panel');
+  await dialog.waitFor();
+  const reason = dialog.locator('[data-pattern="spacing"]');
+  if (await reason.count()) {
+    await reason.click();
+    await dialog.getByRole('button', { name: language === 'ko' ? '이제 고쳐 써 보기 →' : 'Now fix it →', exact: true }).click();
+  }
+  for (let index = 0; index < 3; index++) {
+    const input = dialog.locator('.practice-input');
+    await input.scrollIntoViewIfNeeded();
+    await input.fill(await dialog.locator('.practice-target').innerText());
+    await dialog.getByRole('button', { name: language === 'ko' ? '확인 · Enter' : 'Check · Enter', exact: true }).click();
+    const bounds = await dialog.evaluate(el => ({ rect: el.getBoundingClientRect().toJSON(), overflowX: el.scrollWidth - el.clientWidth, viewport: { width: innerWidth, height: innerHeight } }));
+    assert.ok(bounds.rect.left >= -1 && bounds.rect.right <= bounds.viewport.width + 1 && bounds.rect.top >= -1 && bounds.rect.bottom <= bounds.viewport.height + 1 && bounds.overflowX <= 1, `${label}: practice dialog fits the viewport ${JSON.stringify(bounds)}`);
+  }
+  assert.ok(await dialog.locator('.practice-success').isVisible(), 'All three practice targets completed');
+  await page.screenshot({ path: `${OUT}/${label}-practice.png` });
+  await dialog.getByRole('button', { name: language === 'ko' ? '모험으로 돌아가기' : 'Return to adventure', exact: true }).click();
+  await dialog.waitFor({ state: 'hidden' });
+  await settled(page);
+  assert.equal(await page.locator('#result-tab-1').getAttribute('aria-selected'), 'true', 'Closing practice restores the Growth tab');
+  await assertPinnedControls(page, label);
 }
 
 function assertFit(m, label) {
@@ -123,19 +185,23 @@ function assertFit(m, label) {
   assert.equal(m.selectedTabs, 1, `${label}: one selected result tab`);
   assert.ok(m.documentOverflow <= 1, `${label}: document must not scroll`);
   for (const frame of m.frames) {
-    assert.ok(contains(m.stage, frame), `${label}: ${frame.name} outside screen ${JSON.stringify(frame)}`);
+    assert.ok(frame.inBody || contains(m.stage, frame), `${label}: ${frame.name} outside screen ${JSON.stringify(frame)}`);
     if (frame.parent) assert.ok(contains(frame.parent, frame), `${label}: reward/detail card overlaps its page controls ${JSON.stringify(frame)}`);
-    assert.ok(frame.overflowX <= 1 && frame.overflowY <= 1 && frame.scrollTop === 0, `${label}: ${frame.name} must fit without scrolling ${JSON.stringify(frame)}`);
+    assert.ok(frame.overflowX <= 1 && (frame.scrolls || frame.overflowY <= 1), `${label}: ${frame.name} clips content outside its scrolling body ${JSON.stringify(frame)}`);
   }
   assert.deepEqual(m.textProblems, [], `${label}: all text must be readable without clipping`);
   assert.ok(m.controls.filter(c => c.main).length >= 2, `${label}: main navigation buttons present`);
   for (const button of m.controls) {
-    assert.ok(contains(m.stage, button) && contains(m.panel, button), `${label}: ${button.name} button outside panel`);
-    assert.ok(button.disabled || button.hit, `${label}: ${button.name} button blocked`);
-    if (button.main) assert.ok(button.height >= 47 && button.width >= 43, `${label}: ${button.name} main button too small`);
+    assert.ok(button.inBody || (contains(m.stage, button) && contains(m.panel, button)), `${label}: ${button.name} button outside panel`);
+    assert.ok(button.disabled || (button.inBody && !button.inBodyView) || button.hit, `${label}: ${button.name} button blocked`);
+    if (button.main || button.tab) assert.ok(button.height >= 47 && button.width >= 43, `${label}: ${button.name} primary/tab button too small`);
   }
   assert.ok(m.actors.some(a => a.texture.startsWith('char_')) && m.actors.some(a => a.texture.startsWith('pet_')), `${label}: actual adventurer and pet visible`);
-  for (const actor of m.actors) {
+  if (m.portrait) {
+    assert.equal(m.castCaptionVisible, false, `${label}: the wide-scene caption must not show behind the portrait panel`);
+    if (m.statGrid) assert.ok(Math.abs(m.statGrid.width - m.lastStat.width) <= 1, `${label}: the final score fills the portrait statistics row`);
+  }
+  for (const actor of m.portrait ? [] : m.actors) {
     assert.ok(contains(m.stage, actor), `${label}: ${actor.texture} outside game frame ${JSON.stringify(actor)}`);
     assert.ok(!overlaps(m.panel, actor), `${label}: panel covers ${actor.texture} ${JSON.stringify({ panel: m.panel, actor })}`);
   }
@@ -154,6 +220,7 @@ try {
     try {
       await page.goto(BASE, { waitUntil: 'domcontentloaded' });
       await page.locator('.opening-skip').click({ timeout: 60000 });
+      await page.locator('.home-menu').waitFor({ timeout: 60000 });
       await page.waitForFunction(() => !document.querySelector('.opening-player') && !document.querySelector('#fade.on') && !document.getElementById('ui-stage').inert);
       await page.evaluate(async result => {
         // Vite HMR may have loaded the live singleton with a ?t= revision. Import
@@ -190,12 +257,30 @@ try {
             while (true) {
               const m = await inspect(page); measurements.push({ tab: i, page: pageIndex, ...m });
               assertFit(m, `${label} tab${i} page${pageIndex}`);
-              if ([1280, 915].includes(width)) await page.screenshot({ path: `${OUT}/${label}-tab${i}-page${pageIndex}.png` });
+              await assertScrollableControls(page, `${label} tab${i} page${pageIndex}`);
+              if (pageIndex === 0) await page.screenshot({ path: `${OUT}/${label}-tab${i}-page${pageIndex}.png` });
               const next = page.locator('[data-result-page-next]').filter({ visible: true });
               if (!await next.count() || await next.first().isDisabled()) break;
               assert.ok(pageIndex < 30, 'pagination must end within the bounded fixture');
               await next.first().click(); await settled(page); pageIndex++;
             }
+          }
+          if (kind === 'rich-clear') {
+            await tabs.nth(1).click(); await settled(page);
+            for (let back = 0; back < 31; back++) {
+              const previous = page.locator('[data-result-page-prev]').filter({ visible: true });
+              if (!await previous.count() || await previous.first().isDisabled()) break;
+              assert.ok(back < 30, 'practice search can rewind to the first page');
+              await previous.first().click();
+            }
+            for (let forward = 0; forward < 31; forward++) {
+              if (await page.getByRole('button', { name: /^(고쳐서 다시 해보기|새 낱말 도전|Correct and retry|New words) ·/ }).count()) break;
+              assert.ok(forward < 30, 'practice action must exist in Growth');
+              const next = page.locator('[data-result-page-next]').filter({ visible: true }).first();
+              assert.ok(await next.isEnabled(), 'practice action is reachable before the last page');
+              await next.click();
+            }
+            await checkPractice(page, language, structuredClone(save.records.learning), label);
           }
           assert.deepEqual(errors, [], 'no browser runtime exceptions');
           results.push({ label, pass: true, measurements }); console.log(`PASS ${label}`);

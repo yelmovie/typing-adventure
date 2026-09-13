@@ -23,7 +23,7 @@ import { playClassFx } from './ClassFx';
 const PLAYER_POS = { x: 960, y: 520 };
 const ARENA_OUTER = { x: 830, y: 345 };
 const ARENA_TOUCH = { x: 125, y: 58 };
-const MONSTER_VISUAL_SCALE = 0.75;
+const MONSTER_VISUAL_SCALE = 0.5; // 2/3 of the former 0.75 presentation size
 const LANE_ORDER = [0, 4, 2, 6, 1, 5, 3, 7]; // 같은 쪽만 연달아 나오지 않게 반대편을 번갈아 배치
 
 function laneAngle(uid: number) {
@@ -119,11 +119,16 @@ class Mob {
     this.labelDone.setText(chars.slice(0, this.done).join(''));
     this.labelRest.setText(chars.slice(this.done).join(''));
     const w = this.labelDone.width + this.labelRest.width;
-    // 글자 상자는 origin(0,1) 이라 이 값이 글자의 아래끝이다. 위쪽 진입로에서는
-    // HUD 뒤로 숨지 않도록 몬스터 발아래로 내려 언제나 낱말 전체가 보이게 한다.
-    const preferredBottom = this.enemy.sprite.y - this.enemy.sprite.displayHeight + 12;
+    // Keep the whole monster-and-word pair below the HUD, including at spawn.
+    // Never move a word beneath its monster: that makes target ownership unclear.
+    const sprite = this.enemy.sprite;
     const labelHeight = Math.max(this.labelDone.height, this.labelRest.height);
-    const top = preferredBottom - labelHeight < 112 ? this.enemy.sprite.y + labelHeight + 18 : preferredBottom;
+    const scale = Math.min(window.innerWidth / DESIGN_W, window.innerHeight / DESIGN_H);
+    const safeTop = window.innerHeight > window.innerWidth ? 120 : Math.max(120, 80 / scale);
+    const headOffset = (sprite.frame.y - sprite.displayOriginY) * sprite.scaleY;
+    sprite.y = Math.max(sprite.y, safeTop + labelHeight + 6 - headOffset);
+    this.enemy.shadow.setPosition(sprite.x, sprite.y + 6);
+    const top = sprite.y + headOffset - 6;
     const x0 = this.enemy.sprite.x - w / 2;
     this.labelDone.setPosition(x0, top);
     this.labelRest.setPosition(x0 + this.labelDone.width, top);

@@ -22,7 +22,7 @@ const save = (completed) => ({
 });
 const run = async (label, fn, options = {}) => {
   if (FILTER && !new RegExp(FILTER).test(label)) return;
-  browser = await chromium.launch({channel:process.env.FINALE_BROWSER_CHANNEL || undefined});
+  browser = await chromium.launch({ channel: process.env.FINALE_BROWSER_CHANNEL || 'chrome' });
   const { completed = true, ...contextOptions } = options;
   const context = await browser.newContext({ viewport: { width: 1600, height: 900 }, serviceWorkers:'block', ...contextOptions });
   // 병렬 개발의 HMR 새로고침이 진행 중인 미디어 검사를 초기화하지 않게 격리한다.
@@ -38,11 +38,12 @@ const run = async (label, fn, options = {}) => {
   page.on('request', request => { if (request.url().endsWith('/finale-v1.mp4')) requests.push(request.url()); });
   try {
     await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await page.waitForSelector('.home-menu', { timeout: 60000 });
-    await page.waitForFunction(() => !document.querySelector('#fade.on') && !document.getElementById('ui-stage').inert);
     // A fresh document offers the opening film, independently of the finale.
+    // Reduced motion starts the runtime only after the player skips or plays it.
     await page.locator('.opening-skip').click({ timeout: 60000 });
     await page.locator('.opening-player').waitFor({ state: 'detached' });
+    await page.waitForSelector('.home-menu', { timeout: 60000 });
+    await page.waitForFunction(() => !document.querySelector('#fade.on') && !document.getElementById('ui-stage').inert);
     assert.equal(requests.length, 0, '홈에서는 완주 영상을 내려받지 않는다');
     await fn(page, requests);
     await homeRestored(page);
@@ -286,7 +287,7 @@ try {
   }, {reducedMotion:'reduce'});
 } finally {
   fs.writeFileSync(`${OUT}/results.json`, JSON.stringify(results, null, 2));
-  await browser.close();
+  await browser?.close();
 }
 
 

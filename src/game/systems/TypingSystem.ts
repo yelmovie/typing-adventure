@@ -76,6 +76,9 @@ export class TypingSystem {
       }
       if (ke.key === 'Backspace') this.usedBackspace = true;
       if (ke.key.startsWith('Arrow')) {
+        if (isComposingKey || this.composing) return;
+        // Sentence correction needs native caret movement and text selection.
+        if (this.mode === 'sentence' && (ke.key === 'ArrowLeft' || ke.key === 'ArrowRight')) return;
         ke.preventDefault();
         this.cb.onMove?.(ke.key.slice(5).toLowerCase() as 'left' | 'right' | 'up' | 'down', true);
         return;
@@ -105,7 +108,9 @@ export class TypingSystem {
     });
     on('keyup', (e) => {
       const ke = e as KeyboardEvent;
+      if (ke.isComposing || ke.keyCode === 229 || this.composing) return;
       if (ke.key.startsWith('Arrow')) {
+        if (this.mode === 'sentence' && (ke.key === 'ArrowLeft' || ke.key === 'ArrowRight')) return;
         this.cb.onMove?.(ke.key.slice(5).toLowerCase() as 'left' | 'right' | 'up' | 'down', false);
       }
     });

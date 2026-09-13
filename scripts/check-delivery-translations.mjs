@@ -13,6 +13,7 @@ for (const [index, name] of ['푸른 숲', '네온 시티', '사막 유적', '�
 }
 for (const daily of ['오늘의 도전', '오늘의 문장', '오늘의 긴 글']) for (const status of ['오늘 정확도 기록 갱신!', '오늘도 한 걸음 연습했어요']) cases.push(`${daily} · ${status}`);
 cases.push(
+  '처음이라면 기초부터. 익숙해지면 더 어려운 도전으로 바꿔 봐요.',
   '하늘 모험가, 해냈어요!', '모험가, 해냈어요!', 'Lv.5 별빛 타자', '최고 150', '1 / 20 마리',
   '전송률 50% (5/10 어절)', '450 m · 10.5 m/s 감속', '폭탄 낱말 1.3초', '2:40 · 보스 3페이즈',
   '하늘 · Lv.2', '하늘 · 빨간 스카프 고양이 ·', '· 다음 칭호까지 30코인', '24 · 최고', '123.5타/분',
@@ -34,6 +35,7 @@ const results = cases.map((source) => ({ source, translated: t(source) }));
 for (const { source, translated } of results) assert.ok(!/[가-힣]/.test(translated), `Untranslated compound UI: ${source} => ${translated}`);
 assert.equal(t('STAGE 1 · 푸른 숲 · 시간이 다 됐어요'), 'STAGE 1 · Blue Forest · Time is up');
 assert.equal(t('전송률 50% (5/10 어절)'), 'Sent 50% (5/10 words)');
+assert.ok(t('처음이라면 기초부터. 익숙해지면 더 어려운 도전으로 바꿔 봐요.').includes(t('기초')), 'Setup guidance names the actual difficulty button');
 assert.equal(t('처음 보는 연습 문장은 그대로'), '처음 보는 연습 문장은 그대로', 'Unknown exercise prose is not guessed');
 setLanguage('ko');
 for (const source of cases) assert.equal(t(source), source, 'Korean UI stays unchanged');

@@ -99,7 +99,7 @@ export class SetupScreen extends Screen {
     }, h('span', { class: 'num' }, String(i + 1)), label));
     this.stepPanels = [
       h('section', {}, this.sectionTitle(1, '나를 닮은 모험가를 골라요'), h('p', { class: 'setup-step-note' }, '모험가마다 말투와 모습이 달라요. 언제든 바꿀 수 있어요.'), charGrid),
-      h('section', {}, this.sectionTitle(2, '내 속도에 맞춰 시작해요'), h('p', { class: 'setup-step-note' }, '처음이라면 쉬움부터. 익숙해지면 더 어려운 도전으로 바꿔 봐요.'), diffRow),
+      h('section', {}, this.sectionTitle(2, '내 속도에 맞춰 시작해요'), h('p', { class: 'setup-step-note' }, '처음이라면 기초부터. 익숙해지면 더 어려운 도전으로 바꿔 봐요.'), diffRow),
       h('section', {}, this.sectionTitle(3, '함께할 친구를 골라요'), h('p', { class: 'setup-step-note' }, '친구의 도움을 살펴봐요. 새로 만난 친구도 여기서 선택해요.'), petGrid),
     ];
     this.stepPanels.forEach((el, i) => {
