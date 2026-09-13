@@ -100,7 +100,7 @@ try{
   for(let i=0;i<3;i++)await page.locator('.setup-footer .btn-primary').click();
   await ready(page,'.story-modal');assert.equal((await save(page)).profile.name,'보라');assert.equal((await stored(page)).profile.characterId,'pink_girl');
   await page.locator('.story-actions button').first().click();await ready(page,'.tutorial-menu');
-  await page.locator('.tutorial-header button').click();await ready(page,'.journey-map');await page.locator('.worldmap .topbar-common > button').first().click();await inspectHome(page,'pink_girl',language==='en'?'Bora':'보라');
+  await page.locator('.tutorial-leave').click();await ready(page,'.journey-map');await page.locator('.worldmap .topbar-common > button').first().click();await inspectHome(page,'pink_girl',language==='en'?'Bora':'보라');
   return {language,name:(await save(page)).profile.name};
  });
 }finally{await browser.close();fs.writeFileSync(`${OUT}/results.json`,JSON.stringify(results,null,2));}

@@ -95,6 +95,8 @@ export interface SaveProgress {
   tutorialCompleted?: boolean;
   /** First-time preparation, archived independently for Korean and English. */
   practicedParts?: Array<'consonants' | 'vowels' | 'sentences' | 'story'>;
+  /** Stages whose warm-up was intentionally skipped; kept separate from completed practice. */
+  skippedPracticeStages?: Array<Exclude<StageId, 'daily'>>;
   unlockedStage: number;
   stageStars: Record<string, number>;
   clearedStages: string[];

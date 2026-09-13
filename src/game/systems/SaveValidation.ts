@@ -18,7 +18,7 @@ export function defaultSave(): SaveData {
   return {
     version: CURRENT_SAVE_VERSION,
     profile: { name: '', characterId: 'brown_boy', petId: 'cat', difficulty: 'normal' },
-    progress: { tutorialCompleted: false, practicedParts: [], unlockedStage: 1, stageStars: {}, clearedStages: [], coins: 0, fails: {}, assist: {} },
+    progress: { tutorialCompleted: false, practicedParts: [], skippedPracticeStages: [], unlockedStage: 1, stageStars: {}, clearedStages: [], coins: 0, fails: {}, assist: {} },
     records: { bestCpm: 0, bestAccuracy: 0, bestCombo: 0, bestScoreByStage: {}, ghosts: {}, daily: {}, learning: { patterns: {}, recent: [], seen: [] } },
     collection: { badges: [], wordsSeen: [], petsUnlocked: ['cat', 'rabbit'], charactersUnlocked: characters.slice(0, 3), enemiesSeen: [] },
     settings: { language: 'ko', bgm: true, sfx: true, screenShake: true, showKeyboardGuide: false, bgmVolume: 0.7, sfxVolume: 0.9, prologueSeen: false },
@@ -57,6 +57,7 @@ export function validateSave(value: unknown, includeArchives = true): SaveData {
   d.progress = {
     tutorialCompleted: bool(progress.tutorialCompleted, false),
     practicedParts: strings(progress.practicedParts, 4).filter((part): part is NonNullable<SaveData['progress']['practicedParts']>[number] => ['consonants', 'vowels', 'sentences', 'story'].includes(part)),
+    skippedPracticeStages: strings(progress.skippedPracticeStages, stages.length).filter((id): id is NonNullable<SaveData['progress']['skippedPracticeStages']>[number] => stages.includes(id)),
     unlockedStage: Math.max(1, Math.floor(num(progress.unlockedStage, 1, stages.length))),
     stageStars: Object.fromEntries(entries(progress.stageStars).filter(([id]) => stages.includes(id)).map(([id, n]) => [id, Math.floor(num(n, 0, 3))])),
     clearedStages: strings(progress.clearedStages).filter((id) => stages.includes(id)), coins: num(progress.coins),

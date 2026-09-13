@@ -38,14 +38,27 @@ try {
       assert.ok(handLegend.includes(language==='ko'?'오른손':'Right hand'));
       const keyboardFit=await page.locator('.tutorial-keyboard').evaluate(el=>({x:el.scrollWidth-el.clientWidth,y:el.scrollHeight-el.clientHeight}));
       assert.ok(keyboardFit.x<=1&&keyboardFit.y<=1,`Keyboard guide overflows: ${JSON.stringify(keyboardFit)}`);
-      await page.locator('.tutorial-header button').focus();await page.locator('.tutorial-header button').press('Enter');await settled();
+      assert.equal(await page.locator('.tutorial-skip').count(),0,'Free practice only needs Leave');
+      await page.locator('.tutorial-leave').focus();await page.locator('.tutorial-leave').press('Enter');await settled();
       for(const [stageId,expected] of (width===1280?[['stage_1',3],['stage_2',3],['stage_3',1],['stage_4',2]]:[['stage_4',2]])){
         await navigate('intro',stageId);
         assert.equal(await page.locator('.intro-battle').count(),0);
         await page.locator('.intro-practice').click();await page.locator('#tutorial-input').waitFor();await settled();
+        assert.ok(await page.locator('.tutorial-skip').isVisible(),'Required warm-up offers a skip button');
+        await page.locator('.tutorial-skip').click();await settled();
+        assert.equal(await gameCall('currentScreen'),'battle','Skipping warm-up starts the battle');
+        await navigate('intro',stageId);
+        assert.ok(await page.locator('.intro-battle').isEnabled(),'Skipped warm-up is not forced again');
+        assert.ok((await page.locator('.intro-practice-status').innerText()).includes(language==='ko'?'건너뛰었어요':'skipped the warm-up'),'Intro explains the skip in child-friendly language');
+        const skipState=await page.evaluate(async(stageId)=>{const {SaveSystem}=await import('/src/game/systems/SaveSystem.ts');const p=SaveSystem.get().progress;return {stages:p.skippedPracticeStages??[],parts:p.practicedParts??[]};},stageId);
+        assert.ok(skipState.stages.includes(stageId),'Skip is stored separately');
+        assert.equal(skipState.parts.includes(({stage_1:'consonants',stage_2:'vowels',stage_3:'sentences',stage_4:'story'})[stageId]),false,'Skip does not forge a completed lesson');
+        await page.evaluate(async(stageId)=>{const {SaveSystem}=await import('/src/game/systems/SaveSystem.ts');const p=SaveSystem.get().progress;p.skippedPracticeStages=(p.skippedPracticeStages??[]).filter(id=>id!==stageId);SaveSystem.save();},stageId);
+        await navigate('intro',stageId);assert.equal(await page.locator('.intro-battle').count(),0,'Removing the skip restores the warm-up gate');
+        await page.locator('.intro-practice').click();await page.locator('#tutorial-input').waitFor();await settled();
         await page.locator('#tutorial-input').fill('wrong');await page.locator('#tutorial-input').press('Enter');
         assert.equal(await page.locator('.tutorial-next').isVisible(),false);
-        await page.locator('.tutorial-header button').click();await settled();
+        await page.locator('.tutorial-leave').click();await settled();
         assert.equal(await page.locator('.intro-battle').count(),0,'Leaving incomplete preparation does not unlock battle');
         await navigate('battle',stageId);await page.locator('#tutorial-input').waitFor();
         for(let index=0;index<expected;index++){
@@ -54,6 +67,7 @@ try {
           await input.fill(target);await input.press('Enter');
         }
         assert.ok(await page.locator('.tutorial-next').isVisible());
+        assert.equal(await page.locator('.tutorial-skip').isVisible(),false,'Skip disappears after practice is complete');
         await page.screenshot({path:`${OUT}/${language}-${width}-${stageId}-complete.png`});
         await page.locator('.tutorial-next').click();await settled();
         assert.equal(await gameCall('currentScreen'),'battle','Finishing warm-up goes straight into battle');

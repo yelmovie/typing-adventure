@@ -21,5 +21,7 @@ export function practicedParts(progress: SaveProgress): PracticePart[] {
 }
 
 export function practiceReady(progress: SaveProgress, stageId: StageId): boolean {
- return stageId === 'daily' || stagePracticeParts(stageId).every(part => practicedParts(progress).includes(part));
+ return stageId === 'daily'
+   || progress.skippedPracticeStages?.includes(stageId) === true
+   || stagePracticeParts(stageId).every(part => practicedParts(progress).includes(part));
 }

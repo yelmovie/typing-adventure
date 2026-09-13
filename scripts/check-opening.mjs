@@ -58,7 +58,7 @@ try {
     assert.equal(await page.locator('#ui-root').evaluate(el => el.inert), false);
     await page.locator('.home-tutorial').click(); await page.locator('.tutorial-part-card').first().click(); await page.waitForSelector('#tutorial-input');
     await page.locator('#ui-stage[aria-busy="true"]').waitFor({ state: 'detached' });
-    await page.locator('.tutorial-header button').click(); await page.waitForSelector('.home-menu');
+    await page.locator('.tutorial-leave').click(); await page.waitForSelector('.home-menu');
     await page.locator('#ui-stage[aria-busy="true"]').waitFor({ state: 'detached' });
     assert.equal(await page.locator('.opening-player').count(), 0, 'Returning home does not force the intro again');
     if (!await page.locator('.home-intro').isVisible()) await page.locator('.home-more > summary').click(); await page.locator('.home-intro').click(); await playing(page);

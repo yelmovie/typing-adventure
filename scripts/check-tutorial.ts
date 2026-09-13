@@ -45,6 +45,10 @@ prep.practicedParts = ['consonants'];
 assert.equal(practiceReady(prep,'stage_1'), true);
 assert.equal(practiceReady(prep,'stage_2'), false);
 assert.equal(practiceReady(defaultSave().progress,'stage_1'), false);
+const skipped = defaultSave().progress;
+skipped.skippedPracticeStages = ['stage_2'];
+assert.equal(practiceReady(skipped,'stage_2'), true,'An intentional skip unlocks only that stage');
+assert.equal(practiceReady(skipped,'stage_1'), false);
 prep.clearedStages=['stage_1','stage_2','stage_3','stage_4'];
 assert.equal(practiceReady(prep,'stage_5'), true, 'Boss reuses earlier parts');
 assert.deepEqual(new TutorialSystem('ko', undefined, true).steps.map(s => s.targets.length), [3, 3, 1, 2]);
@@ -61,6 +65,7 @@ const legacy = validateSave({ records: { ghosts: { stage_2: { samples: [0, 1000]
 assert.equal(legacy.records.ghosts.stage_2.goalDistance, undefined, 'Do not relabel old 1000m records');
 assert.equal(legacy.progress.tutorialCompleted, false);
 assert.deepEqual(validateSave({progress:{practicedParts:['vowels','bad','vowels']}}).progress.practicedParts,['vowels']);
+assert.deepEqual(validateSave({progress:{skippedPracticeStages:['stage_2','daily','bad','stage_2']}}).progress.skippedPracticeStages,['stage_2']);
 const malformed = validateSave({ progress: { tutorialCompleted: 'true' }, records: { ghosts: { stage_2: { goalDistance: Infinity, rulesVersion: -1 } } } });
 assert.equal(malformed.progress.tutorialCompleted, false);
 assert.equal(malformed.records.ghosts.stage_2.goalDistance, undefined);

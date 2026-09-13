@@ -1,5 +1,7 @@
 .tutorial { color: #f8f6ef; }
 .tutorial-header { position: absolute; inset: 34px 48px auto; display: flex; align-items: center; justify-content: space-between; font-size: max(25px, calc(18 * var(--ui-unit))); }
+.tutorial-header-actions { display: flex; align-items: center; gap: 12px; }
+.tutorial-header-actions .btn { white-space: nowrap; }
 .tutorial .btn { min-height: calc(48 * var(--ui-unit)); font-size: max(24px, calc(17 * var(--ui-unit))); }
 .tutorial-scene-caption { position: absolute; left: 95px; top: 210px; width: 630px; text-align: center; display: grid; gap: 16px; }
 .tutorial-scene-caption strong { font-size: max(36px, calc(24 * var(--ui-unit))); color: #ffdf82; }

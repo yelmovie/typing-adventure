@@ -23,6 +23,14 @@ export const StagePractice = {
     const progress = progressFor(language);
     if (!progress) return;
     progress.practicedParts = [...new Set([...(progress.practicedParts ?? []), ...stagePracticeParts(stageId)])];
+    progress.skippedPracticeStages = (progress.skippedPracticeStages ?? []).filter(id => id !== stageId);
+    SaveSystem.save();
+  },
+  skip(stageId: StageId, language: GameLanguage, _remix = false) {
+    if (stageId === 'daily') return;
+    const progress = progressFor(language);
+    if (!progress) return;
+    progress.skippedPracticeStages = [...new Set([...(progress.skippedPracticeStages ?? []), stageId])];
     SaveSystem.save();
   },
 };

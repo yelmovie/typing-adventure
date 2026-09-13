@@ -35,7 +35,7 @@ export class TutorialScreen extends Screen<TutorialData> {
     window.clearTimeout(this.focusTimer);
     const lessons = tutorialSteps(getLanguage());
     this.el.replaceChildren(
-      h('header', { class: 'tutorial-header' }, h('span', {}, copy('연습 튜토리얼', 'Practice tutorial')), h('button', { class: 'btn btn-gray', onclick: () => this.leave() }, copy('나가기', 'Leave'))),
+      this.header(),
       h('section', { class: 'tutorial-panel tutorial-menu' },
         h('h1', {}, copy('네 가지 타자 연습', 'Four typing practice parts')),
         h('p', { class: 'tutorial-instruction' }, copy('연습할 파트를 골라요. 틀려도 천천히 고치면 돼요.', 'Choose a part. Take your time and fix any mistakes.')),
@@ -51,6 +51,21 @@ export class TutorialScreen extends Screen<TutorialData> {
   private leave() {
     if (this.data.stageId) void navigate('intro', { stageId: this.data.stageId, remix: this.data.remix });
     else void navigate(this.data.next ?? 'home');
+  }
+  private skipWarmup() {
+    const stageId = this.data.stageId;
+    if (!stageId || stageId === 'daily') return;
+    StagePractice.skip(stageId, getLanguage(), !!this.data.remix);
+    AudioManager.sfx('go');
+    void navigate('battle', { stageId, remix: this.data.remix });
+  }
+  private header() {
+    const canSkip = !!this.data.stageId && this.data.stageId !== 'daily' && !this.data.full;
+    return h('header', { class: 'tutorial-header' },
+      h('span', {}, copy('연습 튜토리얼', 'Practice tutorial')),
+      h('div', { class: 'tutorial-header-actions' },
+        canSkip ? h('button', { type: 'button', class: 'btn btn-sky tutorial-skip', onclick: () => this.skipWarmup() }, copy('건너뛰고 시작', 'Skip & start')) : null,
+        h('button', { type: 'button', class: 'btn btn-gray tutorial-leave', onclick: () => this.leave() }, copy('나가기', 'Leave'))));
   }
   private draw() {
     window.clearTimeout(this.focusTimer);
@@ -111,6 +126,7 @@ export class TutorialScreen extends Screen<TutorialData> {
         StagePractice.completePart(s.part, getLanguage());
         if (m.complete) {
           if (this.data.stageId && this.data.stageId !== 'daily') StagePractice.complete(this.data.stageId, getLanguage(), !!this.data.remix);
+          (this.el.querySelector('.tutorial-skip') as HTMLButtonElement | null)?.setAttribute('hidden', '');
           next.textContent = this.data.stageId ? copy('준비 끝! 모험 시작 →', 'Ready! Start adventure →') : copy('다른 파트 고르기 →', 'Choose another part →');
           feedback.textContent += copy(' 모험 중에는 Esc로 잠깐 쉴 수 있어요.', ' In the adventure, press Esc to take a break.');
         }
@@ -126,7 +142,7 @@ export class TutorialScreen extends Screen<TutorialData> {
       h('div', { class: 'tutorial-keyboard', 'aria-label': copy('자판 안내', 'Keyboard guide') },
         h('div', { class: 'tutorial-keyboard-legend' }, copy('노랑: 다음 키 · 민트: 누른 키', 'Yellow: next key · Mint: pressed key')), keyboard.el), next);
     this.el.replaceChildren(
-      h('header', { class: 'tutorial-header' }, h('span', {}, copy('연습 튜토리얼', 'Practice tutorial')), h('button', { type: 'button', class: 'btn btn-gray', onclick: () => this.leave() }, copy('나가기', 'Leave'))),
+      this.header(),
       h('div', { class: 'tutorial-scene-caption' }, h('strong', {}, copy('한 글자씩, 차근차근!', 'One letter at a time!')), h('span', {}, copy('틀려도 괜찮아. 같이 해보자!', 'We can try again, together.'))), panel);
     paint();
     this.focusTimer = window.setTimeout(() => { if (input.isConnected && !input.disabled) input.focus(); }, 750);
