@@ -27,7 +27,9 @@ export class TrainScene extends Phaser.Scene {
   private bridge?: Phaser.GameObjects.Container;
   private sparks?: Phaser.GameObjects.Particles.ParticleEmitter;
   private telegraph?: Phaser.GameObjects.Image;
-  private gauge?: Phaser.GameObjects.Image;
+  /** 계기판은 소스 시트가 윗부분을 잘라 놓아(칸 넘침) 이미지를 쓰지 않고 그래픽으로 그린다 */
+  private gaugeNeedle?: Phaser.GameObjects.Graphics;
+  private gaugeRatio = 1;
   private lever?: Phaser.GameObjects.Image;
   private speed = 2;
   private dist = 280;
@@ -76,9 +78,12 @@ export class TrainScene extends Phaser.Scene {
     }
     // 전신기·계기판·레버 (소품 시트)
     if (this.textures.exists('fx_train_props')) {
+      // 시트의 전신기 칸 아래에는 다음 칸(계기판)의 윗부분이 딸려 들어와 있다 → 전신기 바닥(소스 y 336)까지만 보이게 자른다.
       this.telegraph = this.add.image(760, DECK_Y - 20, 'fx_train_props', 'c0_r0').setOrigin(0.5, 1).setScale(0.5).setDepth(4);
-      this.gauge = this.add.image(600, DECK_Y - 60, 'fx_train_props', 'c0_r1').setOrigin(0.5, 1).setScale(0.42).setDepth(4);
-      this.lever = this.add.image(900, DECK_Y - 20, 'fx_train_props', 'c0_r2').setOrigin(0.5, 1).setScale(0.45).setDepth(4);
+      this.cropTelegraph();
+      // 레버는 손잡이가 잘리지 않은 프레임(c1_r2)만 쓰고, 당김은 기울기 트윈으로 표현한다.
+      this.lever = this.add.image(900, DECK_Y - 20, 'fx_train_props', 'c1_r2').setOrigin(0.5, 1).setScale(0.45).setDepth(4);
+      this.drawGauge(600, DECK_Y - 130);
       this.add.text(760, DECK_Y - 200, this.english ? 'TELEGRAPH' : '전신기', styleText(32, '#fff2b0')).setOrigin(0.5).setDepth(5);
     } else {
       const tg = this.add.graphics().setDepth(4);
@@ -167,7 +172,7 @@ export class TrainScene extends Phaser.Scene {
     this.speed = t.speed;
     this.dist = t.dist;
     this.distText?.setText(this.english ? `${Math.ceil(t.dist)}m to the broken bridge` : `위험 지점까지 ${Math.ceil(t.dist)}m`);
-    this.gauge?.setFrame(t.speed > 1.2 ? 'c1_r1' : 'c0_r1');
+    this.updateGauge(t.speed);
     this.distText?.setColor(t.dist < 60 ? '#ff4a4a' : t.dist < 140 ? '#ffb347' : '#fff2b0');
     this.warn?.setFillStyle(0xff2a2a, t.dist < 60 && !t.stopped ? this.reducedMotion ? 0.08 : 0.12 + 0.05 * Math.abs(Math.sin(this.time.now / 400)) : 0);
   }
@@ -175,12 +180,48 @@ export class TrainScene extends Phaser.Scene {
   private pulseTelegraph() {
     AudioManager.sfx('tap', { rate: 1.6 });
     if (this.telegraph) {
-      this.telegraph.setFrame('c1_r0');
-      this.time.delayedCall(120, () => this.telegraph?.setFrame('c0_r0'));
+      this.telegraph.setFrame('c1_r0'); this.cropTelegraph();
+      this.time.delayedCall(120, () => { this.telegraph?.setFrame('c0_r0'); this.cropTelegraph(); });
     }
     // 전신기 이미지를 쓸 때 링 중심은 전신기 키 본체(x≈763, y≈630) 위. 840,715 는 코드 그래픽 폴백 시절 좌표라 레버 쪽에 떴다.
     const ring = this.add.ellipse(this.telegraph ? 763 : 840, DECK_Y - (this.telegraph ? 150 : 65), 40, 40, 0xfff2b0, 0.9).setDepth(6).setBlendMode(Phaser.BlendModes.ADD);
     this.tweens.add({ targets: ring, scale: 4, alpha: 0, duration: 450, onComplete: () => ring.destroy() });
+  }
+
+  private cropTelegraph() {
+    const f = this.telegraph?.frame;
+    if (!f || !this.telegraph) return;
+    this.telegraph.setCrop(0, 0, f.width, Math.max(1, 338 - f.y));
+  }
+
+  /** 압력 계기판: 놋쇠 테·크림색 문자판·빨간 위험 구간·바늘. 바늘은 속도(기본 2m/s = 1.0)에 따라 돈다 */
+  private drawGauge(cx: number, cy: number) {
+    const g = this.add.graphics().setDepth(4);
+    g.fillStyle(0x3a2a1a, 1).fillRoundedRect(cx - 14, cy + 40, 28, 70, 6); // 받침 기둥
+    g.fillStyle(0xb8862e, 1).fillRoundedRect(cx - 26, cy + 42, 52, 16, 5);
+    g.fillStyle(0x2b2320, 1).fillCircle(cx, cy, 64);
+    g.fillStyle(0xd7a648, 1).fillCircle(cx, cy, 60);
+    g.fillStyle(0xf3e5c0, 1).fillCircle(cx, cy, 48);
+    g.lineStyle(9, 0xe0473f, 1).beginPath().arc(cx, cy, 40, Phaser.Math.DegToRad(-20), Phaser.Math.DegToRad(50), false).strokePath(); // 위험 구간
+    g.lineStyle(3, 0x3a2a1a, 1);
+    for (let i = 0; i <= 8; i++) { const a = Phaser.Math.DegToRad(-220 + i * 33.75); g.lineBetween(cx + Math.cos(a) * 40, cy + Math.sin(a) * 40, cx + Math.cos(a) * 33, cy + Math.sin(a) * 33); }
+    for (let i = 0; i < 6; i++) { const a = Phaser.Math.DegToRad(i * 60); g.fillStyle(0x8d6a2c, 1).fillCircle(cx + Math.cos(a) * 55, cy + Math.sin(a) * 55, 4); }
+    this.gaugeNeedle = this.add.graphics().setDepth(5);
+    this.gaugeNeedle.setPosition(cx, cy);
+    this.gaugeNeedle.fillStyle(0x2b2320, 1).fillTriangle(-4, 4, 4, 4, 0, -36).fillCircle(0, 0, 6);
+    this.gaugeNeedle.fillStyle(0xd7a648, 1).fillCircle(0, 0, 3);
+    this.updateGauge(this.speed);
+  }
+
+  private updateGauge(speed: number) {
+    if (!this.gaugeNeedle) return;
+    const ratio = Phaser.Math.Clamp(speed / 2, 0, 1.4);
+    if (Math.abs(ratio - this.gaugeRatio) < 0.01 && this.gaugeNeedle.angle !== 0) return;
+    this.gaugeRatio = ratio;
+    // 0 → -130°, 기본 속도(1.0) → +20°(위험 구간 시작), 최대 → +60°
+    const target = -130 + ratio * 150;
+    if (this.reducedMotion) this.gaugeNeedle.setAngle(target);
+    else { this.tweens.killTweensOf(this.gaugeNeedle); this.tweens.add({ targets: this.gaugeNeedle, angle: target, duration: 400, ease: 'Sine.easeOut' }); }
   }
 
   private setOutage(on: boolean) {
@@ -199,8 +240,9 @@ export class TrainScene extends Phaser.Scene {
   private onBrake(stage: number) {
     AudioManager.sfx('hurt', { rate: 0.6, gain: 0.7 });
     if (this.lever) {
-      this.lever.setFrame('c1_r2');
-      this.time.delayedCall(700, () => { if (!this.stopped) this.lever?.setFrame('c0_r2'); });
+      this.tweens.killTweensOf(this.lever);
+      this.lever.setAngle(0);
+      if (!this.reducedMotion) this.tweens.add({ targets: this.lever, angle: -14, duration: 160, yoyo: true, hold: 380, ease: 'Sine.easeInOut', onComplete: () => this.lever?.setAngle(0) });
     }
     if (this.shakeOn && !this.reducedMotion) this.cameras.main.shake(300, 0.01);
     const t = this.add.text(DESIGN_W / 2, 520, this.english ? `Brake ${stage} engaged!` : `브레이크 ${stage}단!`, styleText(56, '#ffd34d')).setOrigin(0.5).setDepth(27).setScale(this.reducedMotion ? 1 : 0.5);
@@ -211,8 +253,9 @@ export class TrainScene extends Phaser.Scene {
 
   private onStop() {
     this.stopped = true;
-    this.lever?.setFrame('c1_r2');
-    this.gauge?.setFrame('c0_r1');
+    this.tweens.killTweensOf(this.lever ?? {});
+    this.lever?.setAngle(-14);
+    this.updateGauge(0);
     this.speed = 0;
     if (this.sparks) this.sparks.emitting = false;
     AudioManager.sfx('clear');
