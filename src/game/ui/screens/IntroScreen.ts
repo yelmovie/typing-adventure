@@ -128,7 +128,7 @@ export class IntroScreen extends Screen<{ stageId: StageId; remix?: boolean }> {
         'div',
         { class: 'intro-actions' },
         h('button', { class: 'btn btn-gray btn-md', onclick: () => { AudioManager.sfx('click'); void navigate('worldmap', { focusIndex: st.index }); } }, '← 지도로'),
-        !practiceReady ? h('button', { class: 'btn btn-primary btn-lg intro-practice', 'data-no-translate': 'true', onclick: () => void navigate('tutorial', { stageId: st.id, remix: data.remix }) }, en ? 'Quick warm-up' : '짧게 준비하기') : null,
+        !practiceReady ? h('button', { class: 'btn btn-primary btn-lg intro-practice', 'data-no-translate': 'true', onclick: () => void navigate('tutorial', { stageId: st.id, remix: data.remix }) }, en ? 'Practice, then start' : '연습하고 시작하기') : null,
         practiceReady ? h('button', { class: 'btn btn-primary btn-lg intro-battle', disabled: !st.playable, 'data-no-translate': 'true', onclick: () => { AudioManager.sfx('go'); void navigate('battle', { stageId: st.id, remix: data.remix }); } }, en ? 'Start battle!' : '전투 시작!') : null,
       ),
     );
