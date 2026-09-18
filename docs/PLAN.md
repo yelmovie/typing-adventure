@@ -1,4 +1,4 @@
-# 타이핑 어드벤처 — 작업 계획서 (2026-09-10 현행 안내 추가)
+# 타이핑 어드벤처 — 작업 계획서 (2026-09-18 재도전 동력 검증까지)
 
 > 현행 구현과 검증은 아래 안내, `reviews/BOSS-MOTION-20260910.md`, `reviews/QUALITY-EVIDENCE-20260910.md`를 먼저 확인한다. 최종 산출물과 실행 경로는 `delivery/HANDOFF.md`를 따른다.
 > 아래 번호 장들은 2026-09-09까지의 설계·완료·남은 과제 이력을 보존한 것이다. 과거의 "미구현"이나 "다음 작업"을 현재 상태로 간주하지 않는다.
@@ -390,4 +390,6 @@ DOM 좌표는 전부 `#ui-stage` 기준으로 1920×1080 디자인 좌표로 환
 - **스피드런**(`SpeedrunSystem.ts`, `records.speedrun`): 홈 「스피드런」 → 5지역 연속, 총 시간 = 지역 elapsed 합(실패 시도는 미포함), 1.5초 막간 오버레이 뒤 다음 지역, 체크포인트에 실려 새로고침 복원, 결과에 "총 9:12 · 최고 → ▲단축" + 구간 기록(`ui/SpeedrunResult.ts`).
 - **어둠 모드**(`data/darkMode.ts`, `modals/DarkModal.ts`, `progress.darkStars/darkCleared`): 홈 「어둠의 모험」 모달에서 지역별 도전, 제한시간·골드 시간 ×0.7, 몬스터/추격자/열차/러시 속도 ×1.3(`stage.speedMul`), 도움 모드 무시, 별은 따로 기록. S5 장문 3개/역할은 콘텐츠가 2개뿐이라 보류.
 
-**집에서 이어서 할 것**: (1) 브라우저 실주행 미검증 — 스피드런 5지역 연속·어둠 모드 진입·홈 히어로를 헤드리스로 한 번 돌리기(`tmp/replay-20260918/probe-a/b/c.mjs` 초안 있음, c 는 미실행). (2) 홈 「이어서 하기」 라벨에 스피드런/어둠 표시. (3) check-popup-fit 에 dark 모달 종류 추가. (4) Vercel 로그인 뒤 배포(`npx vercel login` → `npx vercel --prod`). (5) NotebookLM 인수인계 기록은 이번엔 못 남김.
+**집에서 이어서 한 것 (2026-09-18 저녁, 커밋 42db33c)**: (1) 헤드리스 실주행 `tmp/replay-20260918/probe-a/b/c.mjs` 전부 통과 — a: 지도 도전 카드 칸·도감 완성률·S1 결과 카드, b: 홈 히어로 3뷰포트·출석 7일 점·"어제의 나 → 오늘", c: 스피드런 5지역 연속(막간 "1 / 5 완료", 2지역 도중 새로고침 → 홈 라벨 "이어서 하기 · 스피드런 2/5 · STAGE 2 …" → 누적 유지 → 완주 결과 구간 5개·`records.speedrun.bestSec`·체크포인트 삭제), 어둠 모드(모달 → 소개 "STAGE 1 · 어둠 모드" → 전투 `__dark` → 새로고침 → "이어서 하기 · 어둠 · STAGE 1 …" 복원). 집 PC 는 playwright chromium 이 없어 `channel: 'chrome'` 필수. (2) 홈 「이어서 하기」 라벨에 스피드런 n/5·어둠 표시(`HomeScreen.ts`, 체크포인트 `speedrun`/`dark` 기준). (3) `check-popup-fit` kinds 에 `dark` 추가, 8/8. (4) probe-a 가 잡은 회귀: 915×412 에서 stage_1 노드의 카드 칸이 진행 패널에 가려짐 → `stages.ts` stage_1 y 730→680, 4뷰포트 노드 부품·패널 겹침 0. 검사: typecheck, `npm run check` 17종, check:layout 18/18, build.
+
+**남은 것**: Vercel 배포는 자동 모드 권한에 막혀 미실행 → 터미널에서 `npx vercel --prod` (로그인은 bongbiyobi-9992 로 이미 됨). GitHub 푸시도 요청 시. NotebookLM 인수인계 기록은 이번에도 못 남김. 스피드런 구간 시간은 활동 시간(목표 대기 제외)이라 봇 주행에서 S1 이 0초로 찍힘 — 실제 아동 주행에선 정상, 다만 결과 화면에 0:00 이 보이는 게 어색하면 최소 표기 검토.
