@@ -42,6 +42,7 @@ export class BossScene extends Phaser.Scene {
   private armor?: Phaser.GameObjects.Graphics;
   private finalMarks: Phaser.GameObjects.Rectangle[] = [];
   private finalRole: string | null = null;
+  private finalStepShown = 0;
   private finishing = false;
   private handlers: [string, (...args: never[]) => void][] = [];
 
@@ -61,6 +62,7 @@ export class BossScene extends Phaser.Scene {
     this.phase = 1;
     this.finishing = false;
     this.finalRole = null;
+    this.finalStepShown = 0;
     this.finalMarks = [];
     this.impact = new BossImpact(this);
 
@@ -153,18 +155,21 @@ export class BossScene extends Phaser.Scene {
       const label = this.add.text(0, -88, cr.word.text, { ...styleText(40, '#ffffff'), align: 'center', wordWrap: { width: 196, useAdvancedWrap: true } }).setOrigin(0.5, 1);
       const cracks = this.add.graphics();
       const c = this.add.container(x, y, [glow, gem, cracks, label]).setDepth(10);
-      if (!prefersReducedMotion()) {
+      if (cr.broken) {
+        // Resumed battle: crystals broken before the reload stay broken.
+        glow.setVisible(false); gem.setVisible(false);
+        label.setText('✓').setColor('#ffdf83');
+      } else if (!prefersReducedMotion()) {
         this.tweens.add({ targets: c, y: y - 8, duration: 1200 + i * 150, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
         this.tweens.add({ targets: glow, scale: 1.15, alpha: 0.35, duration: 900, yoyo: true, repeat: -1 });
       }
-      this.crystals.push({ c, label, gem, glow, cracks, broken: false });
+      this.crystals.push({ c, label, gem, glow, cracks, broken: cr.broken });
     });
   }
 
   private hitCrystal(i: number, hp = 1, maxHp = 2) {
     const x = this.crystals[i];
     if (!x || x.broken) return;
-    this.player?.jab();
     this.impact?.launch(this.muzzle(), { x: x.c.x, y: x.c.y }, 'weak', this.lastGlyph, () => {
       if (!x.c.active || x.broken) return;
       AudioManager.sfx('tap', { rate: 1.2 });
@@ -196,7 +201,7 @@ export class BossScene extends Phaser.Scene {
 
   private onPhase(phase: number) {
     this.phase = phase;
-    const txt = phase === 1 ? 'PHASE 1 · 결정을 부숴라' : phase === 2 ? 'PHASE 2 · 멈추지 마!' : 'PHASE 3 · 별빛의 문장';
+    const txt = phase === 1 ? 'PHASE 1 · 결정을 부숴라' : phase === 2 ? 'PHASE 2 · 멈추지 마!' : 'PHASE 3 · 별빛의 장문';
     // Later phases already have a DOM transition banner in BattleScreen.
     this.phaseText?.setText(tr(txt)).setAlpha(phase === 1 ? 1 : 0).setScale(1);
     this.time.delayedCall(1400, () => this.phaseText?.setAlpha(0));
@@ -233,7 +238,6 @@ export class BossScene extends Phaser.Scene {
     const b = this.boss;
     if (!b || b.dead) return;
     const level = d.weak ? 'weak' : d.perfect ? 'perfect' : 'strong';
-    if (d.weak) this.player?.jab();
     const target = { x: BOSS_POS.x - 35, y: BOSS_POS.y - 235 };
     this.impact?.launch(this.muzzle(), target, level, d.weak ? this.lastGlyph : getLanguage() === 'en' ? 'OK' : '완', () => {
       if (b.dead || !b.sprite.active) return;
@@ -280,13 +284,16 @@ export class BossScene extends Phaser.Scene {
 
   private renderFinalState(b: BossInfo) {
     const role = b.finalRole ?? (b.coreExposed ? 'finale' : b.armorBroken ? 'core' : 'armor');
-    if (role === this.finalRole) return;
+    const total = b.finalTotal ?? 3, step = b.finalStep ?? 1;
+    if (role === this.finalRole && step === this.finalStepShown) return;
     this.finalRole = role;
+    this.finalStepShown = step;
     for (const mark of this.finalMarks) mark.destroy();
     this.finalMarks = [];
-    const total = b.finalTotal ?? 3, step = b.finalStep ?? 1;
+    // 장문(6문장)도 보스 발치에 들어가게 간격을 줄인다.
+    const gap = total > 3 ? 44 : 64, size = total > 3 ? 24 : 30;
     for (let i = 0; i < total; i++) {
-      this.finalMarks.push(this.add.rectangle(BOSS_POS.x - 260 - (total - 1) * 32 + i * 64, BOSS_POS.y - 62, 30, 30,
+      this.finalMarks.push(this.add.rectangle(BOSS_POS.x - 260 - (total - 1) * (gap / 2) + i * gap, BOSS_POS.y - 62, size, size,
         i < step - 1 ? 0xffd879 : 0x172644, 0.95).setAngle(45).setStrokeStyle(4, i === step - 1 ? 0xfff0b2 : 0x7593b2).setDepth(11).setName(`boss-final-seal-${i + 1}`));
     }
     this.armor?.clear();

@@ -37,7 +37,7 @@ try {
     for (const config of cases) {
       const events: string[] = [];
       let failReason = '', nextSubmit = config.seconds ?? Infinity, wordStarted = 0, repairing = false, wrongCount = 0, lastCommit = '';
-      const stage = { ...getStage('stage_2'), ...(baseline ? { timeLimitSec: 180, goalTimeSec: 110 } : {}) };
+      const stage = { ...getStage('stage_2'), ...(baseline ? { timeLimitSec: 240, goalTimeSec: 150 } : {}) };
       const race = new RaceSystem(stage, config.difficulty, getPet('rabbit'), pool, null, '', (event, data) => {
         events.push(event);
         if (event === 'STAGE_FAILED') failReason = (data as { reason: string }).reason;
@@ -94,7 +94,7 @@ try {
       all.push(result);
       console.log(JSON.stringify({ ...result, trace: undefined }));
       if (!baseline) {
-        assert.equal(result.goal, 500);
+        assert.equal(result.goal, 800);
         if (['idle', 'only-wrong', 'prefix-only', 'one-word-then-stop'].includes(config.name)) {
           assert.equal(result.cleared, false, `${language} ${config.name}: 완성 입력 없이 자동 완주 금지`);
           assert.equal(result.failed, true);

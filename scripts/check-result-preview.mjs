@@ -16,7 +16,7 @@ const results=[],browser=await chromium.launch({channel:'chrome'});
 try {
   for(const language of ['ko','en']) {
     const context=await browser.newContext({viewport:{width:1280,height:800},serviceWorkers:'allow'});
-    await context.addInitScript(({KEY,language})=>localStorage.setItem(KEY,JSON.stringify({version:'2',profile:{name:'Result check',characterId:'glasses_boy',petId:'rabbit',difficulty:'normal'},progress:{unlockedStage:5,clearedStages:['stage_1'],stageStars:{stage_1:3},coins:123,tutorialCompleted:true},settings:{language,bgm:false,sfx:false,prologueSeen:true,showKeyboardGuide:false}})),{KEY,language});
+    await context.addInitScript(({KEY,language})=>localStorage.setItem(KEY,JSON.stringify({version:'2',profile:{name:'Result check',characterId:'glasses_boy',petId:'rabbit',difficulty:'normal'},progress:{unlockedStage:3,clearedStages:['stage_1','stage_2'],stageStars:{stage_1:3,stage_2:2},coins:123,tutorialCompleted:true},settings:{language,bgm:false,sfx:false,prologueSeen:true,showKeyboardGuide:false}})),{KEY,language});
     const page=await context.newPage(),errors=[];page.setDefaultTimeout(60000);
     page.on('pageerror',e=>errors.push(e.message));
     const ready=async selector=>{await page.locator(selector).waitFor({state:'visible'});await page.waitForFunction(()=>!document.querySelector('#fade.on')&&!document.querySelector('#ui-stage[aria-busy]'));};

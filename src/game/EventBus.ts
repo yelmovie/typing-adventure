@@ -62,6 +62,9 @@ export const Events = {
   LETTER_IDLE: 'LETTER_IDLE',
   LETTER_SECRET: 'LETTER_SECRET',
   LETTER_GATE: 'LETTER_GATE',
+  LETTER_CHOICE: 'LETTER_CHOICE', // 다음 조각 고르기 시작 { choices, index, total, choose(i) }
+  LETTER_CHOICE_OK: 'LETTER_CHOICE_OK', // 정답 조각 { index, text }
+  LETTER_CHOICE_WRONG: 'LETTER_CHOICE_WRONG', // 오답 조각 { index, text, hint, mistakes }
   // 스테이지 4 전보
   TELE_TICK: 'TELE_TICK',
   TELE_WORD: 'TELE_WORD',

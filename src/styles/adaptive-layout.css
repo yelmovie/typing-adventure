@@ -12,7 +12,7 @@
 #ui-stage .mode-wave .battle-bottom { min-height: 0; padding: 14px 24px; }
 #ui-stage .mode-wave .bb-target { font-size: max(52px, calc(30 * var(--ui-unit))); line-height: 1.2; white-space: normal; }
 #ui-stage .mode-wave .bb-input { padding: 8px 20px; }
-#ui-stage .mode-wave .battle-top { height: auto; min-height: max(88px, calc(60 * var(--ui-unit))); grid-template-columns: auto minmax(180px, 1fr) auto; }
+#ui-stage .mode-wave .battle-top { height: auto; min-height: max(88px, calc(60 * var(--ui-unit))); grid-template-columns: auto minmax(180px, 1fr) auto auto; }
 #ui-stage .mode-wave .battle-left-col { top: max(116px, calc(76 * var(--ui-unit))); }
 #ui-stage .mode-wave .bt-stage { flex-wrap: wrap; }
 #ui-stage .mode-wave .bt-stage .s1 { white-space: nowrap; }
@@ -124,6 +124,11 @@
 #ui-stage.portrait-display .bb-hint { font-size: var(--read-copy); }
 #ui-stage.portrait-display .bb-input { font-size: calc(22 * var(--ui-unit)); padding: 10px 16px; }
 #ui-stage.portrait-display .combo-box { top: 40%; right: var(--layout-edge); left: auto; }
+/* 푸른 숲의 콤보 배지는 HUD 바 1행에서 스테이지와 스탯 사이에 둔다(2행은 진행도가 전체 폭을 쓴다) */
+#ui-stage.portrait-display .mode-wave .battle-top { grid-template-columns: minmax(0, 1fr) auto auto; }
+#ui-stage.portrait-display .mode-wave .battle-top .combo-box { grid-column: 2; grid-row: 1; }
+#ui-stage.portrait-display .mode-wave .battle-top .bt-stats { grid-column: 3; }
+#ui-stage.portrait-display.narrow-display .battle-top .combo-box { min-width: 104px; padding: 2px 8px; }
 #ui-stage.portrait-display .judge-pop { --judge-bottom: calc(280 * var(--ui-unit)); }
 #ui-stage.portrait-display .kbd-guide { width: calc(100% - 40px); padding: 20px; }
 #ui-stage.portrait-display .kbd-row { gap: 5px; }

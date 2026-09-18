@@ -43,6 +43,8 @@ try {
     }else await page.locator('.intro-battle').click();
     await ready('.bb-input');let inputs=0;
     while(!await page.locator('.result-panel').count()){
+     // 편지(stage_3) 「다음 조각 고르기」: production 에는 __battle 이 없어 1·2·3 을 차례로 눌러 정답 조각을 찾는다(오답은 읽기 실수로만 남는다).
+     if(index===2){for(let n=0;n<24&&!await page.locator('.result-panel').count()&&await page.locator('.bb-input').isDisabled();n++){await page.keyboard.press(String(n%3+1));await page.waitForTimeout(250);}}
      await page.waitForFunction(()=>document.querySelector('.result-panel')||document.querySelector('.bb-input')&&!document.querySelector('.bb-input').disabled&&document.querySelector('.bb-target')?.textContent?.trim());
      if(await page.locator('.result-panel').count())break;
      await page.waitForTimeout(index===1?1000:180);

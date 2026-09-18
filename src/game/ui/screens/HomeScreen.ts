@@ -3,7 +3,7 @@ import { h, icon, uiImg } from '../../util/dom';
 import { SaveSystem } from '../../systems/SaveSystem';
 import { navigate, currentScreen } from '../../Game';
 import { getCharacter, getPet, portraitUrl, profileDisplayName } from '../../data/characters';
-import { DIFFICULTY_LABEL } from '../../data/stages';
+import { DIFFICULTY_LABEL, getStage } from '../../data/stages';
 import { collectionModal, certificateModal, confirmModal, dailyPickModal, replayModal, introMovieModal, homeMenuModal, closeModal } from '../ModalController';
 import { AudioManager } from '../../systems/AudioManager';
 import { currentTitle, nextTitle, unlockedDecors } from '../../data/titles';
@@ -124,12 +124,25 @@ export class HomeScreen extends Screen {
       },
     }, language === 'en' ? 'More adventure options' : '모험 메뉴 더보기');
     more.append(moreButton);
+    // 새로고침으로 끊긴 전투가 있으면(2시간 이내, 같은 언어) 그 자리부터 이어가거나 처음부터 시작할 수 있다.
+    const checkpoint = has ? SaveSystem.checkpoint() : undefined;
+    const resume = checkpoint && checkpoint.language === language ? checkpoint : undefined;
+    const resumeChoice = resume ? (() => {
+      const st = getStage(resume.stageId);
+      const region = st.id === 'daily' ? (language === 'en' ? 'Daily practice' : '오늘의 도전') : `STAGE ${st.index} ${journeyFor(st.id, language)?.region ?? st.name}`;
+      const progress = resume.unit === 'm' ? `${resume.done}m/${resume.total}m` : `${resume.done}/${resume.total}`;
+      return h('div', { class: 'home-resume', 'data-no-translate': 'true' },
+        this.btn(icon('pin'), language === 'en' ? `Continue · ${region} (${progress})` : `이어서 하기 · ${region} (진행 ${progress})`, 'btn-primary btn-lg home-resume-continue',
+          () => void navigate('battle', { stageId: resume.stageId, remix: resume.remix, dailyKind: resume.dailyKind, resume: true })),
+        this.btn(icon('flag'), language === 'en' ? 'Start over' : '처음부터', 'btn-gray btn-md home-resume-restart', () => { SaveSystem.clearCheckpoint(); this.show({}); }));
+    })() : null;
     const menu = h('div', { class: 'home-menu journey-home-menu' },
       h('div', { class: 'home-journey', 'data-no-translate': 'true' },
         h('span', { class: 'home-journey-mark', 'aria-hidden': 'true' }, '✦'),
         h('span', {}, !has ? (language === 'en' ? 'Bring light back to five regions.' : '다섯 지역에 빛을 되찾아 줘.')
           : journey.complete ? (language === 'en' ? '5 lights restored · explore with new words' : '5개의 빛을 되찾았어 · 새 낱말로 다시 모험')
           : (language === 'en' ? `Next: ${nextRegion} · ${journey.restored.length}/5 lights` : `다음은 ${nextRegion} · 빛 ${journey.restored.length}/5`))),
+      resumeChoice,
       has ? this.btn(icon('pin'), '모험 이어하기', 'btn-primary btn-lg', () => void navigate('worldmap')) : newAdventure,
       h('div', { class: 'home-secondary' },
         this.btn(icon('book'), '연습 튜토리얼', 'btn-sky btn-md home-tutorial', () => void navigate('tutorial')),

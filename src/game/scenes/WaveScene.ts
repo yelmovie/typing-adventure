@@ -9,10 +9,11 @@ import { registerSheetAnims, anim } from '../entities/anims';
 import { SaveSystem } from '../systems/SaveSystem';
 import { getCharacter, getPet } from '../data/characters';
 import { getStage } from '../data/stages';
+import { ITEMS } from '../data/items';
 import { EventBus, Events } from '../EventBus';
 import { AudioManager, STAGE_BGM } from '../systems/AudioManager';
 import type { StageId } from '../types';
-import type { WaveMonster } from '../systems/WaveSystem';
+import { WAVE, type WaveMonster } from '../systems/WaveSystem';
 import { playClassFx } from './ClassFx';
 
 /**
@@ -370,13 +371,12 @@ export class WaveScene extends Phaser.Scene {
     const mob = this.mobs.get(d.uid);
     const x = mob?.x ?? 1200;
     const y = (mob?.enemy.sprite.y ?? PLAYER_POS.y) - 90;
-    // 아이템 아이콘 시트(fx_items c0~c5_r0 = items.ts 순서)가 있으면 그걸로, 없으면 이모지 폴백
-    const ORDER = ['coin', 'gem', 'star', 'heart', 'shield', 'bolt'];
-    const col = ORDER.indexOf(d.item);
+    // 아이템 아이콘 시트(fx_items c0~c5_r0 = items.ts 순서)가 있으면 그걸로, 없으면 아이템 이름 글자 폴백
+    const col = ITEMS.findIndex((item) => item.id === d.item);
     const it: Phaser.GameObjects.Image | Phaser.GameObjects.Text =
       col >= 0 && this.textures.exists('fx_items')
         ? this.add.image(x, y, 'fx_items', `c${col}_r0`).setDisplaySize(72, 72).setOrigin(0.5).setDepth(22)
-        : this.add.text(x, y, ({ coin: '🪙', gem: '💎', star: '⭐', heart: '❤', shield: '🛡', bolt: '⚡' } as Record<string, string>)[d.item] ?? '🪙', { fontSize: '56px' }).setOrigin(0.5).setDepth(22);
+        : this.add.text(x, y, tr(ITEMS[col]?.name ?? '코인'), styleText(40, '#fff2b0')).setOrigin(0.5).setDepth(22);
     this.tweens.add({ targets: it, y: y - 120, x: x - 40, duration: 320, ease: 'Quad.easeOut', onComplete: () => {
       this.tweens.add({ targets: it, x: PLAYER_POS.x, y: PLAYER_POS.y - 120, scale: 0.6, duration: 380, ease: 'Quad.easeIn', delay: 120, onComplete: () => {
         it.destroy();
@@ -445,8 +445,8 @@ export class WaveScene extends Phaser.Scene {
         this.waveText.setText(`WAVE ${d.wave}`).setAlpha(0).setScale(0.6);
         this.tweens.add({ targets: this.waveText, alpha: 1, scale: 1, duration: 250, yoyo: true, hold: 900 });
       }
-      // 낮(0) → 노을(웨이브4, 0.32)로 배경 색 온도 변화
-      if (this.duskOverlay) this.tweens.add({ targets: this.duskOverlay, fillAlpha: (d.wave - 1) * 0.11, duration: 1600, ease: 'Sine.easeInOut' });
+      // 낮(0) → 노을(마지막 웨이브, 0.33)로 배경 색 온도 변화
+      if (this.duskOverlay) this.tweens.add({ targets: this.duskOverlay, fillAlpha: ((d.wave - 1) / Math.max(1, WAVE.mix.length - 1)) * 0.33, duration: 1600, ease: 'Sine.easeInOut' });
     }
   }
 
@@ -461,12 +461,11 @@ export class WaveScene extends Phaser.Scene {
     }
   }
 
-  /** 음절 타격: 글자 탄환이 목표 몬스터로 */
+  /** 음절 타격: 글자 탄환만 목표 몬스터로 날아간다. 캐릭터 공격 동작은 낱말을 완성했을 때(onCorrect)만 */
   private onHit(d: { uid: number; hits: number }) {
     const mob = this.mobs.get(d.uid);
     if (!mob || mob.dead) return;
     AudioManager.sfx('tap', { rate: 1 + Math.random() * 0.08 });
-    this.player?.jab();
     this.fireBullet(mob, false, () => {
       mob.flash();
       playClassFx(this, this.cls, 'weak', { x: this.player!.x, y: this.player!.y }, { x: mob.x, y: mob.enemy.sprite.y - 110 });
@@ -575,7 +574,7 @@ export class WaveScene extends Phaser.Scene {
     this.tweens.add({ targets: t, alpha: 1, scale: 1.12, duration: 260, ease: 'Back.easeOut', yoyo: true, hold: 800, onComplete: () => t.destroy() });
   }
 
-  /** 20마리째: 전장 위쪽의 숲의 문이 빛나며 열린다 */
+  /** 마지막 몬스터 처치: 전장 위쪽의 숲의 문이 빛나며 열린다 */
   private onGate() {
     const portal = { x: 960, y: 105 };
     const beam = this.add.circle(portal.x, portal.y, 74, 0xfff2b0, 0).setDepth(28).setBlendMode(Phaser.BlendModes.ADD);

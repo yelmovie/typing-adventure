@@ -3,7 +3,7 @@
  *  P1 결정 파괴: 보스 주변 결정 5개(낱말). 음절마다 균열, 낱말 완성 → 결정 폭발. 5개 → 보호막 해제.
  *  P2 속도 러시: 2.4초마다 짧은 낱말이 큐에 쌓임(최대 4). 낱말마다 보스 피해. 큐가 가득 차면 어둠이 밀려와 HP-10.
  *               30초마다 암흑 폭탄 낱말(반격). 30콤보 FINAL FEVER → 큐 전부 소멸 + 큰 피해. 보스 HP 30% → P3.
- *  P3 마지막 문장: 갑옷·코어·마무리 후보 중 각 1개를 정확하게 완료한다. 역할 없는 기존 풀은 최대 3개 선택.
+ *  P3 마지막 장문: 갑옷·코어·마무리 역할마다 같은 이야기 세트의 문장(기본 2개씩, 총 6문장)을 순서대로 정확하게 완료한다. 역할 없는 풀은 최대 3개 선택.
  * 순수 로직. emit 주입.
  */
 import type { ContentUnit, Difficulty, StageDef, PetDef } from '../types';
@@ -11,7 +11,8 @@ import { DIFFICULTY_RULES } from '../data/stages';
 import { calcWordScore } from './TypingStats';
 import { TypingRun, RULES, type Emit } from './TypingRun';
 import { countStrokes } from '../util/hangul';
-import type { BattleSnapshot, EnemyState, TypingMode } from './BattleState';
+import type { BattleSnapshot, EnemyState, TypingMode, CheckpointState } from './BattleState';
+import { obj, readBool, readInt, readNum, readStrings, readUnits, restoreOrder } from './Checkpoint';
 
 export const BOSS = {
   hp: 100,
@@ -19,11 +20,11 @@ export const BOSS = {
   rushSec: 2.4,
   queueMax: 4,
   darkHp: 10,
-  rushDamage: 5,
+  rushDamage: 4,
   finalFeverDamage: 20,
   phase3At: 30,
   bombEverySec: 30,
-  armorHp: 15, // P3 문장 1 → 30→15, 문장 2 → 0
+  armorHp: 15, // 역할 없는 2문장 풀: 문장 1 → 30→15, 문장 2 → 0 (역할 풀은 30×(1-완료/전체))
   fireDamage: 10,
 };
 
@@ -56,6 +57,17 @@ export interface BossWords { crystals: ContentUnit[]; rush: ContentUnit[]; final
 export interface BossOptions { random?: () => number }
 const FINAL_ROLES = ['갑옷', '코어', '마무리'] as const;
 const FINAL_ROLE_KEYS = ['armor', 'core', 'finale'] as const;
+type FinalRole = (typeof FINAL_ROLES)[number];
+function roleOf(u: ContentUnit): FinalRole | undefined {
+  return FINAL_ROLES.find((role) => u.tags.includes(role));
+}
+/** 같은 장문(이야기N) 세트 태그. 없으면 문장 하나가 곧 세트다. */
+function setOf(u: ContentUnit): string {
+  return u.tags.find((t) => /^이야기[0-9]+$/.test(t)) ?? `single:${u.id}`;
+}
+function orderOf(u: ContentUnit): number {
+  return Number(u.tags.find((t) => /^순서[0-9]+$/.test(t))?.slice(2) ?? 0);
+}
 // 같은 후보 풀의 직전 전투만 기억한다. 한국어/영어 풀은 서로 다른 키이며 영구 저장은 하지 않는다.
 const previousFinalChoices = new Map<string, string[]>();
 
@@ -103,7 +115,7 @@ export class BossSystem implements TypingMode {
     const random = options.random ?? Math.random;
     this.rushPool = shuffle(uniqueWords(words.rush), random);
     this.finalPool = shuffle(uniqueWords(words.final), random);
-    this.roleFinals = pickRoleFinals(this.finalPool).length === FINAL_ROLES.length;
+    this.roleFinals = pickRoleFinals(this.finalPool).length > 0;
     this.finalSentences = chooseFinals(this.finalPool, this.roleFinals);
     this.finalUsed = new Set(this.finalSentences.map((u) => u.text));
     this.crystals = shuffle(uniqueWords(words.crystals), random).slice(0, BOSS.crystals).map((w, i) => {
@@ -152,8 +164,63 @@ export class BossSystem implements TypingMode {
     this.running = true;
     this.run.start();
     this.emit('BATTLE_START', this.snapshot());
-    this.emit('BOSS_PHASE', { phase: 1 });
+    this.emit('BOSS_PHASE', { phase: this.phase }); // 복원한 판은 저장된 페이즈에서 이어진다
     this.emit('TARGET_CHANGED', this.snapshot());
+  }
+
+  /** 중간 저장. 결정·러시 풀 순서와 고른 최종 문장을 남긴다. 러시 큐는 저장하지 않는다(복원 시 빈 큐, 타이머 재개). */
+  serialize(): CheckpointState {
+    return {
+      phase: this.phase, bossHp: this.bossHp, crystals: this.crystals.map((c) => ({ ...c.word, broken: c.broken })), crystalIdx: this.crystalIdx,
+      finalIdx: this.finalIdx, armorBroken: this.armorBroken, coreExposed: this.coreExposed, playerHp: this.playerHp, timeLeft: this.timeLeft,
+      score: this.score, darkness: this.darkness, finalSentences: this.finalSentences.map((u) => ({ ...u })), rushPool: this.rushPool.map((u) => u.id),
+      rushCursor: this.rushCursor, rushSeen: [...this.rushSeen], bombTimer: this.bombTimer, run: this.run.serializeCounters(),
+    };
+  }
+
+  /** 복원 — start() 전에. 보스 HP 는 페이즈·진행에서 다시 계산해 저장값 변조로 건너뛸 수 없게 한다. */
+  restore(state: CheckpointState) {
+    const s = obj(state);
+    const phase: 1 | 2 | 3 = s.phase === 2 || s.phase === 3 ? s.phase : 1; // 범위 밖 페이즈는 손상으로 보고 처음부터
+    const brokenById = new Map<string, boolean>();
+    for (const raw of Array.isArray(s.crystals) ? s.crystals : []) {
+      const c = obj(raw);
+      if (typeof c.id === 'string') brokenById.set(c.id, c.broken === true);
+    }
+    this.crystals = restoreOrder(this.crystals, [...brokenById.keys()], (c) => c.word.id).map((c, index) => {
+      const broken = phase > 1 || brokenById.get(c.word.id) === true;
+      return { ...c, index, broken, hp: broken ? 0 : c.maxHp };
+    });
+    if (phase === 1 && this.crystals.every((c) => c.broken)) this.crystals.forEach((c) => { c.broken = false; c.hp = c.maxHp; });
+    this.phase = phase;
+    this.crystalIdx = Math.max(0, this.crystals.findIndex((c) => !c.broken));
+    this.rushPool = restoreOrder(this.rushPool, s.rushPool, (u) => u.id);
+    this.rushCursor = readInt(s.rushCursor, 0, 0, Math.max(0, this.rushPool.length - 1));
+    this.rushSeen = new Set([...this.crystals.map((c) => c.word.text), ...readStrings(s.rushSeen, 200, 120)]);
+    this.rushRecent = [];
+    this.queue = [];
+    const finals = readUnits(s.finalSentences, this.stage.id, 12).map((u) => ({ ...u, type: 'sentence' as const }));
+    if (finals.length) {
+      this.finalSentences = finals;
+      this.finalUsed = new Set(finals.map((u) => u.text));
+      this.roleFinals = finals.every((u) => roleOf(u) !== undefined);
+      rememberFinalChoices(this.finalPool, finals);
+    }
+    this.finalIdx = phase === 3 ? readInt(s.finalIdx, 0, 0, Math.max(0, this.finalSentences.length - 1)) : 0;
+    const n = this.finalSentences.length;
+    this.bossHp = phase === 1 ? BOSS.hp
+      : phase === 2 ? readInt(s.bossHp, BOSS.hp, BOSS.phase3At + 1, BOSS.hp)
+        : Math.round(BOSS.phase3At * (1 - this.finalIdx / Math.max(1, n)));
+    this.armorBroken = phase === 3 && readBool(s.armorBroken, false);
+    this.coreExposed = phase === 3 && readBool(s.coreExposed, false);
+    this.finalDone = false;
+    this.playerHp = readNum(s.playerHp, this.playerMaxHp, 1, this.playerMaxHp);
+    this.timeLeft = readNum(s.timeLeft, this.timeLimit, 0, this.timeLimit);
+    this.score = readInt(s.score, 0, 0, 1e7);
+    this.darkness = readNum(s.darkness, 0, 0, 1);
+    this.bombTimer = readNum(s.bombTimer, BOSS.bombEverySec, 0, BOSS.bombEverySec);
+    this.rushTimer = phase === 2 ? 0.5 : 0;
+    this.run.restoreCounters(s.run);
   }
   pause() {
     this.running = false;
@@ -238,8 +305,20 @@ export class BossSystem implements TypingMode {
   }
 
   /** 방향키: 이 모드는 연출만 */
+  /** 방향키: P1 에서는 ←→ 로 깰 결정을 고른다(조작 다양성). 나머지는 연출만 */
   move(dir: 'left' | 'right' | 'up' | 'down', pressed: boolean) {
     if (!this.running || this.finished) return;
+    if (pressed && this.phase === 1 && (dir === 'left' || dir === 'right')) {
+      const alive = this.crystals.filter((c) => !c.broken);
+      const cur = alive.findIndex((c) => c.index === this.crystalIdx);
+      if (alive.length > 1 && cur >= 0) {
+        const next = alive[(cur + (dir === 'right' ? 1 : alive.length - 1)) % alive.length];
+        this.crystalIdx = next.index;
+        this.run.advance();
+        this.emit('BOSS_CRYSTAL_SELECT', { index: next.index });
+        this.emit('TARGET_CHANGED', this.snapshot());
+      }
+    }
     this.emit('PLAYER_MOVE', { dir, pressed });
   }
 
@@ -256,8 +335,9 @@ export class BossSystem implements TypingMode {
     }
     if (this.phase === 3) {
       if (this.roleFinals) {
-        // 역할 순서와 정답 필요 횟수는 유지하고 같은 역할의 새 연습 문장으로 바꾼다.
-        finalReplacement = this.finalPool.find((u) => u.tags.includes(FINAL_ROLES[this.finalIdx]) && !this.finalUsed.has(u.text));
+        // 역할·장문 위치와 정답 필요 횟수는 유지하고, 다른 이야기 세트의 같은 자리 문장으로 바꾼다.
+        const cur = this.finalSentences[this.finalIdx];
+        finalReplacement = this.finalPool.find((u) => roleOf(u) === roleOf(cur) && orderOf(u) === orderOf(cur) && !this.finalUsed.has(u.text));
         if (!finalReplacement) return false;
       } else if (this.finalSentences.length - this.finalIdx <= 1) return false;
     }
@@ -338,15 +418,18 @@ export class BossSystem implements TypingMode {
       this.finalIdx++;
       const n = this.finalSentences.length;
       if (this.finalIdx < n) {
-        // 문장마다 갑옷 한 겹: HP 30 → 30×(1 - idx/n)
+        // 문장마다 갑옷 한 겹: HP 30 → 30×(1 - idx/n). 역할 풀은 갑옷 문장을 다 치면 갑옷이, 마무리 직전에 코어가 드러난다.
         const before = this.bossHp;
         this.bossHp = Math.round(BOSS.phase3At * (1 - this.finalIdx / n));
-        if (!this.armorBroken) {
+        const nextRole = this.roleFinals ? roleOf(this.finalSentences[this.finalIdx]) : undefined;
+        const armorDone = this.roleFinals ? nextRole !== '갑옷' : true;
+        const coreDone = this.roleFinals ? nextRole === '마무리' : this.finalIdx === n - 1;
+        if (armorDone && !this.armorBroken) {
           this.armorBroken = true;
           this.emit('BOSS_ARMOR', {});
         }
         this.emit('BOSS_HIT', { damage: before - this.bossHp, hp: this.bossHp, perfect, weak: false, phase: 3 });
-        if (this.finalIdx === n - 1) {
+        if (coreDone && !this.coreExposed) {
           this.coreExposed = true;
           this.emit('BOSS_CORE', {});
         }
@@ -399,10 +482,18 @@ export class BossSystem implements TypingMode {
     return this.run.wordsSeen();
   }
 
+  /** 지금 치고 있는(끝났으면 마지막) 장문 문장의 역할. 역할 없는 풀은 null */
+  private currentFinalRole(): BossInfo['finalRole'] {
+    if (!this.roleFinals) return null;
+    const unit = this.finalSentences[Math.min(this.finalIdx, this.finalSentences.length - 1)];
+    const role = unit ? roleOf(unit) : undefined;
+    return role ? FINAL_ROLE_KEYS[FINAL_ROLES.indexOf(role)] : null;
+  }
+
   snapshot(): BattleSnapshot {
     const r = this.run;
     const enemy: EnemyState = { id: 'keyboard_golem', name: '키보드 골렘', sheet: this.bossSheet, hp: this.bossHp, maxHp: BOSS.hp, scale: 2 };
-    const phaseName = this.phase === 1 ? 'P1 결정 파괴' : this.phase === 2 ? 'P2 속도 러시' : 'P3 마지막 문장';
+    const phaseName = this.phase === 1 ? 'P1 결정 파괴' : this.phase === 2 ? 'P2 속도 러시' : 'P3 마지막 장문';
     return {
       targetIndex: this.phase,
       targetTotal: 3,
@@ -445,7 +536,7 @@ export class BossSystem implements TypingMode {
         rushLeft: this.rushTimer,
         finalStep: Math.min(this.finalIdx + 1, this.finalSentences.length),
         finalTotal: this.finalSentences.length,
-        finalRole: this.roleFinals ? FINAL_ROLE_KEYS[Math.min(this.finalIdx, FINAL_ROLE_KEYS.length - 1)] : null,
+        finalRole: this.currentFinalRole(),
       },
     };
   }
@@ -464,16 +555,26 @@ function uniqueWords(words: ContentUnit[]): ContentUnit[] {
 function chooseFinals(pool: ContentUnit[], byRole: boolean): ContentUnit[] {
   const key = JSON.stringify(pool.map((u) => u.text).sort());
   const previous = previousFinalChoices.get(key) ?? [];
-  const selected = byRole
+  let selected = byRole
     ? pickRoleFinals(pool)
     : pool.slice(0, 3);
   if (selected.length === previous.length && selected.every((u) => previous.includes(u.text))) {
-    for (let index = 0; index < selected.length; index++) {
-      const replacement = pool.find((u) => !previous.includes(u.text) && (!byRole || u.tags.includes(FINAL_ROLES[index])));
-      if (replacement) { selected[index] = replacement; break; }
+    if (byRole) {
+      // 역할 하나를 직전과 다른 이야기 세트로 통째로 바꾼다.
+      for (const role of FINAL_ROLES) {
+        const current = setOf(selected.find((u) => roleOf(u) === role)!);
+        const alt = pool.find((u) => roleOf(u) === role && setOf(u) !== current && !previous.includes(u.text));
+        if (!alt) continue;
+        const group = roleGroup(pool, role, setOf(alt));
+        selected = FINAL_ROLES.flatMap((r) => (r === role ? group : selected.filter((u) => roleOf(u) === r)));
+        break;
+      }
+    } else {
+      const replacement = pool.find((u) => !previous.includes(u.text));
+      if (replacement) selected[0] = replacement;
+      // 후보가 정확히 세 개뿐인 기존 풀은 선택 세트 변경이 불가능하다. 순서만 반복되지 않게 한다.
+      else if (selected.length > 1 && selected.every((u, i) => u.text === previous[i])) selected.push(selected.shift()!);
     }
-    // 후보가 정확히 세 개뿐인 기존 풀은 선택 세트 변경이 불가능하다. 순서만 반복되지 않게 한다.
-    if (!byRole && selected.length > 1 && selected.every((u, i) => u.text === previous[i])) selected.push(selected.shift()!);
   }
   rememberFinalChoices(pool, selected);
   return selected;
@@ -486,12 +587,18 @@ function rememberFinalChoices(pool: ContentUnit[], selected: ContentUnit[]) {
   if (previousFinalChoices.size > 8) previousFinalChoices.delete(previousFinalChoices.keys().next().value!);
 }
 
+/** 같은 역할·같은 이야기 세트의 문장들을 순서대로. (풀은 이미 중복 제거됨) */
+function roleGroup(pool: ContentUnit[], role: FinalRole, set: string): ContentUnit[] {
+  return pool.filter((u) => roleOf(u) === role && setOf(u) === set).sort((a, b) => orderOf(a) - orderOf(b));
+}
+
+/** 역할마다 첫 후보의 이야기 세트를 통째로 고른다(세트 태그가 없으면 문장 하나). 역할이 하나라도 비면 []. */
 function pickRoleFinals(pool: ContentUnit[]): ContentUnit[] {
   const selected: ContentUnit[] = [];
   for (const role of FINAL_ROLES) {
-    const unit = pool.find((u) => u.tags.includes(role) && !selected.some((s) => s.text === u.text));
-    if (!unit) return [];
-    selected.push(unit);
+    const lead = pool.find((u) => roleOf(u) === role && !selected.some((s) => s.text === u.text));
+    if (!lead) return [];
+    selected.push(...roleGroup(pool, role, setOf(lead)).filter((u) => !selected.some((s) => s.text === u.text)));
   }
   return selected;
 }

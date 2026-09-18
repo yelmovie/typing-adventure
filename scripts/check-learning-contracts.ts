@@ -5,8 +5,8 @@ import { getStage, DAILY_STAGE } from '../src/game/data/stages';
 import { getPet } from '../src/game/data/characters';
 import { WaveSystem, WAVE } from '../src/game/systems/WaveSystem';
 import { RaceSystem } from '../src/game/systems/RaceSystem';
-import { LetterSystem } from '../src/game/systems/LetterSystem';
-import { TelegramSystem } from '../src/game/systems/TelegramSystem';
+import { LetterSystem, LETTER } from '../src/game/systems/LetterSystem';
+import { TelegramSystem, TELE } from '../src/game/systems/TelegramSystem';
 import { BossSystem } from '../src/game/systems/BossSystem';
 import { DailySystem, pickDailyWords } from '../src/game/systems/DailySystem';
 import { TypingRun } from '../src/game/systems/TypingRun';
@@ -29,6 +29,14 @@ const events: string[] = [];
 const emit = (event: string) => events.push(event);
 const resetEvents = () => { events.length = 0; };
 const count = (event: string) => events.filter((e) => e === event).length;
+/** 편지 「다음 조각 고르기」: 순서상 다음 문장을 고른다(테스트만 내부 순서를 본다). 다른 모드는 아무것도 하지 않는다. */
+function pickChoice(mode: TypingMode) {
+  if (!(mode instanceof LetterSystem)) return;
+  const choices = mode.snapshot().letter?.choices;
+  if (!choices) return;
+  const inner = mode as unknown as { sentences: ContentUnit[]; idx: number };
+  assert.ok(mode.choose(choices.indexOf(inner.sentences[inner.idx].text)), '순서상 다음 문장을 고르면 입력이 열린다');
+}
 function wave() {
   const pool = getContentForStage('stage_1').filter((u) => u.type === 'word');
   const boundary = getLanguage() === 'en' ? 4 : 2;
@@ -58,6 +66,7 @@ function solve(mode: TypingMode, limit = 4000) {
   let turns = 0;
   while (!mode.finished && turns++ < limit) {
     mode.tick(0.25);
+    pickChoice(mode);
     if (mode.run.current) mode.submit(mode.run.current.text, false);
   }
   assert.ok(mode.finished, '정답으로 끝까지 완료할 수 있어야 한다');
@@ -89,18 +98,27 @@ function solve(mode: TypingMode, limit = 4000) {
   solve(m);
 }
 
-// S3: 오답 6개 + 점프 3개가 편지·자물쇠를 채우지 않는다.
+// S3: 오답 6개 + 점프 3개가 편지·자물쇠를 채우지 않는다. 정답으로는 9문장·자물쇠 3개를 다 채운다.
 {
   resetEvents();
   const m = letter(); m.start();
+  // 조각을 잘못 골라도 읽기 실수로만 남고, 타자 제출·오답 근거·정확도에는 들어가지 않는다.
+  const choices = m.snapshot().letter!.choices!;
+  const inner = m as unknown as { sentences: ContentUnit[]; idx: number };
+  assert.equal(m.choose(choices.findIndex((text) => text !== inner.sentences[inner.idx].text)), false);
+  assert.equal(m.readingMistakes, 1);
+  assert.equal(m.run.stats.submissions, 0);
+  assert.equal(m.run.learningAttempts.length, 0);
+  assert.equal(m.run.current, null, '잘못 고르면 입력은 아직 열리지 않는다');
+  pickChoice(m);
   for (let i = 0; i < 6; i++) m.submit(wrong, false);
   for (let i = 0; i < 3; i++) assert.ok(m.skip());
   assert.equal(m.lines.length, 0);
   assert.equal(m.locksOpen, 0);
   assert.equal(count('STAGE_CLEAR'), 0);
   solve(m);
-  assert.equal(m.lines.length, 6);
-  assert.equal(m.locksOpen, 3);
+  assert.equal(m.lines.length, LETTER.sentences);
+  assert.equal(m.locksOpen, LETTER.locks);
 }
 
 // S4: 점프만 3번 / 오답만 3번으로 정지하지 않는다. 전송률도 부풀리지 않는다.
@@ -117,7 +135,7 @@ for (const action of ['skip', 'wrong'] as const) {
   assert.equal(m.run.stats.accuracy(), 0);
   assert.equal(count('STAGE_CLEAR'), 0);
   solve(m);
-  assert.equal(m.brake, 3);
+  assert.equal(m.brake, TELE.sentences);
   assert.equal(m.transfer(), 1);
 }
 
@@ -172,7 +190,7 @@ for (const action of ['skip', 'wrong'] as const) {
 
 // 모든 실제 모드에서 120초 일시정지를 타수·별 평가 시간에 넣지 않는다.
 for (const make of [wave, race, letter, telegram, boss, daily]) {
-  const m = make(); m.start();
+  const m = make(); m.start(); pickChoice(m);
   const text = m.run.current!.text;
   m.tick(1);
   m.pause();
@@ -200,7 +218,7 @@ for (const make of [wave, race, letter, telegram, boss, daily]) {
 
 // 수정 전 입력과 최종 성공을 각각 남긴다. 문장은 읽기 대기로 콤보를 잃지 않는다.
 {
-  const m = letter(); m.start();
+  const m = letter(); m.start(); pickChoice(m);
   const target = m.run.current!;
   m.commit(wrong);
   m.commit(target.text);
@@ -214,6 +232,7 @@ for (const make of [wave, race, letter, telegram, boss, daily]) {
   m.tick(60);
   assert.equal(m.score, score);
   assert.equal(m.run.combo, 1);
+  pickChoice(m);
   m.submit(m.run.current!.text, false);
   assert.equal(m.run.feverLevel, 1, '두 문장 연속 완성 시 친구 기술을 경험한다');
 }
@@ -239,7 +258,8 @@ for (const madeTypo of [false, true]) {
 for (const id of ['cat', 'rabbit', 'dragon', 'squirrel']) {
   for (const [make, needed] of [[letter, 2], [daily, 10]] as const) {
     const m = make(getPet(id)); m.start();
-    for (let i = 0; i < needed; i++) { m.tick(0.1); m.submit(m.run.current!.text, false); }
+    for (let i = 0; i < needed; i++) { m.tick(0.1); pickChoice(m); m.submit(m.run.current!.text, false); }
+    pickChoice(m);
     if (id === 'cat' || id === 'rabbit') {
       assert.ok(m.run.isShielded(), `${id} 복구 보호가 실제로 활성화된다`);
       const combo = m.run.combo;
@@ -268,7 +288,7 @@ setLanguage('en');
 assert.equal(countStrokes('Hello, world!'), 13, '영문 글자·공백·부호는 각각 1타');
 for (const make of [wave, race, letter, telegram, boss, daily]) {
   resetEvents();
-  const m = make(); m.start();
+  const m = make(); m.start(); pickChoice(m);
   assert.match(m.run.current!.text, /^[\x20-\x7e]+$/);
   m.submit(wrong, false);
   assert.equal(m.run.wordsDone, 0);
@@ -277,7 +297,7 @@ for (const make of [wave, race, letter, telegram, boss, daily]) {
   assert.ok(m.run.learningAttempts.some((attempt) => attempt.outcome === 'correct'));
 }
 {
-  const m = letter(); m.start();
+  const m = letter(); m.start(); pickChoice(m);
   const text = m.run.current!.text;
   m.submit(text.toLowerCase(), false);
   assert.equal(m.run.wordsDone, 0, '대소문자가 다른 문장은 완료하지 않는다');

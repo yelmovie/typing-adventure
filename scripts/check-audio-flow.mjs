@@ -102,15 +102,22 @@ for (const test of cases) {
     checks.push('Scene change pauses home, plays one map track, and preserves the selected volume');
 
     await page.getByRole('button',{name:'소리 설정',exact:true}).click();
-    const mute = page.locator('.sound-popover.open').getByRole('button',{name:'켜기/끄기'});
-    await mute.click();
+    // The popover offers one 켜짐/꺼짐 state button per channel (music, effects) instead of a single mute.
+    const states = page.locator('.sound-popover.open .sound-state');
+    assert.equal(await states.count(),2,'sound popover has separate music and effects toggles');
+    const savedSound = () => page.evaluate(()=>{const s=JSON.parse(localStorage.getItem('typing_adventure_save_v1')).settings;return[s.bgm,s.sfx];});
+    const stateLabels = () => states.evaluateAll(els=>els.map(el=>[el.textContent.trim(),el.getAttribute('aria-pressed')]));
+    for (let i = 0; i < 2; i++) if (await states.nth(i).getAttribute('aria-pressed') === 'true') await states.nth(i).click();
+    assert.deepEqual(await stateLabels(),[['꺼짐','false'],['꺼짐','false']]);
     assert.ok((await snapshot()).every(audio=>audio.paused));
-    assert.deepEqual(await page.evaluate(()=>{const s=JSON.parse(localStorage.getItem('typing_adventure_save_v1')).settings;return[s.bgm,s.sfx];}),[false,false]);
-    await mute.click(); await musicPlaying();
+    assert.deepEqual(await savedSound(),[false,false]);
+    await states.nth(0).click(); await states.nth(1).click(); await musicPlaying();
+    assert.deepEqual(await stateLabels(),[['켜짐','true'],['켜짐','true']]);
+    assert.deepEqual(await savedSound(),[true,true]);
     media = await snapshot();
     assert.equal(media.length,2);
     assert.equal(media.filter(audio=>!audio.paused).length,1);
-    checks.push('Global mute toggles BGM/SFX and resumes the same map element without overlap');
+    checks.push('Sound popover state buttons switch BGM/SFX off and on and resume the same map element without overlap');
     assert.deepEqual(errors,[]);
     Object.assign(result,{pass:true,media,requests,errors});
     console.log(`PASS audio ${test.name}: ${checks.length} checks`);

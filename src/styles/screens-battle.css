@@ -1,0 +1,410 @@
+/* screens.css 를 2026-09-18 에 화면 묶음별로 나눴다(E2). 불러오는 순서가 곧 캐스케이드 순서다: home-setup → map-intro → battle → result-collection */
+/* ================= BATTLE ================= */
+/* 전투 레이아웃 (1920×1080): 상단 HUD 18~112 · 좌 플레이어 130~270 · 우 몬스터 130~270 · 중앙 콤보 130~290(푸른 숲은 HUD 바 안 배지)
+   · 캔버스 무대(캐릭터 발끝 y≈760) · 판정 팝 y≈790 · 하단 입력 패널 830~1056 */
+.battle-top {
+  position: absolute;
+  top: 18px;
+  left: 30px;
+  right: 30px;
+  height: 94px;
+  display: grid;
+  grid-template-columns: 280px 1fr 900px; /* 스탯 4개 + 음소거 + 일시정지 */
+  align-items: center;
+  gap: 20px;
+  padding: 0 20px;
+  border-radius: 20px;
+}
+.battle-top .icon-btn { width: 52px; height: 52px; border-radius: 14px; }
+.battle-top .icon-btn .ui-icon { width: 26px; height: 26px; }
+.battle-top .sound-pop-wrap .sound-popover { top: 62px; }
+.battle-top .bt-stage { display: flex; flex-direction: column; gap: 2px; }
+.battle-top .bt-stage .s1 { font-family: var(--font-title); font-size: 18px; color: var(--sky-300); letter-spacing: 2px; }
+.battle-top .bt-stage .s2 { font-family: var(--font-title); font-size: 30px; color: var(--gold-300); text-shadow: 0 2px 0 var(--outline); }
+.battle-top .bt-progress { display: flex; flex-direction: column; gap: 6px; }
+.battle-top .bt-progress .row { display: flex; justify-content: space-between; font-family: var(--font-title); font-size: 20px; }
+.battle-top .bt-progress .row .cur { color: var(--gold-300); }
+.battle-top .bt-stats { display: flex; gap: 10px; justify-content: flex-end; align-items: center; }
+.stat-box {
+  min-width: 132px;
+  padding: 4px 12px;
+  border: 3px solid var(--outline);
+  border-radius: 14px;
+  background: rgba(8, 12, 40, 0.65);
+  text-align: center;
+}
+.stat-box .lbl { font-size: 15px; color: var(--sky-300); font-family: var(--font-title); letter-spacing: 1px; }
+.stat-box .val { font-size: 30px; font-family: var(--font-title); color: #fff; line-height: 1.1; text-shadow: 0 2px 0 var(--outline); }
+.stat-box .val.warn { color: var(--red-400); animation: ta-blink 0.8s infinite; }
+.stat-box .val small { font-size: 16px; opacity: 0.8; }
+
+/* 좌측 열: 플레이어 패널 + 모드별 패널(트랙·전보·보스HP)을 흐름으로 쌓는다.
+   절대좌표로 각각 두면 패널 내용이 길어질 때(펫 스킬 줄, compact 큰 글씨) 서로 겹쳐서 가려진다. */
+/* 가로로 놓는다: 세로로 쌓으면 compact 에서 아래끝이 573 까지 내려와 캐릭터 머리(≈503)를 덮는다.
+   가로면 높이가 max(플레이어 264, 모드 패널 167) = 264 로 끝나 아래끝 394 → 캐릭터까지 109px 여유.
+   폭은 340 + 12 + 440 = 792 로, FEVER 때 넓어지는 콤보 박스(x 830~) 앞에서 멈춘다. */
+.battle-left-col {
+  position: absolute;
+  left: 30px;
+  top: 130px;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 12px;
+  pointer-events: none;
+}
+.battle-left-col > * { pointer-events: auto; }
+
+/* 좌측 플레이어 패널: 축소형(초상 64 + 이름/HP 한 덩어리 + 펫 한 줄) */
+.battle-left {
+  position: relative;
+  width: 300px;
+  padding: 12px 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-radius: 20px;
+}
+.battle-left .pl-head { display: flex; gap: 10px; align-items: center; }
+.battle-left .pl-head > div { min-width: 0; flex: 1; }
+.battle-left .pl-portrait {
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
+  border: 3px solid var(--outline);
+  background: radial-gradient(circle at 50% 60%, #4d5bc4, #1d2560);
+  object-fit: contain;
+  padding: 3px;
+  box-shadow: 0 3px 0 var(--outline);
+  flex: none;
+}
+.battle-left .pl-name { font-family: var(--font-title); font-size: 24px; color: var(--gold-300); text-shadow: 0 2px 0 var(--outline); line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.battle-left .pl-level { font-size: 15px; color: var(--sky-300); font-family: var(--font-title); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.battle-left .pl-hp-label { display: flex; justify-content: space-between; font-family: var(--font-title); font-size: 16px; line-height: 1.1; }
+.battle-left .gauge { height: 22px; }
+.battle-left .pl-pet { display: flex; align-items: center; gap: 8px; font-size: 15px; padding-top: 6px; border-top: 2px dashed rgba(255, 255, 255, 0.15); min-width: 0; }
+.battle-left .pl-pet img { width: 36px; height: 36px; object-fit: contain; flex: none; }
+.battle-left .pl-pet > div { min-width: 0; }
+.battle-left .pl-pet .pl-pet-name { font-family: var(--font-title); }
+
+.battle-enemy-hp {
+  position: absolute;
+  right: 30px;
+  top: 130px;
+  width: 360px;
+  padding: 10px 14px 12px;
+  border-radius: 20px;
+  transition: opacity 0.25s;
+}
+.battle-enemy-hp.empty { opacity: 0; }
+.battle-enemy-hp .en-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.battle-enemy-hp .en-head img { width: 48px; height: 48px; object-fit: contain; }
+.battle-enemy-hp .en-name { font-family: var(--font-title); font-size: 24px; color: var(--coral-400); text-shadow: 0 2px 0 var(--outline); }
+.battle-enemy-hp .en-count { margin-left: auto; font-family: var(--font-title); font-size: 18px; color: var(--sky-300); }
+
+/* 콤보: HUD 바로 아래 중앙(130~290). 캐릭터·몬스터 라벨(y≥480)과 겹치지 않는 빈 띠 */
+.combo-box {
+  position: absolute;
+  left: 50%;
+  top: 130px;
+  transform: translateX(-50%);
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.combo-box.show { opacity: 1; }
+.combo-box .combo-num {
+  font-family: var(--font-title);
+  font-size: 88px;
+  line-height: 1;
+  color: var(--gold-400);
+  text-shadow: 0 4px 0 var(--brown-800), 0 8px 0 var(--outline), 0 0 24px rgba(255, 210, 90, 0.6);
+}
+.combo-box .combo-num.bump { animation: ta-combo-bump 0.25s ease-out; }
+.combo-box .combo-txt { font-family: var(--font-title); font-size: 26px; color: #fff; text-shadow: 0 3px 0 var(--outline); letter-spacing: 3px; }
+.combo-box.hot .combo-num { color: var(--pink-400); text-shadow: 0 4px 0 #7a1a4a, 0 8px 0 var(--outline), 0 0 30px rgba(255, 122, 182, 0.8); }
+.combo-box.fire .combo-num { color: #ff6b3d; text-shadow: 0 4px 0 #7a2a00, 0 8px 0 var(--outline), 0 0 34px rgba(255, 107, 61, 0.9); }
+
+/* 푸른 숲(wave)의 콤보 배지: HudController(comboInTop) 가 콤보를 상단 HUD 바 안(진행도와 스탯 사이)에 넣는다.
+   12시 방향 몬스터의 낱말이 y≥120 띠를 내려오므로 중앙 띠(108~250)에 두면 낱말이 콤보 뒤에 숨는다.
+   HUD 바(높이 88, 좌측 열 top 116) 안에서 끝나야 한다: 문구 17 + 숫자 42 + 여백 4 + FEVER 게이지 15 = 78.
+   콤보가 오를 때의 커지는 팝(.bump)과 POWER/FEVER 색·맥동은 그대로 두고 크기만 배지에 맞춘다. */
+.battle-top .combo-box {
+  position: static;
+  transform: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 150px;
+  padding: 2px 14px;
+  border: 3px solid var(--outline);
+  border-radius: 14px;
+  background: rgba(8, 12, 40, 0.65);
+  opacity: 0.55;
+}
+.battle-top .combo-box.show { opacity: 1; }
+.battle-top .combo-box.hot, .battle-top .combo-box.fire { border-color: #edcf82; box-shadow: 0 0 18px #ffd45a44; }
+.battle-top .combo-box.fever { border-color: #ff6b3d; box-shadow: 0 0 22px rgba(255, 107, 61, 0.6); }
+/* 작은 화면(915×412 등)은 HUD 바가 60×ui-unit 으로 커지므로 배지 글자도 같이 키운다(1920 기준에선 14/42 그대로) */
+.battle-top .combo-box .combo-txt { order: -1; font-size: max(14px, calc(9 * var(--ui-unit))); line-height: 1.2; letter-spacing: 1px; text-shadow: 0 2px 0 var(--outline); }
+.battle-top .combo-box .combo-num { font-size: max(42px, calc(24 * var(--ui-unit))); text-shadow: 0 3px 0 var(--brown-800), 0 5px 0 var(--outline), 0 0 16px rgba(255, 210, 90, 0.6); }
+.battle-top .combo-box.hot .combo-num { text-shadow: 0 3px 0 #7a1a4a, 0 5px 0 var(--outline), 0 0 18px rgba(255, 122, 182, 0.8); }
+.battle-top .combo-box.fire .combo-num { text-shadow: 0 3px 0 #7a2a00, 0 5px 0 var(--outline), 0 0 20px rgba(255, 107, 61, 0.9); }
+.battle-top .combo-box.fever .combo-num { text-shadow: 0 3px 0 #b8600a, 0 5px 0 var(--outline), 0 0 24px rgba(255, 210, 90, 1), 0 0 40px rgba(255, 150, 50, 0.8); }
+.battle-top .combo-box .fever-bar { width: 100%; height: 8px; margin: 3px 0 0; border-width: 2px; }
+
+/* ===== 판정 팝(PERFECT·GOOD·MISS): 무대 한가운데(y≈560~650).
+   위로는 콤보 숫자(130~250)와 소탕·기운내기 배너(400~480), 아래로는 입력 패널(830~) 을 피한다.
+   --stack 은 BattleScreen.judge 가 세팅(다른 종류가 살아 있으면 위로 쌓임) ===== */
+.judge-pop {
+  --judge-bottom: 430px;
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--judge-bottom) + var(--stack, 0) * 78px);
+  transform: translateX(-50%);
+  font-family: var(--font-title);
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 5;
+}
+.judge-pop .jp-text { display: block; position: relative; }
+/* PERFECT: 금색 도장 + 뒤 광선. 크게 찍혀서(가속) 살짝 되튐 → 감속 → 페이드 */
+.judge-pop.perfect { animation: ta-judge-stamp 0.85s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+.judge-pop.perfect .jp-text {
+  /* 도장: 남색 판 + 금색 테 + 금색 그라데이션 글자, 살짝 기울임 */
+  font-size: 60px;
+  line-height: 1.05;
+  letter-spacing: 3px;
+  padding: 4px 34px 6px;
+  transform: rotate(-5deg);
+  border: 4px solid var(--gold-400);
+  border-radius: 18px;
+  background: rgba(14, 18, 51, 0.86);
+  box-shadow: 0 0 0 3px var(--outline), 0 6px 0 var(--outline), 0 0 26px rgba(255, 210, 90, 0.65), inset 0 0 0 2px rgba(255, 229, 154, 0.25);
+}
+.judge-pop.perfect .jp-inner {
+  background: linear-gradient(180deg, #fff6d0 0%, #ffd34d 50%, #f0a020 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 2px 0 var(--brown-800));
+}
+.judge-pop.perfect::before {
+  /* 광선: 도장 뒤 회전하는 방사형 */
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 360px;
+  height: 360px;
+  transform: translate(-50%, -50%);
+  background: repeating-conic-gradient(from 0deg, rgba(255, 229, 154, 0.55) 0deg 9deg, transparent 9deg 24deg);
+  -webkit-mask: radial-gradient(circle, #000 20%, transparent 62%);
+  mask: radial-gradient(circle, #000 20%, transparent 62%);
+  animation: ta-judge-rays 0.85s linear forwards;
+  z-index: -1;
+}
+/* GOOD/GREAT: 작고 가볍게 튀어오름 */
+.judge-pop.good { animation: ta-judge-good 0.7s ease-out forwards; }
+.judge-pop.good .jp-text { font-size: 42px; color: #d9ffe0; text-shadow: 0 3px 0 #1c6b2a, 0 5px 0 var(--outline), 0 0 12px rgba(99, 224, 116, 0.5); }
+/* MISS: 회색으로 좌우 흔들리며 가라앉음 */
+.judge-pop.miss { animation: ta-judge-miss 0.8s ease-out forwards; }
+.judge-pop.miss .jp-text { font-size: 44px; color: #c8cde0; text-shadow: 0 3px 0 #3a3f5a, 0 5px 0 var(--outline); }
+/* FEVER / 보스 문구 / 펫 / 보너스: 리본 배너(양끝 제비꼬리) */
+.judge-pop.fever, .judge-pop.pet, .judge-pop.bonus { animation: ta-judge-ribbon 1.1s cubic-bezier(0.2, 0.9, 0.3, 1.2) forwards; }
+.judge-pop.fever .jp-text, .judge-pop.pet .jp-text, .judge-pop.bonus .jp-text {
+  font-size: 34px;
+  padding: 10px 56px;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 18px) 50%, 100% 100%, 0 100%, 18px 50%);
+  color: var(--brown-900);
+  background: linear-gradient(180deg, #ffe27a, #e79a1c);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+  box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.45), inset 0 -4px 0 rgba(0, 0, 0, 0.18);
+}
+.judge-pop.fever::after, .judge-pop.pet::after, .judge-pop.bonus::after {
+  /* 리본 아래 어두운 띠 = 두께 */
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 6px;
+  bottom: -6px;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 18px) 50%, 100% 100%, 0 100%, 18px 50%);
+  background: var(--outline);
+  z-index: -1;
+}
+.judge-pop.pet .jp-text { background: linear-gradient(180deg, #d6c2ff, #7b4fe0); color: #fff; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35); }
+.judge-pop.bonus .jp-text { background: linear-gradient(180deg, #fff8e8, #f3e2bf); color: var(--brown-700); }
+.judge-pop.fever.big .jp-text { font-size: 40px; }
+
+/* 하단 입력 패널: 높이 ~226(1080-24-830). 캐릭터 발끝(760) 아래에서 시작 */
+.battle-bottom {
+  position: absolute;
+  left: 30px;
+  right: 30px;
+  bottom: 24px;
+  min-height: 226px;
+  padding: 16px 36px 14px;
+  display: grid;
+  grid-template-columns: 1fr;
+  border-radius: 24px;
+  transition: box-shadow 0.15s;
+}
+.battle-bottom.wrong { animation: ta-shake 0.4s; box-shadow: var(--shadow-panel), 0 0 30px rgba(255, 80, 80, 0.7); }
+.battle-bottom.right { box-shadow: var(--shadow-panel), 0 0 30px rgba(99, 224, 116, 0.7); }
+.bb-main { display: flex; flex-direction: column; min-width: 0; }
+.bb-target-lbl { font-family: var(--font-title); font-size: 18px; color: var(--sky-300); letter-spacing: 2px; display: flex; align-items: center; gap: 10px; }
+.bb-target-lbl .ui-icon { width: 22px; height: 22px; }
+.bb-target-desc { font-family: var(--font-body); letter-spacing: 0; font-size: 16px; opacity: 0.75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bb-target {
+  font-family: var(--font-body);
+  font-weight: 900;
+  font-size: 64px;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 4px 0 var(--outline), 0 0 16px rgba(79, 195, 247, 0.4);
+  letter-spacing: 2px;
+  min-height: 64px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.bb-target.long { font-size: 44px; letter-spacing: 0; white-space: normal; line-height: 1.2; min-height: 54px; }
+.bb-target.xlong { font-size: 36px; }
+.bb-target span { white-space: pre; }
+.bb-target .done { color: var(--green-400); }
+.bb-target .now { color: var(--gold-300); text-decoration: underline; text-decoration-color: rgba(255, 229, 154, 0.7); text-underline-offset: 8px; }
+.bb-target .bad { color: var(--red-400); }
+.bb-input-wrap { position: relative; margin-top: auto; }
+.bb-input {
+  font-size: 40px;
+  font-weight: 900;
+  padding: 2px 60px 2px 22px;
+  letter-spacing: 2px;
+}
+.bb-input.long { font-size: 32px; letter-spacing: 0; }
+.bb-input.bad { color: var(--red-500); }
+.bb-input-hint { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); pointer-events: none; opacity: 0.7; display: flex; }
+.bb-input-hint .ui-icon { width: 30px; height: 30px; }
+.bb-kbd-toggle { margin-left: auto; min-height: 40px; font-size: 16px; padding: 0 16px; }
+
+/* 키보드 가이드: 기본 숨김, 켜기 버튼을 누르면 화면 중앙 오버레이로 뜬다.
+   전투를 멈추지 않으므로 배경은 살짝만 어둡게, 클릭은 뒤로 통과시킨다(입력창·버튼이 계속 눌린다). */
+.kbd-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 8, 28, 0.42);
+  pointer-events: none;
+  z-index: 40;
+}
+.kbd-overlay.show { display: flex; }
+.kbd-hint { margin: 8px 0 0; font-size: 17px; line-height: 1.3; color: #c8d5ea; }
+.kbd-guide {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  padding: 28px 32px;
+  border: var(--outline-w) solid var(--outline);
+  border-radius: var(--radius-lg);
+  background: var(--panel-navy);
+  box-shadow: var(--shadow-panel);
+  animation: ta-pop 0.25s ease-out both;
+}
+.kbd-row { display: flex; gap: 4px; }
+.key {
+  width: 46px;
+  height: 38px;
+  border: 2px solid var(--outline);
+  border-bottom-width: 4px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #fff8e8, #e9d5a9);
+  color: var(--text-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 20px;
+  position: relative;
+  transition: transform 0.1s, background 0.15s;
+}
+.key.wide { width: 96px; font-size: 15px; }
+.key.space { width: 260px; font-size: 14px; }
+.key .alt { position: absolute; top: 1px; left: 5px; font-size: 10px; color: #8a6d3b; font-weight: 500; }
+.key.hand-left {
+  border-color: #315f86;
+  background: linear-gradient(180deg, #e5f4ff, #9fcdf4);
+  color: #102e4d;
+  box-shadow: inset 5px 0 0 #3f91cf;
+}
+.key.hand-right {
+  border-color: #87415c;
+  background: linear-gradient(180deg, #ffe8f0, #f3aec6);
+  color: #512036;
+  box-shadow: inset -5px 0 0 #d96891;
+}
+.key.hand-both {
+  border-color: #5b5590;
+  background: linear-gradient(180deg, #f0edff, #beb7ef);
+  color: #302a62;
+  box-shadow: inset 0 -4px 0 #8176c7;
+}
+.key.hand-split { margin-left: 9px; }
+.key.hand-split::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 4px;
+  bottom: 4px;
+  border-left: 2px dashed #d7efff99;
+}
+.kbd-hand-legend {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-bottom: 8px;
+  color: #f7fbff;
+  font-size: max(20px, calc(14 * var(--ui-unit)));
+  line-height: 1.2;
+}
+.kbd-hand-item { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+.kbd-hand-swatch { width: 28px; height: 18px; border: 2px solid; border-radius: 5px; }
+.kbd-hand-swatch.hand-left { border-color: #315f86; background: #9fcdf4; box-shadow: inset 5px 0 #3f91cf; }
+.kbd-hand-swatch.hand-right { border-color: #87415c; background: #f3aec6; box-shadow: inset -5px 0 #d96891; }
+.kbd-hand-swatch.hand-both { border-color: #5b5590; background: #beb7ef; box-shadow: inset 0 -4px #8176c7; }
+.key.next {
+  background: linear-gradient(180deg, #ffe27a, #ffb800);
+  transform: translateY(-3px);
+  box-shadow: 0 0 14px rgba(255, 210, 60, 0.9);
+  animation: ta-pulse 0.7s infinite;
+}
+.key.next-shift { background: linear-gradient(180deg, #b9e8ff, #4fc3f7); box-shadow: 0 0 12px rgba(79, 195, 247, 0.9); }
+.key.next-back { background: linear-gradient(180deg, #ffb3b3, var(--red-400)); box-shadow: 0 0 12px rgba(255, 107, 107, 0.9); }
+.kbd-guide .key.pressed { background: #8ee8c3; color: #0b3027; box-shadow: inset 0 3px 0 #257b61; transform: translateY(2px); }
+
+
+/* 카운트다운 */
+.countdown {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.countdown .cd {
+  font-family: var(--font-title);
+  font-size: 220px;
+  color: var(--gold-400);
+  text-shadow: 0 8px 0 var(--brown-800), 0 14px 0 var(--outline), 0 0 40px rgba(255, 210, 90, 0.7);
+  animation: ta-pop 0.6s ease-out both;
+}
+.countdown .cd.go { color: var(--green-400); text-shadow: 0 8px 0 #1c6b2a, 0 14px 0 var(--outline), 0 0 40px rgba(99, 224, 116, 0.7); }

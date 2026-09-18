@@ -183,6 +183,8 @@ try {
     assert.ok(await erase.evaluate(el => el.classList.contains('btn-red')), '지우는 선택을 빨간색으로 표시한다');
     for (const [width, height] of [[1280, 720], [915, 412]]) {
       await page.setViewportSize({ width, height });
+      // 리사이즈 반영은 다음 프레임(실측 ≈90ms)에 끝난다. 반영 전에 재면 이전 크기의 좌표가 남아 오탐이 난다.
+      await page.waitForFunction(() => { const r = document.querySelector('.modal').getBoundingClientRect(); return r.bottom <= innerHeight + 1 && r.right <= innerWidth + 1; });
       await page.evaluate(async () => { await document.fonts.ready; await Promise.all(document.querySelector('.modal').getAnimations().map(a => a.finished)); });
       const layout = await page.locator('.modal').evaluate(el => {
         const frame = document.getElementById('ui-stage').getBoundingClientRect(), r = el.getBoundingClientRect();
@@ -266,6 +268,90 @@ try {
     assert.ok(boxes.filter((b) => b.label !== '').every((b) => b.scrollWidth <= b.clientWidth + 1), '영문 홈 항목 내부 가로 넘침 없음');
     await page.screenshot({ path: `${OUT}/english-home-tablet.png` });
   }, { viewport: { width: 1024, height: 768 } });
+
+  // 전투 중 새로고침: 정답마다 남긴 중간 저장으로 홈에서 같은 문장부터 이어간다. 완주하면 중간 저장은 지워진다.
+  const resumeSeed = seed();
+  resumeSeed.progress = { ...resumeSeed.progress, unlockedStage: 3, clearedStages: ['stage_1', 'stage_2'], stageStars: { stage_1: 2, stage_2: 1 }, tutorialCompleted: true };
+  await run('전투 중 새로고침 → 홈 이어서 하기로 같은 문장·점수·HP 복원', resumeSeed, async (page) => {
+    const inputReady = () => page.waitForFunction(() => document.querySelector('.bb-input') && !document.querySelector('.bb-input').disabled, undefined, { timeout: 60000 });
+    const state = () => page.evaluate(() => { const s = window.__battle.snapshot(); return { lines: s.letter.lines, next: s.target?.text ?? null, index: s.targetIndex, wordsDone: s.wordsDone, score: s.score, hp: s.playerHp, accuracy: s.accuracy }; });
+    // 편지 모드의 「다음 조각 고르기」(문장 사이 읽기 단계)가 열려 있으면 순서상 다음 문장을 골라 통과한다. 고르기가 없는 판에서는 그냥 지나간다.
+    const watchChoices = () => page.evaluate(async () => {
+      // 개발 서버가 HMR 로 무효화한 모듈은 ?t= 가 붙은 주소로 실린다. 앱과 같은 인스턴스를 쓰도록 실제로 불린 주소를 찾는다.
+      const url = performance.getEntriesByType('resource').map((e) => e.name).find((name) => new URL(name).pathname === '/src/game/EventBus.ts') ?? '/src/game/EventBus.ts';
+      const { EventBus } = await import(url);
+      window.__letterChoice = null;
+      EventBus.on('LETTER_CHOICE', (d) => { window.__letterChoice = d; });
+    });
+    const resolveChoice = async () => {
+      await page.waitForFunction(() => { const s = window.__battle?.snapshot(); return s && (s.target || s.letter?.choices); });
+      await page.evaluate(() => {
+        const b = window.__battle, choices = b.snapshot().letter?.choices;
+        if (b.run.current || !choices) return;
+        const want = choices.indexOf(b.sentences?.[b.idx]?.text);
+        const c = window.__letterChoice; window.__letterChoice = null;
+        for (const i of want >= 0 ? [want] : choices.map((_, k) => k)) { if (b.run.current) break; if (c) c.choose(i); else b.choose?.(i); }
+      });
+      await inputReady();
+    };
+    const nextSentence = async () => {
+      await resolveChoice();
+      const done = await page.evaluate(() => window.__battle.snapshot().wordsDone);
+      await page.locator('.bb-input').fill(await page.locator('.bb-target').innerText());
+      await page.waitForFunction((n) => window.__battle?.snapshot().wordsDone === n, done + 1);
+    };
+    assert.equal(await page.locator('.home-resume-continue').count(), 0, '중간 저장이 없으면 이어서 하기 선택이 없다');
+    await page.getByRole('button', { name: '모험 이어하기', exact: true }).click();
+    await page.waitForSelector('.worldmap');
+    await page.locator('.map-node').nth(2).click();
+    await page.locator('.intro-battle').click();
+    await watchChoices();
+    for (let i = 0; i < 2; i++) await nextSentence();
+    await page.waitForFunction((key) => JSON.parse(localStorage.getItem(key))?.checkpoint?.done === 2, KEY);
+    await resolveChoice();
+    const before = await state();
+    assert.equal(before.lines.length, 2);
+    assert.ok(before.next, '세 번째 문장이 목표로 보인다');
+    await page.reload({ waitUntil: 'domcontentloaded' }); await home(page, true);
+    const resume = page.locator('.home-resume-continue');
+    assert.match(await resume.innerText(), /이어서 하기 · STAGE 3 사막 유적 \(진행 2\/9\)/);
+    assert.ok(await page.getByRole('button', { name: '모험 이어하기', exact: true }).isVisible(), '지도로 가는 기존 버튼은 그대로');
+    await resume.click();
+    await watchChoices();
+    await resolveChoice(); // 복원 직후 고르기가 다시 열리면 같은 세 번째 문장을 고른다
+    const after = await state();
+    assert.deepEqual(after.lines, before.lines, '되찾은 두 문장이 그대로');
+    assert.equal(after.index, 2); assert.equal(after.wordsDone, 2);
+    assert.equal(after.next, before.next, '세 번째 문장부터 이어간다');
+    assert.equal(after.score, before.score); assert.equal(after.hp, before.hp); assert.equal(after.accuracy, before.accuracy);
+    for (let i = 2; i < 9; i++) await nextSentence();
+    await page.waitForSelector('.result-body');
+    const saved = await stored(page);
+    assert.equal(saved.checkpoint, undefined, '완주한 판의 중간 저장은 지운다');
+    assert.ok(saved.progress.clearedStages.includes('stage_3'));
+    assert.equal(saved.records.learning.recent.at(-1).correct, 9, '복원 전 문장까지 성장 기록에 포함');
+  });
+
+  const freshCheckpoint = seed();
+  freshCheckpoint.checkpoint = { stageId: 'stage_1', savedAt: new Date().toISOString(), language: 'ko', done: 12, total: 30, state: { defeated: 12 } };
+  await run('홈 이어서 하기 표시와 처음부터 선택으로 중간 저장 삭제', freshCheckpoint, async (page) => {
+    assert.match(await page.locator('.home-resume-continue').innerText(), /STAGE 1 푸른 숲 \(진행 12\/30\)/);
+    await page.locator('.home-resume-restart').click();
+    await home(page);
+    assert.equal(await page.locator('.home-resume-continue').count(), 0);
+    assert.equal((await stored(page)).checkpoint, undefined);
+  });
+
+  const staleCheckpoint = seed();
+  staleCheckpoint.checkpoint = { stageId: 'stage_1', savedAt: new Date(Date.now() - 3 * 3600e3).toISOString(), language: 'ko', done: 12, total: 30, state: { defeated: 12 } };
+  await run('2시간 지난 중간 저장은 제안하지 않고 다음 저장 때 지운다', staleCheckpoint, async (page) => {
+    assert.equal(await page.locator('.home-resume-continue').count(), 0);
+    assert.ok(await page.getByRole('button', { name: '모험 이어하기', exact: true }).isVisible());
+    await page.getByRole('button', { name: '설정', exact: true }).click();
+    await page.getByRole('switch', { name: '배경 음악', exact: true }).click();
+    await page.getByRole('button', { name: '닫기', exact: true }).click();
+    assert.equal((await stored(page)).checkpoint, undefined);
+  });
 } finally {
   fs.writeFileSync(`${OUT}/${FILTER ? 'results-recheck' : 'results'}.json`, JSON.stringify({ base: BASE, filter: FILTER, results, measurements }, null, 2));
   await browser.close();

@@ -7,7 +7,8 @@ import type { ContentUnit, Difficulty, StageDef, PetDef } from '../types';
 import { calcWordScore } from './TypingStats';
 import { TypingRun, type Emit } from './TypingRun';
 import { countStrokes } from '../util/hangul';
-import type { BattleSnapshot, TypingMode } from './BattleState';
+import type { BattleSnapshot, TypingMode, CheckpointState } from './BattleState';
+import { obj, readInt, readNum, readUnits } from './Checkpoint';
 
 export const DAILY = { words: 20, sentences: 10 };
 export type DailyKind = 'word' | 'sentence' | 'long';
@@ -153,6 +154,20 @@ export class DailySystem implements TypingMode {
   }
   wordsSeen(): string[] {
     return this.run.wordsSeen();
+  }
+  /** 중간 저장. 오늘의 낱말은 날짜 시드로 같지만, 건너뛰기 순서까지 그대로 잇도록 목록을 남긴다. */
+  serialize(): CheckpointState {
+    return { idx: this.idx, score: this.score, elapsed: this.elapsed, words: this.words.map((u) => ({ ...u })), run: this.run.serializeCounters() };
+  }
+  /** 복원 — start() 전에. */
+  restore(state: CheckpointState) {
+    const s = obj(state);
+    const words = readUnits(s.words, this.stage.id, 60);
+    if (words.length) this.words = words;
+    this.idx = readInt(s.idx, 0, 0, Math.max(0, this.words.length - 1));
+    this.score = readInt(s.score, 0, 0, 1e7);
+    this.elapsed = readNum(s.elapsed, 0, 0, 86400);
+    this.run.restoreCounters(s.run);
   }
   snapshot(): BattleSnapshot {
     const r = this.run;

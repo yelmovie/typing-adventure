@@ -29,7 +29,8 @@ export function guideModal(kind: 'student' | 'teacher') {
   const pages: ContentPage[] = sections.flatMap(section => chunkItems(section.lines, 2).map(group => ({
     title: section.title, content: h('div', { class: 'guide-page-copy' }, group.map(line => h('p', {}, line))),
   })));
-  if (kind === 'teacher') pages.push({ title: popupCopy('관련 성취기준', 'Learning standards'), content: h('div', { class: 'guide-page-copy' }, ABOUT.standards.map(line => h('p', {}, line))) });
+  // 성취기준 원문은 한 줄이 길어 2줄씩 나눠야 915×412 에서도 스크롤 없이 들어간다(popup-fit).
+  if (kind === 'teacher') pages.push(...chunkItems(ABOUT.standards, 2).map(group => ({ title: popupCopy('관련 성취기준', 'Learning standards'), content: h('div', { class: 'guide-page-copy' }, group.map(line => h('p', {}, line))) })));
   panel.querySelector('.guide-list')?.replaceWith(pagedContent(pages, { className: 'guide-pages', contents: true }).element);
   panel.querySelector('.guide-std')?.remove();
   // The fixed close control already ends reading; use this space for direct topic navigation.

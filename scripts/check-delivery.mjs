@@ -168,25 +168,8 @@ try {
   const resumed = await page.evaluate(() => window.ClassroomHarness.ClassroomReady.prepare());
   assert.equal(resumed.state, 'ready');
   results.checks.push({ label: 'Eviction detected and only missing asset resumed', pass: true });
-  await page.locator('.screen.home button[title="설정"]').click();
-  await page.locator('.settings-panel .popup-page-next').click();
-  await page.getByRole('button', { name: '수업 준비 · 오프라인', exact: true }).click();
-  try {
-    await page.waitForFunction(() => document.querySelector('.classroom-status [role="status"]')?.textContent?.startsWith('수업 준비 완료!'));
-  } catch (error) {
-    await page.screenshot({ path: `${OUT}/classroom-ui-failure.png` });
-    const diagnostic = await page.evaluate(async () => ({ modal: document.getElementById('modal-root')?.innerHTML, verified: await window.ClassroomHarness.ClassroomReady.verify(), keys: await caches.keys() }));
-    fs.writeFileSync(`${OUT}/classroom-ui-failure.json`, JSON.stringify(diagnostic, null, 2));
-    console.log('CLASSROOM UI DIAGNOSTIC', JSON.stringify(diagnostic));
-    throw error;
-  }
-  assert.ok(await page.getByRole('button', { name: '자료 다시 확인', exact: true }).isEnabled());
-  assert.equal(await page.locator('.classroom-progress').evaluate((el) => el.value), 100);
   await page.evaluate(() => document.fonts.ready);
   assert.equal((await page.evaluate(() => window.ClassroomHarness.ClassroomReady.verify())).state, 'ready', 'CSS font requests preserve verified cache entries');
-  await page.screenshot({ path: `${OUT}/classroom-ready-ui.png` });
-  results.checks.push({ label: 'Settings classroom UI shows complete state, progress and action', pass: true });
-  await page.locator('#modal-root .modal-close').click();
   // Disable the browser HTTP cache, so subsequent motion responses must come from
   // the prepared service worker cache instead of an incidental memory-cache hit.
   const offlineCdp = await context.newCDPSession(page);
@@ -229,17 +212,20 @@ try {
     results.checks.push({ label: `Previously unvisited ${name}: offline intro and battle`, pass: true });
     console.log(`CHECK offline region ${i + 1}: ${name}`);
     if (i === 2) {
-      for (let line = 0; line < 6; line++) {
+      for (let line = 0; line < 9; line++) { // 편지 9문장 (LETTER.sentences)
+        // 「다음 조각 고르기」: production 에는 __battle 이 없어 1·2·3 을 차례로 눌러 정답 조각을 찾는다(오답은 읽기 실수로만 남고 정확도·별과 무관).
+        for (let n = 0; n < 24 && await page.locator('.bb-input').isDisabled(); n++) { await page.keyboard.press(String(n % 3 + 1)); await page.waitForTimeout(250); }
+        await page.waitForFunction(() => !document.querySelector('.bb-input').disabled);
         const target = await page.locator('.bb-target').textContent();
         assert.ok(target?.trim(), 'Visible letter target');
         await page.locator('.bb-input').fill(target);
         // Matching text auto-submits. A second Enter could target the next line.
-        if (line < 5) await page.waitForFunction((previous) => document.querySelector('.bb-target')?.textContent !== previous, target);
+        if (line < 8) await page.waitForFunction((previous) => document.querySelector('.bb-target')?.textContent !== previous, target);
       }
       await page.waitForSelector('.screen.result:not(.hidden)', { timeout: 20000 });
       const recorded = await page.evaluate(() => JSON.parse(localStorage.getItem('typing_adventure_save_v1')));
       const record = recorded.records.learning.recent.filter((session) => session.stageId === 'stage_3' && session.source === 'game').pop();
-      assert.equal(record?.correct, 6, 'Six correct sentences recorded');
+      assert.equal(record?.correct, 9, 'Nine correct sentences recorded');
       assert.ok(recorded.records.bestScoreByStage.stage_3 > 0);
       await page.waitForFunction(() => !document.querySelector('#fade.on') && !document.getElementById('ui-stage')?.inert);
       await page.screenshot({ path: `${OUT}/offline-stage-3-completed.png` });
@@ -289,8 +275,14 @@ try {
       }
       assert.equal(targets.filter(t => t.phase === 1).length, 5, 'five real crystal completions');
       assert.ok(targets.some(t => t.phase === 2), 'actual rush phase inputs');
-      assert.equal(targets.filter(t => t.phase === 3).length, 3, 'three real final-role sentence completions');
-      assert.deepEqual(targets.filter(t => t.phase === 3).map(t => t.instruction.match(/^([123])\/3/)?.[1]), ['1', '2', '3']);
+      // At least one lead sentence per final role (갑옷·코어·마무리); role story sets add more sentences (6 with today's content).
+      const finals = targets.filter(t => t.phase === 3).length;
+      assert.ok(finals >= 3, `final-role sentence completions cover every role: ${finals}`);
+      // Final instruction reads "step/total · role · help" (e.g. "1/6 · 갑옷 깨기 · …"); steps run in order and every role appears.
+      const finalSteps = targets.filter(t => t.phase === 3).map(t => t.instruction.match(/^(\d+)\/(\d+) · (.+?) · /));
+      assert.deepEqual(finalSteps.map(m => m?.[1]), Array.from({ length: finals }, (_, i) => String(i + 1)), 'final sentences are numbered in order');
+      assert.ok(finalSteps.every(m => m?.[2] === String(finals)), 'final sentence counter shows the full total');
+      assert.equal(new Set(finalSteps.map(m => m?.[3])).size, 3, `final sentences cover the three roles: ${finalSteps.map(m => m?.[3]).join(', ')}`);
       const recorded = await page.evaluate(() => JSON.parse(localStorage.getItem('typing_adventure_save_v1')));
       const record = recorded.records.learning.recent.filter(s => s.stageId === 'stage_5' && s.source === 'game').pop();
       assert.equal(record.correct, targets.length); assert.equal(record.skipped, 0); assert.equal(record.corrected, 0); assert.equal(record.accuracy, 100);

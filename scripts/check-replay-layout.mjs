@@ -20,18 +20,33 @@ try {
     try {
       await page.goto(base);
       await page.locator('.opening-skip').click();
+      await page.waitForFunction(() => document.querySelector('.home-menu') && !document.querySelector('.opening-player') && !document.getElementById('ui-stage').inert && !document.getElementById('ui-stage').hasAttribute('aria-busy'));
       await page.locator('.home-replay').click();
       await page.locator('.replay-route').first().waitFor();
       await page.evaluate(() => document.fonts.ready);
       const body = page.locator('.replay-body');
-      assert.ok(await body.evaluate(e => e.scrollWidth <= e.clientWidth + 1), 'No horizontal overflow');
-      if (language === 'en') assert.equal(/[가-힣]/.test(await body.innerText()), false, 'English route cards contain no untranslated Korean');
+      // The window is paged (two routes per page, then goal pages, then the note); every page must fit without scrolling.
+      const next = page.locator('.replay-pages .popup-page-next');
+      const pageFits = async () => {
+        assert.ok(await body.evaluate(e => e.scrollWidth <= e.clientWidth + 1 && e.scrollHeight <= e.clientHeight + 1), `${label}: page fits without overflow`);
+        if (language === 'en') assert.equal(/[가-힣]/.test(await body.innerText()), false, 'English pages contain no untranslated Korean');
+      };
+      const pageOf = locator => locator.evaluate(el => Number(el.closest('.popup-page')?.dataset.page ?? 0));
+      const currentPage = () => page.locator('.replay-pages .popup-page:not([hidden])').first().evaluate(el => Number(el.dataset.page));
+      const reveal = async locator => {
+        for (let step = 0; step < 20 && !await locator.isVisible(); step++) {
+          assert.ok(await pageOf(locator) > await currentPage() && !await next.isDisabled(), `${label}: page forward reaches the control`);
+          await next.click(); await pageFits();
+        }
+        assert.ok(await locator.isVisible(), `${label}: control shown after paging`);
+      };
+      await pageFits();
       const labels = [];
       const routes = page.locator('.replay-route');
       assert.equal(await routes.count(), 5);
       for (let i = 0; i < 5; i++) {
         const route = routes.nth(i);
-        await route.scrollIntoViewIfNeeded();
+        await reveal(route);
         const box = await route.evaluate(e => {
           const r = e.getBoundingClientRect(), hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
           return { width: r.width, height: r.height, accessible: e.contains(hit) || hit === e, markColor: getComputedStyle(e.querySelector('.route-mark')).backgroundColor, overflow: e.scrollWidth - e.clientWidth };
@@ -39,21 +54,22 @@ try {
         assert.ok(box.width >= 48 && box.height >= 48 && box.accessible && box.overflow <= 1, `${label} route ${i}: ${JSON.stringify(box)}`);
         assert.notEqual(box.markColor, 'rgba(0, 0, 0, 0)');
         labels.push((await route.innerText()).split('\n')[0]);
+        if (i === 0) await page.screenshot({ path: `${out}/${label}.png` });
       }
-      const summary = page.locator('.replay-goals-details summary');
-      await summary.scrollIntoViewIfNeeded();
-      const summaryBox = await summary.boundingBox();
-      assert.ok(summaryBox.height >= 47.5);
-      await summary.focus(); await page.keyboard.press('Enter');
-      await page.locator('.replay-goal').first().waitFor();
-      if (language === 'en') assert.equal(/[가-힣]/.test(await body.innerText()), false);
-      await summary.focus(); await page.keyboard.press('Enter');
-      assert.equal(await page.locator('.replay-goals-details').getAttribute('open'), null);
-      await routes.first().scrollIntoViewIfNeeded();
-      await page.screenshot({ path: `${out}/${label}.png` });
+      const goals = page.locator('.replay-goal');
+      assert.ok(await goals.count() >= 1, 'stamp goals follow the routes');
+      await reveal(goals.first());
+      const goalBox = await goals.first().boundingBox();
+      assert.ok(goalBox.height >= 47.5, 'goal card is a readable touch-sized block');
+      // Keyboard paging: the next button keeps focus inside the window until the last page.
+      await next.focus();
+      let pages = await currentPage();
+      for (let step = 0; step < 20 && !await next.isDisabled(); step++) { await page.keyboard.press('Enter'); await pageFits(); pages = await currentPage(); }
+      assert.ok(await page.locator('.replay-panel').evaluate(el => el.contains(document.activeElement)), 'focus stays inside the window after the last page');
+      assert.ok(await page.locator('.replay-notes-page').isVisible(), 'the note page closes the sequence');
       assert.deepEqual(errors, []);
-      results.push({ language, width, height, pass: true, routes: labels });
-      console.log(`PASS ${label}: five routes, touch, keyboard disclosure, translations`);
+      results.push({ language, width, height, pass: true, routes: labels, pages });
+      console.log(`PASS ${label}: five routes over ${pages} pages, touch, keyboard paging, translations`);
     } catch (error) {
       await page.screenshot({ path: `${out}/${label}-failure.png` });
       results.push({ language, width, height, pass: false, error: error.message });

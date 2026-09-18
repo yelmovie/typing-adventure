@@ -119,6 +119,11 @@ export default defineConfig({
           'classroom-manifest.json',
           'icons/*.png',
           'assets/ui/logo.webp',
+          // Fonts and home icons are requested before the service worker controls the
+          // page, so the first offline reload needs them precached rather than runtime-cached.
+          'fonts/*.woff2',
+          'assets/ui/icon_*.webp',
+          'assets/portraits/char_*.webp',
           'assets/backgrounds/bg_main_gate.webp',
           'assets/backgrounds/bg_main_gate_blur.webp',
           'assets/video/intro-v1.mp4',

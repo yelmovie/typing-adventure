@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { registerSheetAnims, anim, placeFeet, placeSideIdle, playStride, motionMetadata, hasKoreanAttackFrames, KOREAN_ATTACK_ATLAS, type Dir } from './anims';
+import { registerSheetAnims, anim, placeFeet, placeSideIdle, playStride, motionMetadata, hasKoreanAttackFrames, KOREAN_ATTACK_ATLAS, STRIDE_PACE, type Dir } from './anims';
 import { prefersReducedMotion } from '../scenes/common';
 import { getLanguage } from '../i18n/Locale';
 
@@ -21,6 +21,12 @@ export class Player {
   private feedbackUntil = 0;
   private feedbackDuration = 180;
   private lean = { x: 0 };
+  /** Forward tilt (degrees) while running; rotates about the feet so contact never moves. */
+  private runLean = 0;
+  /** Stride frame/scale held while the dash pose shows; the stride is paused, never restarted. */
+  private burstFrame?: Phaser.Animations.AnimationFrame;
+  private burstScale = 1;
+  private burstTimer?: Phaser.Time.TimerEvent;
   private finalPose = false;
   private action: 'jab' | 'attack' | undefined;
   private hitTimer?: Phaser.Time.TimerEvent;
@@ -82,8 +88,46 @@ export class Player {
   }
 
   setRunPace(pace: number) {
-    this.cadence = Phaser.Math.Clamp(pace, 0.75, 1.35);
+    this.cadence = Phaser.Math.Clamp(pace, STRIDE_PACE.min, STRIDE_PACE.max);
     if (this.motion !== 'idle') this.sprite.anims.timeScale = this.cadence * this.strideRate;
+  }
+  /** Running lean in degrees (0 = upright). Applied only while a stride plays. */
+  setRunLean(deg: number) {
+    this.runLean = Phaser.Math.Clamp(deg, 0, 14);
+    if (this.motion === 'run' && !this.busy && !this.jumping && !this.crouching) this.sprite.setAngle(this.leanAngle());
+  }
+  private leanAngle() {
+    return this.motion === 'run' ? (this.facing === 'left' ? -this.runLean : this.runLean) : 0;
+  }
+  /**
+   * Word-completion / TURBO burst while travelling: hold the dash pose for a moment.
+   * The stride is paused on its current step and resumed from it, so no cycle restarts.
+   */
+  burst(ms = 200) {
+    if (this.finalPose || !this.sprite.active || this.busy || this.jumping || this.crouching) return;
+    if (this.motion === 'idle' && !this.walking) { this.dash(ms); return; }
+    if (!this.burstFrame) {
+      const current = this.sprite.anims.currentFrame;
+      if (!current || !this.sprite.anims.isPlaying) return;
+      this.burstFrame = current;
+      this.burstScale = this.sprite.scaleX;
+      this.sprite.anims.pause();
+    }
+    this.sprite.setTexture(this.sheet, 'dash').setScale(this.baseScale).setFlipX(this.facing === 'left').setAngle(this.leanAngle());
+    placeFeet(this.sprite, 0, this.lean.x);
+    this.burstTimer?.remove();
+    this.burstTimer = this.scene.time.delayedCall(ms, () => this.endBurst());
+  }
+  private endBurst() {
+    const frame = this.burstFrame;
+    if (!frame) return;
+    this.burstFrame = undefined;
+    this.burstTimer?.remove();
+    if (!this.sprite.active) return;
+    this.sprite.setScale(this.burstScale);
+    this.sprite.anims.resume(frame);
+    this.sprite.setAngle(this.leanAngle());
+    placeFeet(this.sprite, 0, this.lean.x);
   }
   strideFeedback() {
     if (this.scene.time.now < this.feedbackUntil) return;
@@ -94,6 +138,7 @@ export class Player {
   idle(dir: Dir = this.facing) {
     this.facing = dir;
     if (this.walking) { this.walk(dir, true); return; }
+    this.endBurst();
     this.ensureSheet();
     this.motion = 'idle';
     this.suspendedStride = undefined;
@@ -117,7 +162,7 @@ export class Player {
   }
 
   dash(ms = 600) {
-    if (this.motion !== 'idle' || this.walking) { this.strideFeedback(); return; }
+    if (this.motion !== 'idle' || this.walking) { this.burst(Math.min(ms, 420)); return; }
     if (this.busy || this.jumping || this.crouching) return;
     this.ensureSheet();
     this.sprite.anims.stop();
@@ -135,10 +180,11 @@ export class Player {
 
   walk(dir: Dir, run = false) {
     if (this.finalPose || !this.sprite.active) return;
+    this.endBurst();
     this.facing = dir;
     this.motion = run || this.walking ? 'run' : 'walk';
-    this.sprite.setAngle(0);
     this.strideRate = playStride(this.scene, this.sprite, this.sheet, dir, this.motion === 'run', this.baseScale);
+    this.sprite.setAngle(this.leanAngle());
     this.sprite.anims.timeScale = this.cadence * this.strideRate;
     if (this.suspendedStride !== undefined) {
       this.sprite.anims.setProgress(this.suspendedStride);
@@ -245,6 +291,7 @@ export class Player {
     this.callbacks.add(timer);
   }
   private finishActions() {
+    this.endBurst();
     this.poseTimer?.remove(); this.hitTimer?.remove();
     for (const timer of this.callbacks) timer.remove();
     this.callbacks.clear();
@@ -256,6 +303,8 @@ export class Player {
 
   private setPose(col: 0 | 1 | 2 | 3): boolean {
     if (this.poseRow < 0 || !this.scene.textures.exists('char_poses')) return false;
+    this.endBurst();
+    this.sprite.setAngle(0);
     if (this.motion !== 'idle' && this.sprite.anims.isPlaying && this.suspendedStride === undefined) {
       this.suspendedStride = this.sprite.anims.getProgress();
     }

@@ -8,18 +8,23 @@ const BASE = process.env.STRIDE_TEST_URL || 'http://127.0.0.1:5180';
 const OUT = process.env.STRIDE_TEST_OUT || 'tmp/stride-scenes-20260911';
 const chars = ['brown_boy', 'pink_girl', 'glasses_boy', 'blond_explorer'];
 const characterFilter = process.env.STRIDE_TEST_CHARACTER;
+const stageFilter = process.env.STRIDE_TEST_STAGE; // e.g. stage_2 to check only the race
+const expected = characterFilter ? 1 : 4; // 레이스 4캐릭터
 const results = [];
 fs.mkdirSync(OUT, { recursive: true });
 const browser = await chromium.launch({ channel: process.env.STRIDE_BROWSER_CHANNEL || 'chrome' });
 try {
-  for (const [row, characterId] of chars.entries()) for (const stage of ['stage_1', 'stage_2']) {
+  // stage_1(푸른 숲)은 2026-09-13 부터 제자리 아레나(idle 'front')라 보행 프레임이 없다 — 보행·도로 검사는 레이스(stage_2)만 본다.
+  for (const [row, characterId] of chars.entries()) for (const stage of ['stage_2']) {
     if (characterFilter && characterId !== characterFilter) continue;
+    if (stageFilter && stage !== stageFilter) continue;
     const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, serviceWorkers: 'block' });
     await context.routeWebSocket('**', socket => { socket.onMessage(() => {}); socket.send(JSON.stringify({ type: 'connected' })); });
     await context.addInitScript(characterId => localStorage.setItem('typing_adventure_save_v1', JSON.stringify({
       version: '2',
       profile: { name: '보행 점검', characterId, petId: 'rabbit', difficulty: 'normal' },
-      progress: { unlockedStage: 5, clearedStages: ['stage_1'], stageStars: { stage_1: 3 }, coins: 123 },
+      // A cleared stage now counts its warm-up as done; keep none cleared so the intro offers the practice.
+      progress: { unlockedStage: 5, clearedStages: [], stageStars: {}, coins: 123, tutorialCompleted: false },
       collection: { charactersUnlocked: ['brown_boy', 'pink_girl', 'glasses_boy', 'blond_explorer'], petsUnlocked: ['cat', 'rabbit'] },
       settings: { language: 'ko', bgm: false, sfx: false, prologueSeen: true, showKeyboardGuide: false },
     })), characterId);
@@ -44,30 +49,44 @@ try {
       await page.locator('.intro-practice').click();
       await page.locator('#tutorial-input').waitFor({ state: 'visible' });
       await page.waitForFunction(() => !document.querySelector('#ui-stage[aria-busy]'));
-      const practiceCount = stage === 'stage_1' ? 19 : 21;
-      for (let index = 0; index < practiceCount; index++) {
+      // The warm-up is short now (3 items today). Type while the input is offered; its
+      // 「다음 파트 연습 →」/「준비 끝! 모험 시작 →」 button continues and finally enters the battle itself.
+      let practiceCount = 0;
+      for (let step = 0; step < 60; step++) {
+        await page.waitForFunction(() => { const input = document.querySelector('#tutorial-input'); const next = document.querySelector('.tutorial-next'); return document.querySelector('.bb-input') || (input && !input.disabled) || (next && !next.hidden && !next.disabled); });
+        if (await page.locator('.bb-input').count()) break;
+        if (await page.locator('.tutorial-next').isVisible()) {
+          await page.locator('.tutorial-next').click();
+          // One click only: wait until the button is consumed (next part hides it, or the battle screen mounts).
+          await page.waitForFunction(() => document.querySelector('.bb-input') || !document.querySelector('.tutorial-next') || document.querySelector('.tutorial-next').hidden, undefined, { timeout: 60000 });
+          continue;
+        }
         const target = await page.locator('.tutorial-target').getAttribute('data-target');
         await page.locator('#tutorial-input').fill(target);
         await page.locator('#tutorial-input').press('Enter');
+        practiceCount++;
       }
-      await page.locator('.tutorial-next').click();
-      await page.waitForFunction(() => !document.querySelector('#ui-stage[aria-busy]') && document.querySelector('.intro-battle') && !document.querySelector('.intro-battle').disabled);
-      await page.locator('.intro-battle').click();
+      assert.ok(practiceCount >= 1, 'the warm-up asked for at least one real input');
       await page.waitForFunction(() => window.__battle?.snapshot().target && document.querySelector('.bb-input') && !document.querySelector('.bb-input').disabled, undefined, { timeout: 60000 });
       const sceneName = stage === 'stage_1' ? 'Wave' : 'Race';
-      await page.evaluate(sceneName => {
+      await page.evaluate(({ sceneName, sheet }) => {
         const scene = window.__game.scene.getScene(sceneName), frames = new Set(), petFrames = new Set(), gaps = [];
-        const observation = { frames, petFrames, gaps, animationStarts: 0, wrongTextures: new Set(), groundFirst: undefined, groundLast: undefined };
+        const observation = { frames, petFrames, gaps, animationStarts: 0, bursts: 0, wrongTextures: new Set(), groundFirst: undefined, groundLast: undefined };
         let simulationTime = 0;
         const sample = (_time, delta) => {
           simulationTime += delta;
           const sprite = scene.player.sprite, frame = sprite.frame, metadata = frame.customData?.customData ?? frame.customData;
-          frames.add(String(frame.name)); petFrames.add(String(scene.pet.sprite.frame.name));
-          if (sprite.texture.key !== 'char_walk_v2') observation.wrongTextures.add(sprite.texture.key);
+          petFrames.add(String(scene.pet.sprite.frame.name));
+          // A completed word in the race holds the character's own dash pose briefly (the stride
+          // is paused, not restarted). Anything else off the v2 model sheet is still wrong.
+          if (sprite.texture.key === 'char_walk_v2') frames.add(String(frame.name));
+          else if (sprite.texture.key === sheet && frame.name === 'dash') observation.bursts++;
+          else observation.wrongTextures.add(sprite.texture.key);
           gaps.push(((metadata?.foot?.y ?? frame.y + frame.height) - sprite.displayOriginY) * sprite.scaleY);
           // Background and animation both advance with Phaser's smoothed delta.
           // Wall-clock gaps from a busy test host must not look like foot sliding.
-          const ground = { position: scene.bgFar.tilePositionX * scene.bgFar.scaleX, time: simulationTime };
+          // 숲(stage_1)은 09-13 부터 제자리 아레나라 스크롤 바닥이 없다. 바닥이 없으면 도로 속도는 재지 않는다.
+          const ground = scene.bgFar ? { position: scene.bgFar.tilePositionX * scene.bgFar.scaleX, time: simulationTime } : null;
           observation.groundFirst ??= ground; observation.groundLast = ground;
         };
         scene.events.on('postupdate', sample);
@@ -75,13 +94,13 @@ try {
         scene.player.sprite.on('animationstart', start);
         window.__strideObservation = () => {
           scene.events.off('postupdate', sample); scene.player.sprite.off('animationstart', start);
-          const groundSpeed = (observation.groundLast.position - observation.groundFirst.position) / (observation.groundLast.time - observation.groundFirst.time) * 1000;
-          return { frames: [...frames], petFrames: [...petFrames], minGap: Math.min(...gaps), maxGap: Math.max(...gaps), animationStarts: observation.animationStarts, groundSpeed,
+          const groundSpeed = observation.groundLast ? (observation.groundLast.position - observation.groundFirst.position) / (observation.groundLast.time - observation.groundFirst.time) * 1000 : null;
+          return { frames: [...frames], petFrames: [...petFrames], minGap: Math.min(...gaps), maxGap: Math.max(...gaps), animationStarts: observation.animationStarts, bursts: observation.bursts, groundSpeed,
             wrongTextures: [...observation.wrongTextures], playerPlaying: scene.player.sprite.anims.isPlaying, petPlaying: scene.pet.sprite.anims.isPlaying,
             playerX: scene.player.x, playerY: scene.player.y, shadowX: scene.player.shadow.x, shadowY: scene.player.shadow.y,
             ghostTexture: scene.ghost?.texture.key };
         };
-      }, sceneName);
+      }, { sceneName, sheet: `char_${characterId}` });
       for (let index = 0; index < 3; index++) {
         await page.waitForFunction(expected => window.__battle.snapshot().wordsDone === expected && !document.querySelector('.bb-input').disabled, index, { timeout: 20000 });
         const target = await page.locator('.bb-target').innerText();
@@ -101,8 +120,12 @@ try {
       assert.ok(observation.playerPlaying && observation.petPlaying && observation.petFrames.length >= 4);
       assert.equal(observation.playerX, observation.shadowX);
       assert.equal(observation.playerY + 6, observation.shadowY);
-      assert.ok(stage === 'stage_1' ? observation.groundSpeed >= 119 && observation.groundSpeed <= 121 : observation.groundSpeed >= 89 && observation.groundSpeed <= 163, 'visible road moves at the bounded stride pace');
+      // Race: racePace() runs 1.0× (stalled) … 2.3× (TURBO), so the road is 120 px/s × that pace.
+      if (stage === 'stage_1') assert.equal(observation.groundSpeed, null, 'the forest arena has no scrolling road');
+      else assert.ok(observation.groundSpeed >= 118 && observation.groundSpeed <= 290, 'visible road moves at the bounded stride pace');
       if (stage === 'stage_2') assert.equal(observation.ghostTexture, 'char_walk_v2', 'the previous-run ghost also uses the corrected model sheet');
+      if (stage === 'stage_2') assert.ok(observation.bursts >= 1, 'a completed word shows the dash burst');
+      else assert.equal(observation.bursts, 0, 'the wave never shows a race dash burst');
       assert.deepEqual(errors, []);
       await page.screenshot({ path: `${OUT}/${characterId}-${stage}.png` });
       results.push({ characterId, stage, pass: true, intro, practiceCount, motionResponses, observation });
@@ -117,4 +140,4 @@ try {
     }
   }
 } finally { await browser.close(); }
-console.log(`${results.length}/${characterFilter ? 2 : 8} real-scene stride checks passed.`);
+console.log(`${results.length}/${expected} real-scene stride checks passed.`);

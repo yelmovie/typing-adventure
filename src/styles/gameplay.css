@@ -87,7 +87,7 @@
 .mode-boss .bb-target-desc { color: #d8ecff; }
 
 /* 푸른 숲 로그라이트 전투: HUD와 입력창은 가장자리로 눌러 전장 중심과 8개 진입로를 비운다. */
-#ui-stage .mode-wave .battle-top { top: 12px; height: 88px; grid-template-columns: 220px minmax(340px, 1fr) auto; gap: 16px; }
+#ui-stage .mode-wave .battle-top { top: 12px; height: 88px; grid-template-columns: 220px minmax(340px, 1fr) auto auto; gap: 16px; } /* 스테이지 · 진행도 · 콤보 배지 · 스탯 */
 #ui-stage .mode-wave .battle-top .bt-stage { flex-direction: row; align-items: baseline; gap: 12px; }
 #ui-stage .mode-wave .battle-top .bt-stage .s2 { font-size: max(25px, calc(18 * var(--ui-unit))); }
 #ui-stage .mode-wave .battle-top .bt-stats .stat-box:nth-child(4) { display: block; border-color: #edcf82; box-shadow: 0 0 18px #ffd45a44; }
@@ -106,5 +106,4 @@
 #ui-stage .mode-wave .bb-hint { display: none; }
 #ui-stage .mode-wave .bb-input-wrap { grid-column: 2; grid-row: 2; align-self: center; width: 100%; min-width: 0; margin: 0; }
 #ui-stage .mode-wave .bb-input { min-height: var(--touch-size); padding-right: 230px; }
-#ui-stage .mode-wave .combo-box { top: 108px; }
 #ui-stage .mode-wave .judge-pop { --judge-bottom: 300px; }

@@ -1,4 +1,5 @@
 import type { SaveData, LearningFocus, LearningPattern, LearningProgress } from '../types';
+import { validateCheckpoint } from './Checkpoint';
 
 export const CURRENT_SAVE_VERSION = '2';
 const stages = ['stage_1', 'stage_2', 'stage_3', 'stage_4', 'stage_5'];
@@ -58,13 +59,16 @@ export function validateSave(value: unknown, includeArchives = true): SaveData {
     tutorialCompleted: bool(progress.tutorialCompleted, false),
     practicedParts: strings(progress.practicedParts, 4).filter((part): part is NonNullable<SaveData['progress']['practicedParts']>[number] => ['consonants', 'vowels', 'sentences', 'story'].includes(part)),
     skippedPracticeStages: strings(progress.skippedPracticeStages, stages.length).filter((id): id is NonNullable<SaveData['progress']['skippedPracticeStages']>[number] => stages.includes(id)),
-    unlockedStage: Math.max(1, Math.floor(num(progress.unlockedStage, 1, stages.length))),
+    unlockedStage: 1,
     stageStars: Object.fromEntries(entries(progress.stageStars).filter(([id]) => stages.includes(id)).map(([id, n]) => [id, Math.floor(num(n, 0, 3))])),
     clearedStages: strings(progress.clearedStages).filter((id) => stages.includes(id)), coins: num(progress.coins),
     fails: Object.fromEntries(entries(progress.fails).filter(([id]) => stages.includes(id)).map(([id, n]) => [id, Math.floor(num(n))])),
     assist: Object.fromEntries(entries(progress.assist).filter(([id]) => stages.includes(id)).map(([id, flag]) => [id, bool(flag, false)])),
   };
-  d.progress.unlockedStage = Math.max(d.progress.unlockedStage, ...d.progress.clearedStages.map((id) => Math.min(stages.length, stages.indexOf(id) + 2)));
+  // Unlock state is derived from evidence (clears and earned stars), never from a stored flag that could be edited or drift.
+  d.progress.unlockedStage = Math.min(stages.length, Math.max(1,
+    ...d.progress.clearedStages.map((id) => stages.indexOf(id) + 2),
+    ...Object.entries(d.progress.stageStars).filter(([, stars]) => stars > 0).map(([id]) => stages.indexOf(id) + 2)));
   d.records = {
     bestCpm: num(records.bestCpm, 0, 3000), bestAccuracy: num(records.bestAccuracy, 0, 100), bestCombo: num(records.bestCombo),
     bestScoreByStage: Object.fromEntries(entries(records.bestScoreByStage).filter(([id]) => stages.includes(id)).map(([id, n]) => [id, num(n)])),
@@ -87,6 +91,9 @@ export function validateSave(value: unknown, includeArchives = true): SaveData {
   d.stats = { totalClears: num(stats.totalClears), totalWords: num(stats.totalWords), totalPlaySec: num(stats.totalPlaySec) };
   d.updatedAt = date(v.updatedAt);
   if (includeArchives) {
+    // A malformed, stale (2 h) or unknown-stage checkpoint is simply dropped; the stage then starts fresh.
+    const checkpoint = validateCheckpoint(v.checkpoint);
+    if (checkpoint) d.checkpoint = checkpoint;
     d.languageArchives = {};
     for (const lang of ['ko', 'en'] as const) {
       const archive = obj(v.languageArchives)[lang];

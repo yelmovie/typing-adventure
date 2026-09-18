@@ -85,7 +85,9 @@ export class KeyboardGuide {
       h('span', { class: 'kbd-hand-item' }, h('i', { class: 'kbd-hand-swatch hand-right' }), this.english ? 'Right hand' : '오른손'),
       h('span', { class: 'kbd-hand-item' }, h('i', { class: 'kbd-hand-swatch hand-both' }), this.english ? 'Either thumb' : '양손 엄지'),
     );
-    this.panel = h('div', { class: 'kbd-guide' }, handLegend, rows, h('div', { class: 'kbd-row kbd-space-row' }, punctuation, this.spaceKey));
+    // 전투 오버레이는 게임을 멈추지 않는다. 글자를 치면 걷힌다는 걸 알려 "멈춘 것처럼" 보이지 않게 한다.
+    const hint = opts.embedded ? null : h('p', { class: 'kbd-hint' }, this.english ? 'Start typing and the guide slides away · Esc' : '글자를 치면 가이드가 사라져요 · Esc');
+    this.panel = h('div', { class: 'kbd-guide' }, handLegend, rows, h('div', { class: 'kbd-row kbd-space-row' }, punctuation, this.spaceKey), hint);
     this.el = h('div', {
       class: opts.embedded ? 'kbd-embedded' : 'kbd-overlay',
       onclick: (e: MouseEvent) => { if (e.target === this.el) opts.onBackdropClick?.(); },

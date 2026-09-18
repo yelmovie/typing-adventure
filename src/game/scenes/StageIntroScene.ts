@@ -160,7 +160,8 @@ export class StageIntroScene extends Phaser.Scene {
    * 여기 배치를 바꿀 때마다 말풍선이 엉뚱한 데 뜬다 — 실제 스프라이트에서 재서 보낸다.
    */
   private emitAnchors(enemyIds: string[]) {
-    const head = (s: Phaser.GameObjects.Sprite) => Math.round(s.getBounds().top);
+    // 프레임 위쪽의 투명 여백(특히 큰 몬스터 시트)을 빼고 실제로 보이는 머리 끝을 재야 말풍선이 머리 바로 위에 붙는다.
+    const head = (s: Phaser.GameObjects.Sprite) => Math.round(visibleTop(s));
     const cx = (s: Phaser.GameObjects.Sprite) => Math.round(s.getBounds().centerX);
     const anchors: { who: string; x: number; y: number }[] = [];
     if (this.player) anchors.push({ who: 'player', x: cx(this.player.sprite), y: head(this.player.sprite) });
@@ -170,4 +171,40 @@ export class StageIntroScene extends Phaser.Scene {
     });
     EventBus.emit(Events.INTRO_ANCHORS, { anchors });
   }
+}
+
+const alphaTopCache = new Map<string, number>();
+/**
+ * 스프라이트가 실제로 보이는 첫 픽셀 줄의 월드 y. 시트 프레임은 머리 위에 투명 여백이 있어
+ * getBounds().top 만 쓰면 말풍선이 머리에서 한참 위에 뜬다. 프레임마다 한 번만 알파를 훑고 기억한다.
+ */
+function visibleTop(sprite: Phaser.GameObjects.Sprite): number {
+  const frame = sprite.frame;
+  const bounds = sprite.getBounds();
+  const key = `${frame.texture.key}:${frame.name}`;
+  let row = alphaTopCache.get(key);
+  if (row === undefined) {
+    row = 0;
+    try {
+      const source = frame.source.image as CanvasImageSource | undefined;
+      const canvas = document.createElement('canvas');
+      canvas.width = frame.cutWidth;
+      canvas.height = frame.cutHeight;
+      const ctx = source && canvas.getContext('2d', { willReadFrequently: true });
+      if (ctx) {
+        ctx.drawImage(source, frame.cutX, frame.cutY, frame.cutWidth, frame.cutHeight, 0, 0, frame.cutWidth, frame.cutHeight);
+        const data = ctx.getImageData(0, 0, frame.cutWidth, frame.cutHeight).data;
+        scan: for (let y = 0; y < frame.cutHeight; y++) {
+          for (let x = 0; x < frame.cutWidth; x += 2) {
+            if (data[(y * frame.cutWidth + x) * 4 + 3] > 24) { row = y; break scan; }
+          }
+        }
+      }
+    } catch {
+      row = 0;
+    }
+    alphaTopCache.set(key, row);
+  }
+  // frame.y 는 트리밍된 프레임의 위쪽 오프셋(트리밍이 없으면 0).
+  return bounds.top + (frame.y + row) * Math.abs(sprite.scaleY);
 }

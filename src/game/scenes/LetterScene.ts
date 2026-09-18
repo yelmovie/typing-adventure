@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { addBackground, ensureParticleTextures, styleText } from './common';
+import { addBackground, ensureParticleTextures, prefersReducedMotion, styleText } from './common';
 import { Player } from '../entities/Player';
 import { Pet } from '../entities/Pet';
 import { SaveSystem } from '../systems/SaveSystem';
@@ -34,6 +34,12 @@ export class LetterScene extends Phaser.Scene {
   private hourglass?: Phaser.GameObjects.Image;
   private sparkle?: Phaser.GameObjects.Particles.ParticleEmitter;
   private handlers: [string, (...args: never[]) => void][] = [];
+  // 「다음 조각 고르기」: 찢어진 종이 조각 3개(탭 또는 1·2·3 키)
+  private paperStyle: Phaser.Types.GameObjects.Text.TextStyle = {};
+  private paperFont = 30;
+  private choicePieces: Phaser.GameObjects.Container[] = [];
+  private choicePrompt?: Phaser.GameObjects.Text;
+  private choose?: (index: number) => boolean;
 
   constructor() {
     super('Letter');
@@ -69,18 +75,22 @@ export class LetterScene extends Phaser.Scene {
       g.lineStyle(1, 0x7a5320, 0.025).lineBetween(left + 20, y, left + PAPER.w - 20, y);
     }
     const paperStyle = { ...styleText(font, '#493518', '#f3e5c0'), fontFamily: 'Noto Sans KR', strokeThickness: 0, shadow: undefined, wordWrap: { width: PAPER.w - 100 } };
+    this.paperStyle = paperStyle;
+    this.paperFont = font;
     this.add.text(left + 42, top + 24, this.english ? 'THE LOST LETTER' : '잊힌 탐험가의 편지', { ...paperStyle, fontStyle: 'bold' }).setDepth(5);
     this.progressText = this.add.text(left + 42, top + 106, this.english ? 'Restore each sentence to open the seals.' : '문장을 완성해 편지와 봉인을 되찾아요.', { ...paperStyle, color: '#6b5739', fontSize: font }).setDepth(5);
     this.currentLine = this.add.text(left + 42, top + 156, '', { ...paperStyle, fontStyle: 'bold', color: '#203c49', fontSize: font + 4, maxLines: 2 }).setDepth(5);
     this.restoredLine = this.add.text(left + 42, top + 286, this.english ? 'Your restored words will appear here.' : '되찾은 문장이 여기 남아요.', { ...paperStyle, fontSize: font, color: '#66543a', maxLines: 1 }).setDepth(5);
     this.runeRow = this.add.container(PAPER.x, PAPER.y + PAPER.h / 2 + 46).setDepth(6);
+    // 고르기 안내·힌트는 룬 줄 자리에 보인다(고르는 동안 룬은 없다).
+    this.choicePrompt = this.add.text(PAPER.x, PAPER.y + PAPER.h / 2 + 46, '', { ...styleText(font, '#fff8e6'), wordWrap: { width: PAPER.w + 60 }, align: 'center' }).setOrigin(0.5).setDepth(7).setVisible(false);
 
     // 배경의 석조 황금문은 그대로 보존하고 작은 봉인 3개만 켠다.
     const door = this.add.graphics().setDepth(3);
     door.fillStyle(0x19223b, 0.96).fillRoundedRect(GATE.x - 245, GATE.y - 150, 490, 260, 12);
     door.lineStyle(5, 0x96784e).strokeRoundedRect(GATE.x - 245, GATE.y - 150, 490, 260, 12);
     this.add.text(GATE.x, GATE.y - 116, this.english ? 'THREE ANCIENT SEALS' : '황금문의 봉인', { ...styleText(font + 4, '#ffe59a'), strokeThickness: 0 }).setOrigin(0.5).setDepth(5);
-    this.add.text(GATE.x, GATE.y + 74, this.english ? '2 sentences = 1 seal' : '문장 2개마다 하나씩 열려요', { ...styleText(font, '#fff8e6'), strokeThickness: 0 }).setOrigin(0.5).setDepth(5);
+    this.add.text(GATE.x, GATE.y + 74, this.english ? `${LETTER.perLock} sentences = 1 seal` : `문장 ${LETTER.perLock}개마다 하나씩 열려요`, { ...styleText(font, '#fff8e6'), strokeThickness: 0 }).setOrigin(0.5).setDepth(5);
     this.gateGlow = this.add.ellipse(GATE.x, GATE.y, 460, 300, 0xfff2b0, 0).setDepth(2).setBlendMode(Phaser.BlendModes.ADD);
     for (let i = 0; i < LETTER.locks; i++) {
       const x = GATE.x - 145 + i * 145;
@@ -109,12 +119,16 @@ export class LetterScene extends Phaser.Scene {
     this.bind(Events.LETTER_GLOW, () => this.glowAll());
     this.bind(Events.LETTER_LINE, (d: { index: number; text: string; perfect: boolean; wrong?: boolean }) => this.writeLine(d));
     this.bind(Events.LETTER_LOCK, (d: { lock: number }) => this.openLock(d.lock - 1));
-    this.bind(Events.SYLLABLE_HIT, () => { if (Math.random() < 0.5) this.player?.jab(); });
     this.bind(Events.PET_ACTIVE, () => this.pet?.skill());
     this.bind(Events.IDLE_DRAIN, () => { this.player?.hit(); AudioManager.sfx('hurt', { gain: 0.5 }); });
     this.bind(Events.PET_PASSIVE, () => this.pet?.skill());
     this.bind(Events.LETTER_IDLE, (d: { idle: boolean }) => this.tweens.add({ targets: this.hourglass, alpha: d.idle ? 0.5 : 0, duration: 300 }));
     this.bind(Events.LETTER_GATE, () => this.openGate());
+    this.bind(Events.LETTER_CHOICE, (d: { choices: string[]; choose: (index: number) => boolean }) => this.showChoices(d));
+    this.bind(Events.LETTER_CHOICE_OK, (d: { index: number }) => this.resolveChoice(d.index));
+    this.bind(Events.LETTER_CHOICE_WRONG, (d: { index: number; hint: string }) => this.rejectChoice(d.index, d.hint));
+    // 1·2·3 키. 고르는 동안 DOM 입력창은 닫혀 있고, Phaser 키보드는 window 리스너라 초점과 무관하게 받는다.
+    this.input.keyboard?.on('keydown', this.onChoiceKey, this);
     this.bind(Events.INPUT_CORRECT, (d: { perfect: boolean; combo: number }) => this.onCorrect(d));
     this.bind(Events.INPUT_WRONG, (d: { forgiven: boolean }) => { if (!d.forgiven) AudioManager.sfx('miss'); });
     this.bind(Events.PLAYER_MOVE, (d: { dir: 'left' | 'right' | 'up' | 'down'; pressed: boolean }) => {
@@ -127,6 +141,9 @@ export class LetterScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       for (const [ev, fn] of this.handlers) EventBus.off(ev, fn);
       this.handlers = [];
+      this.input.keyboard?.off('keydown', this.onChoiceKey, this);
+      this.choicePieces = [];
+      this.choose = undefined;
     });
     void AudioManager.bgm(STAGE_BGM[stage.id] ?? 'battle');
   }
@@ -141,7 +158,7 @@ export class LetterScene extends Phaser.Scene {
     const info = s.letter;
     if (!this.runeRow || !info) return;
     this.progressText?.setText(this.english ? `${info.lines.length} / ${LETTER.sentences} sentences restored` : `되찾은 문장 ${info.lines.length} / ${LETTER.sentences}`);
-    this.currentLine?.setText(info.current ?? (this.english ? 'The letter is whole again.' : '편지를 모두 되찾았어요.'));
+    this.currentLine?.setText(info.current ?? (info.choices ? '' : this.english ? 'The letter is whole again.' : '편지를 모두 되찾았어요.'));
     this.runeRow.removeAll(true);
     this.runes = [];
     const n = info.runes.length;
@@ -165,7 +182,7 @@ export class LetterScene extends Phaser.Scene {
     gem.setFillStyle(0xffd34d, 1);
     if (silent) return;
     AudioManager.sfx('tap', { rate: 1.2 + i * 0.05 });
-    this.player?.jab();
+    // 어절마다 룬만 빛난다. 캐릭터는 문장 완성(onCorrect) 때만 움직인다
     this.tweens.add({ targets: c, scale: 1.5, duration: 120, yoyo: true });
     this.sparkle?.explode(8, this.runeRow!.x + c.x, this.runeRow!.y);
   }
@@ -207,6 +224,89 @@ export class LetterScene extends Phaser.Scene {
     this.player?.hop();
     this.player?.cheer();
     this.time.delayedCall(900, () => this.player?.idle('right'));
+  }
+
+  /** 「다음 조각 고르기」: 양피지 위에 찢어진 종이 조각 3개. 탭하거나 1·2·3 키로 고른다. */
+  private showChoices(d: { choices: string[]; choose: (index: number) => boolean }) {
+    this.clearChoices();
+    this.choose = d.choose;
+    for (const t of [this.progressText, this.currentLine, this.restoredLine]) t?.setVisible(false);
+    const w = PAPER.w - 68;
+    const x = PAPER.x;
+    let y = PAPER.y - PAPER.h / 2 + 72;
+    const reduced = prefersReducedMotion();
+    d.choices.forEach((text, i) => {
+      const label = this.add.text(-w / 2 + 30, 0, `${i + 1}. ${text}`, { ...this.paperStyle, fontSize: this.paperFont, wordWrap: { width: w - 70 }, maxLines: 2 }).setOrigin(0, 0.5);
+      const h = Math.max(56, label.height + 14); // 터치 영역 최소 48px(디자인 좌표 56px)
+      const back = this.add.rectangle(0, 0, w, h, 0xfff4d6, 1).setStrokeStyle(3, 0xb08d57);
+      // 왼쪽 가장자리를 찢어진 종이처럼 톱니로 그린다.
+      const tear = this.add.graphics();
+      tear.fillStyle(0xf3e5c0, 1);
+      const points: Phaser.Types.Math.Vector2Like[] = [];
+      for (let k = 0; k <= 8; k++) points.push({ x: -w / 2 + (k % 2 ? 12 : 2), y: -h / 2 + (h * k) / 8 });
+      points.push({ x: -w / 2 - 3, y: h / 2 }, { x: -w / 2 - 3, y: -h / 2 });
+      tear.fillPoints(points, true);
+      const piece = this.add.container(x, y + h / 2, [back, tear, label]).setDepth(9).setSize(w, h);
+      piece.setData('back', back);
+      back.setInteractive({ useHandCursor: true });
+      back.on('pointerover', () => back.setFillStyle(0xffe9a8, 1));
+      back.on('pointerout', () => back.setFillStyle(0xfff4d6, 1));
+      back.on('pointerdown', () => this.pick(i));
+      this.choicePieces.push(piece);
+      if (!reduced) {
+        piece.setAlpha(0);
+        this.tweens.add({ targets: piece, alpha: 1, duration: 220, delay: i * 70, ease: 'Sine.easeOut' });
+      }
+      y += h + 12;
+    });
+    this.choicePrompt?.setText(this.english ? 'Pick the next piece of the story, then type it · keys 1·2·3 or tap' : '이야기의 다음 조각을 고르고 입력해요 · 1·2·3 키 또는 터치').setColor('#fff8e6').setVisible(true);
+  }
+
+  /** 정답 조각은 양피지 안으로 날아가 현재 문장이 된다. */
+  private resolveChoice(index: number) {
+    this.choose = undefined;
+    this.choicePrompt?.setVisible(false);
+    AudioManager.sfx('coin', { rate: 1.3 });
+    const piece = this.choicePieces[index];
+    const done = () => this.clearChoices();
+    if (prefersReducedMotion() || !piece) return done();
+    for (const other of this.choicePieces) if (other !== piece) this.tweens.add({ targets: other, alpha: 0, duration: 160 });
+    this.sparkle?.explode(16, piece.x, piece.y);
+    this.tweens.add({ targets: piece, x: PAPER.x, y: PAPER.y - PAPER.h / 2 + 170, scale: 0.6, alpha: 0, duration: 380, ease: 'Cubic.easeIn', onComplete: done });
+  }
+
+  /** 오답 조각은 흔들리고, 정답 문장의 첫 낱말을 힌트로 보여 준다. 계속 고를 수 있다. */
+  private rejectChoice(index: number, hint: string) {
+    AudioManager.sfx('miss');
+    const piece = this.choicePieces[index];
+    const back = piece?.getData('back') as Phaser.GameObjects.Rectangle | undefined;
+    back?.setFillStyle(0xffd9d2, 1);
+    if (piece && !prefersReducedMotion()) this.tweens.add({ targets: piece, x: piece.x + 8, duration: 50, yoyo: true, repeat: 3 });
+    this.choicePrompt?.setText(this.english ? `Not that piece. Hint · the next sentence starts with “${hint}”` : `그 조각이 아니에요. 힌트 · 다음 문장의 첫 낱말: '${hint}'`).setColor('#ffd3c2').setVisible(true);
+  }
+
+  private clearChoices() {
+    for (const piece of this.choicePieces) {
+      this.tweens.killTweensOf(piece);
+      piece.destroy();
+    }
+    this.choicePieces = [];
+    this.choose = undefined;
+    this.choicePrompt?.setVisible(false);
+    for (const t of [this.progressText, this.currentLine, this.restoredLine]) t?.setVisible(true);
+  }
+
+  private pick(index: number) {
+    this.choose?.(index);
+  }
+
+  private onChoiceKey(event: KeyboardEvent) {
+    if (!this.choose || event.repeat) return;
+    const index = ['1', '2', '3'].indexOf(event.key);
+    if (index < 0) return;
+    // 정답을 고르면 같은 keydown 안에서 입력창이 열리고 초점을 받는다. 기본 동작을 막지 않으면 숫자가 그 입력창에 들어간다.
+    event.preventDefault();
+    this.pick(index);
   }
 
   /** 마지막 글자: 문이 열리며 빛이 쏟아진다 */

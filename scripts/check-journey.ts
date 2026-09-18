@@ -6,6 +6,8 @@ import { REMIX_STORIES, buildRemixStory } from '../src/game/data/remixStories';
 import { defaultSave, validateSave } from '../src/game/systems/SaveValidation';
 import { calcStars } from '../src/game/systems/AwardRules';
 import { setLanguage } from '../src/game/i18n/Locale';
+import { LETTER } from '../src/game/systems/LetterSystem';
+import { TELE } from '../src/game/systems/TelegramSystem';
 
 const save = defaultSave();
 assert.equal(journeyProgress(save).restored.length, 0, 'A fresh adventure awards no lights');
@@ -25,7 +27,7 @@ save.progress.stageStars.stage_3 = 2;
 assert.equal(journeyProgress(save).next?.id, 'stage_3', 'After finishing, recommend a reachable missing star');
 assert.deepEqual(journeyProgress(validateSave(save)).restored, journeyProgress(save).restored, 'Lights survive save round-trip without a second schema');
 assert.equal(journeyFor('daily'), undefined);
-assert.equal(STAGES[3].goalCombo, 3, 'The telegram combo star can be earned within its three sentences');
+assert.ok(STAGES[3].goalCombo <= TELE.sentences, 'The telegram combo star can be earned within its sentences');
 for (const lang of ['ko', 'en'] as const) {
   setLanguage(lang);
   for (const stage of STAGES) {
@@ -41,7 +43,7 @@ for (const lang of ['ko', 'en'] as const) {
     }
   }
   for (const stage of ['stage_3', 'stage_4'] as const) {
-    const expected = stage === 'stage_3' ? 6 : 3;
+    const expected = stage === 'stage_3' ? LETTER.sentences : TELE.sentences;
     for (const story of REMIX_STORIES[lang][stage]) {
       assert.equal(story.length, expected);
       assert.equal(new Set(story).size, expected);

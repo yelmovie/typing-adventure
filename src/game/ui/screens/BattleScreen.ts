@@ -29,8 +29,10 @@ import { BattleFeedback } from '../battle/BattleFeedback';
 
 
 /** 전투 화면 DOM: HUD + 실제 한글 입력창 + 키보드 가이드. 여섯 모드의 타이핑 로직을 연결한다. */
-export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKind; remix?: boolean }> {
+export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKind; remix?: boolean; resume?: boolean }> {
   private battle?: TypingMode;
+  private dailyKind: DailyKind = 'word';
+  private checkpointTimer = 0;
   private typing?: TypingSystem;
   private hud?: HudController;
   private kbd?: KeyboardGuide;
@@ -54,17 +56,24 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
     if (document.hidden) void this.pauseMenu(this.copy.pauseHidden);
   };
   private shortcutHandler = (event: KeyboardEvent) => {
-    if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing) return;
-    event.preventDefault();
-    if (this.kbd?.el.classList.contains('show')) this.setKbdVisible(false);
-    else void this.pauseMenu();
+    if (event.defaultPrevented) return;
+    const guideOpen = !!this.kbd?.el.classList.contains('show');
+    if (event.key === 'Escape') {
+      if (event.isComposing) return;
+      event.preventDefault();
+      if (guideOpen) this.setKbdVisible(false);
+      else void this.pauseMenu();
+      return;
+    }
+    // 자판 가이드는 "보고 나서 치기" 용이다. 첫 글자를 치면 바로 걷혀 전투가 이어진다(설정은 그대로 두어 다음 판에도 먼저 보여 준다).
+    if (guideOpen && (event.key.length === 1 || ['Process', 'Backspace', 'Enter', 'Unidentified'].includes(event.key))) this.hideKbdForNow();
   };
 
   constructor() {
     super('battle');
   }
 
-  protected render(data: { stageId: StageId; dailyKind?: DailyKind; remix?: boolean }) {
+  protected render(data: { stageId: StageId; dailyKind?: DailyKind; remix?: boolean; resume?: boolean }) {
     this.lifetime++;
     const st = getStage(data.stageId);
     const save = SaveSystem.get();
@@ -75,11 +84,17 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
     this.pauseDialogOpen = false;
     this.pausedByOverlay = false;
     this.remix = data.remix === true;
+    this.dailyKind = data.dailyKind ?? 'word';
+    // 중간 저장은 같은 스테이지·같은 언어·같은 종류일 때만 이어간다. 새로 시작하는 판은 이전 저장을 지운다(?go=battle 개발 경로도 기본은 새 시작).
+    const checkpoint = data.resume ? SaveSystem.checkpoint() : undefined;
+    const resuming = !!checkpoint && checkpoint.stageId === st.id && checkpoint.language === getLanguage() && (checkpoint.remix === true) === this.remix
+      && (st.id !== 'daily' || checkpoint.dailyKind === this.dailyKind);
+    if (!resuming) SaveSystem.clearCheckpoint();
     const stagePool = data.remix ? getRemixContent(st.id) : getContentForStage(st.id);
     // 도움 모드: 그 스테이지만 기초 난이도 규칙(시간 +35%, 적 느리게)
     const difficulty = save.progress.assist?.[st.id] ? 'beginner' : save.profile.difficulty;
 
-    this.battle = createBattleMode({
+    const build = () => createBattleMode({
       stage: st, difficulty, pet, stagePool,
       allPool: st.mode === 'daily' ? allContent() : [],
       language: getLanguage(),
@@ -88,6 +103,11 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
       dailyKind: data.dailyKind, dailyKey: todayKey(),
       emit: (event, payload) => EventBus.emit(event, payload),
     });
+    this.battle = build();
+    if (resuming && checkpoint) {
+      try { this.battle.restore?.(checkpoint.state); }
+      catch { this.battle = build(); SaveSystem.clearCheckpoint(); } // 손상된 저장은 버리고 새로 시작한다
+    }
     if (import.meta.env.DEV) (window as unknown as { __battle: TypingMode }).__battle = this.battle; // 개발용 콘솔 접근
     this.hud = new HudController({
       stageIndex: st.index,
@@ -107,6 +127,7 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
       race: st.mode === 'race',
       bestCpm: save.records.bestCpm,
       title: currentTitle(save.progress.coins ?? 0).name,
+      comboInTop: st.mode === 'wave', // 12시 방향 몬스터의 낱말이 중앙 콤보에 가려지지 않게 HUD 바 안에 둔다
       onHome: () => this.homeMenu(),
     });
     this.kbd = new KeyboardGuide({ onBackdropClick: () => this.setKbdVisible(false) });
@@ -126,7 +147,7 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
       lang: getLanguage(),
     }) as HTMLInputElement;
 
-    this.kbdToggle = h('button', { class: 'btn btn-sm btn-gray bb-kbd-toggle', onclick: () => this.setKbdVisible(!SaveSystem.get().settings.showKeyboardGuide) }, save.settings.showKeyboardGuide ? this.copy.hideGuide : this.copy.showGuide);
+    this.kbdToggle = h('button', { class: 'btn btn-sm btn-gray bb-kbd-toggle', onclick: () => this.setKbdVisible(!this.kbd?.el.classList.contains('show')) }, save.settings.showKeyboardGuide ? this.copy.hideGuide : this.copy.showGuide);
 
     this.bottom = h(
       'div',
@@ -155,14 +176,16 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
     const leftCol = h('div', { class: 'battle-left-col' }, this.hud.left, isBoss ? this.hud.enemyPanel : null, this.hud.track, this.hud.tele);
     this.el.append(feverOverlay, this.hud.top, leftCol);
     if (!isBoss) this.el.append(this.hud.enemyPanel);
-    this.el.append(this.hud.combo, this.bottom, this.kbd.el);
+    if (!this.hud.combo.parentElement) this.el.append(this.hud.combo); // wave 는 HudController 가 상단 HUD 바 안에 넣었다
+    this.el.append(this.bottom, this.kbd.el);
     this.el.classList.add(`mode-${st.mode}`);
 
     this.typing = new TypingSystem(this.inputEl, {
       onChange: (value, composing) => this.onInputChange(value, composing),
       onSubmit: (value, meta) => this.battle?.submit(value, meta.usedBackspace),
       onSkip: () => this.doSkip(),
-      onPause: () => { void this.pauseMenu(); },
+      // 입력창이 포커스를 쥔 채 Esc: 자판 가이드가 떠 있으면 먼저 걷고, 아니면 일시정지 메뉴.
+      onPause: () => { if (this.kbd?.el.classList.contains('show')) this.setKbdVisible(false); else void this.pauseMenu(); },
       onMove: (dir, pressed) => this.battle?.move?.(dir, pressed),
     });
     this.typing.setEnabled(false);
@@ -170,7 +193,7 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
 
     this.bind(Events.TARGET_CHANGED, (s: BattleSnapshot) => this.onTarget(s));
     this.bind(Events.HUD_TICK, (s: BattleSnapshot) => this.hud?.update(s));
-    this.bind(Events.INPUT_CORRECT, (d: { perfect: boolean; corrected?: boolean; combo: number; snapshot: BattleSnapshot }) => this.onCorrect(d));
+    this.bind(Events.INPUT_CORRECT, (d: { perfect: boolean; corrected?: boolean; combo: number; snapshot: BattleSnapshot }) => { this.onCorrect(d); this.scheduleCheckpoint(); });
     this.bind(Events.INPUT_WRONG, (d: { snapshot: BattleSnapshot; forgiven: boolean; shielded: boolean }) => this.onWrong(d));
     this.bind(Events.STAGE_CLEAR, (s: BattleSnapshot) => this.finish(true, s));
     this.bind(Events.STAGE_FAILED, (d: { reason: 'time' | 'hp'; snapshot: BattleSnapshot }) => this.finish(false, d.snapshot, d.reason));
@@ -189,7 +212,7 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
     this.bind(Events.TELE_BRAKE, (d: { stage: number; total: number }) => this.feedback?.judge(this.copy.brake(d.stage, d.total), 'good'));
     this.bind(Events.TELE_STOP, () => this.feedback?.judge(this.copy.trainStopped, 'fever'));
     this.bind(Events.TELE_OUTAGE, (d: { on: boolean }) => { if (d.on) this.feedback?.flash('wrong'); this.el.classList.toggle('outage', d.on); });
-    this.bind(Events.LETTER_LOCK, (d: { lock: number; total: number }) => this.feedback?.judge(this.copy.lockOpened(d.lock, d.total), 'fever'));
+    this.bind(Events.LETTER_LOCK, (d: { lock: number; total: number; restored?: boolean }) => { if (!d.restored) this.feedback?.judge(this.copy.lockOpened(d.lock, d.total), 'fever'); });
     this.bind(Events.LETTER_GLOW, () => this.feedback?.judge(this.copy.runeGlow, 'good'));
     this.bind(Events.LETTER_SECRET, (d: { coins: number }) => this.feedback?.judge(this.copy.secretRoom(d.coins), 'bonus'));
     this.bind(Events.LETTER_GATE, (d: { accuracyReward: boolean }) => { this.feedback?.judge(this.copy.goldenGate, 'fever'); if (d.accuracyReward) this.feedback?.later(() => this.feedback?.judge(this.copy.accuracyReward, 'bonus'), 900); });
@@ -206,6 +229,7 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
     });
 
     this.hud.update(this.battle.snapshot());
+    this.hud.setSkips(this.battle.run.skipsLeft);
     document.addEventListener('visibilitychange', this.visibilityHandler);
     document.addEventListener('keydown', this.shortcutHandler);
     const modalRoot = document.getElementById('modal-root');
@@ -272,7 +296,8 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
     this.started = true;
     this.el.querySelector('.countdown')?.remove();
     this.battle.start();
-    this.typing?.setEnabled(true);
+    // 목표가 없이 시작하는 판(편지의 다음 조각 고르기, 복원한 보스 러시 큐 대기)은 목표가 생길 때 TARGET_CHANGED 가 입력을 연다.
+    this.typing?.setEnabled(this.battle.run.current != null);
     this.lastTick = performance.now();
     this.tickTimer = window.setInterval(() => {
       const now = performance.now();
@@ -371,6 +396,32 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
     this.battle?.pause();
     this.typing?.setEnabled(false);
     AudioManager.setRate(1);
+    this.writeCheckpoint();
+  }
+
+  /**
+   * 중간 저장: 정답 제출 뒤(모드가 다음 목표로 넘어간 다음 틱)와 일시정지에 기록한다.
+   * 클리어·실패·홈으로 나가기에서 지운다. 새로고침하면 홈에서 이 자리부터 이어갈 수 있다.
+   */
+  private scheduleCheckpoint() {
+    window.clearTimeout(this.checkpointTimer);
+    const lifetime = this.lifetime;
+    this.checkpointTimer = window.setTimeout(() => { if (lifetime === this.lifetime) this.writeCheckpoint(); }, 0);
+  }
+
+  private writeCheckpoint() {
+    if (!this.battle || !this.started || this.battle.finished) return;
+    const state = this.battle.serialize?.();
+    if (!state) return;
+    const st = this.battle.stage;
+    const s = this.battle.snapshot();
+    const race = st.mode === 'race';
+    SaveSystem.setCheckpoint({
+      stageId: st.id, savedAt: new Date().toISOString(), language: getLanguage(),
+      ...(this.remix ? { remix: true } : {}), ...(st.id === 'daily' ? { dailyKind: this.dailyKind } : {}),
+      done: race ? Math.round(s.dealtDamage) : s.targetIndex, total: race ? s.totalEnemyHp : s.targetTotal, ...(race ? { unit: 'm' as const } : {}),
+      state,
+    });
   }
 
   private resumeBattle() {
@@ -408,19 +459,26 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
     if (lifetime !== this.lifetime) return;
     this.pauseDialogOpen = false;
     if (leave) {
+      SaveSystem.clearCheckpoint(); // 스스로 나간 판은 이어가지 않는다
       void navigate('home');
     } else {
       this.resumeBattle();
     }
   }
 
-  /** 키보드 가이드 켜기/끄기: 화면 중앙 오버레이 토글 + 설정 저장 */
+  /** 키보드 가이드 켜기/끄기: 화면 중앙 오버레이 토글 + 설정 저장. 입력창 포커스는 유지해 가이드가 떠 있어도 바로 칠 수 있다 */
   private setKbdVisible(v: boolean) {
     SaveSystem.setSettings({ showKeyboardGuide: v });
     this.kbd?.setVisible(v);
     if (this.kbdToggle) this.kbdToggle.textContent = v ? this.copy.hideGuide : this.copy.showGuide;
-    if (v) this.inputEl?.blur();
-    else this.typing?.focus();
+    this.typing?.focus();
+  }
+
+  /** 이번 판에서만 가이드를 걷는다(설정 유지). 글자를 치기 시작했다는 뜻이므로 입력을 막지 않는다 */
+  private hideKbdForNow() {
+    this.kbd?.setVisible(false);
+    if (this.kbdToggle) this.kbdToggle.textContent = this.copy.showGuide;
+    this.typing?.focus();
   }
 
   private finish(cleared: boolean, s: BattleSnapshot, reason?: 'time' | 'hp') {
@@ -428,6 +486,8 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
     // 클리어 연출(씬의 STAGE CLEAR)이 대기 중인 팝업에 가리지 않게 큐를 비운다
     this.feedback?.clearJudgments();
     window.clearInterval(this.tickTimer);
+    window.clearTimeout(this.checkpointTimer);
+    SaveSystem.clearCheckpoint(false); // finalizeAndSave 가 바로 저장한다
     this.typing?.setEnabled(false);
     this.hud?.update(s);
     const st = this.battle.stage;
@@ -473,6 +533,7 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
     this.modalObserver?.disconnect();
     this.modalObserver = undefined;
     window.clearInterval(this.tickTimer);
+    window.clearTimeout(this.checkpointTimer);
     this.feedback?.dispose();
     this.feedback = undefined;
     AudioManager.setRate(1);

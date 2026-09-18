@@ -9,8 +9,27 @@
  * 시간은 전부 tick(dt) 누적으로 잰다 → 일시정지에 안전하고 테스트가 쉽다.
  */
 import type { ContentUnit, Difficulty, LearningAttempt, PetActive, PetDef, StageDef, WordVariant } from '../types';
-import { TypingStats, inputErrorCount } from './TypingStats';
+import { TypingStats, inputErrorCount, type StatsSnapshot } from './TypingStats';
 import { countStrokes, isPrefixInput } from '../util/hangul';
+import { obj, readInt, readStrings } from './Checkpoint';
+
+/** Counters a mid-stage checkpoint carries so score, combo, coins, skips and accuracy continue after a reload. */
+export interface RunCounters {
+  combo: number;
+  maxCombo: number;
+  perfectCount: number;
+  wordsDone: number;
+  coins: number;
+  treasures: number;
+  skipsLeft: number;
+  skippedCount: number;
+  correctedCount: number;
+  adaptiveOffset: number;
+  mistakes: string[];
+  seen: string[];
+  learningAttempts: LearningAttempt[];
+  stats: StatsSnapshot;
+}
 
 export type FeverLevel = 0 | 1 | 2 | 3;
 
@@ -116,6 +135,8 @@ export class TypingRun {
   private targetSec = 0;
   private seen = new Set<string>();
   private needsCorrection = new Set<string>();
+  private started = false;
+  private pendingStats?: StatsSnapshot;
 
   constructor(o: RunOptions) {
     this.o = o;
@@ -127,7 +148,50 @@ export class TypingRun {
 
   start() {
     this.stats.start(this.now());
+    this.started = true;
+    if (this.pendingStats) {
+      this.stats.restore(this.pendingStats);
+      this.pendingStats = undefined;
+    }
     this.advance();
+  }
+
+  serializeCounters(): RunCounters {
+    return {
+      combo: this.combo, maxCombo: this.maxCombo, perfectCount: this.perfectCount, wordsDone: this.wordsDone,
+      coins: this.coins, treasures: this.treasures, skipsLeft: this.skipsLeft, skippedCount: this.skippedCount, correctedCount: this.correctedCount,
+      adaptiveOffset: this.adaptiveOffset, mistakes: [...this.mistakes], seen: [...this.seen],
+      learningAttempts: this.learningAttempts.map((a) => ({ ...a })), stats: this.stats.snapshot(),
+    };
+  }
+
+  /**
+   * Continue from a checkpoint (call before start()). FEVER timers, shields and the current target are transient
+   * and are not restored; the next correct submission re-enters POWER/FEVER from the restored combo.
+   */
+  restoreCounters(raw: unknown) {
+    const c = obj(raw);
+    this.combo = readInt(c.combo, 0, 0, 10000);
+    this.maxCombo = Math.max(this.combo, readInt(c.maxCombo, 0, 0, 10000));
+    this.perfectCount = readInt(c.perfectCount, 0, 0, 100000);
+    this.wordsDone = Math.max(this.perfectCount, readInt(c.wordsDone, 0, 0, 100000));
+    this.coins = readInt(c.coins, 0, 0, 100000);
+    this.treasures = readInt(c.treasures, 0, 0, 100000);
+    this.skipsLeft = readInt(c.skipsLeft, RULES.skipsPerStage, 0, RULES.skipsPerStage);
+    this.skippedCount = readInt(c.skippedCount, 0, 0, 100000);
+    this.correctedCount = readInt(c.correctedCount, 0, 0, 100000);
+    this.adaptiveOffset = readInt(c.adaptiveOffset, 0, -1, 1);
+    this.mistakes = readStrings(c.mistakes, 200);
+    this.seen = new Set(readStrings(c.seen, 500, 120));
+    this.learningAttempts = (Array.isArray(c.learningAttempts) ? c.learningAttempts : []).slice(-80).flatMap((entry): LearningAttempt[] => {
+      const a = obj(entry);
+      if (typeof a.targetId !== 'string' || typeof a.target !== 'string' || typeof a.typed !== 'string') return [];
+      const outcome = a.outcome === 'wrong' || a.outcome === 'skipped' ? a.outcome : 'correct';
+      return [{ targetId: a.targetId.slice(0, 120), target: a.target.slice(0, 600), typed: a.typed.slice(0, 600), outcome, corrected: a.corrected === true }];
+    });
+    const stats = obj(c.stats) as Partial<StatsSnapshot>;
+    if (this.started) this.stats.restore(stats);
+    else this.pendingStats = { correctStrokes: 0, wrongStrokes: 0, submissions: 0, correctSubmissions: 0, activeSec: 0, idleSec: 0, ...stats };
   }
 
   /** 다음 목표로 이동 */

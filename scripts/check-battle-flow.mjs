@@ -30,7 +30,8 @@ async function run(label, stage, action, language = 'ko') {
   page.on('pageerror', (error) => errors.push(error.message));
   try {
     await page.goto(`${BASE}/?go=battle&stage=${stage}`, { waitUntil: 'domcontentloaded' });
-    await page.waitForFunction(() => document.querySelector('.bb-input') && !document.querySelector('.bb-input').disabled, undefined, { timeout: 60000 });
+    // 편지(stage_3)는 「다음 조각 고르기」로 시작하므로 입력창이 닫힌 채 후보가 열려 있어도 준비된 것이다.
+    await page.waitForFunction(() => document.querySelector('.bb-input') && (!document.querySelector('.bb-input').disabled || window.__battle?.snapshot().letter?.choices), undefined, { timeout: 60000 });
     await action(page);
     assert.deepEqual(errors, [], '브라우저 런타임 오류 없음');
     results.push({ label, pass: true });
@@ -42,9 +43,40 @@ async function run(label, stage, action, language = 'ko') {
 }
 const snapshot = (page) => page.evaluate(() => window.__battle.snapshot());
 const target = (page) => page.locator('.bb-target').innerText();
-const correct = async (page) => { await page.locator('.bb-input').fill(await target(page)); };
+// 편지: 문장을 치기 전에 다음 조각을 고른다. 정답 조각은 순서상 다음 문장(테스트만 내부 순서를 본다).
+const nextChoice = (page) => page.evaluate(() => {
+  const battle = window.__battle;
+  const choices = battle.snapshot().letter?.choices;
+  return choices ? choices.indexOf(battle.sentences[battle.idx].text) : -1;
+});
+const tapPiece = async (page, index) => {
+  // 조각이 다 나타난(페이드인 끝) 뒤에 탭한다. 입력창은 시작 순간부터 닫혀 있으므로 그것만으로는 조각 준비를 보장하지 않는다.
+  await page.waitForFunction((index) => { const piece = window.__game?.scene.getScene('Letter')?.choicePieces?.[index]; return !!piece && piece.alpha >= 1; }, index);
+  // Phaser 조각의 디자인 좌표(1920×1080)를 캔버스 CSS 좌표로 바꿔 실제로 탭한다.
+  const point = await page.evaluate((index) => {
+    const canvas = document.querySelector('canvas');
+    const rect = canvas.getBoundingClientRect();
+    const scene = window.__game.scene.getScene('Letter');
+    const bounds = scene.choicePieces[index].getBounds();
+    return { x: rect.left + bounds.centerX * rect.width / 1920, y: rect.top + bounds.centerY * rect.height / 1080 };
+  }, index);
+  await page.mouse.click(point.x, point.y);
+};
+const pickNext = async (page, how = 'key') => {
+  const index = await nextChoice(page);
+  if (index < 0) return false;
+  // 고르는 동안 입력창은 닫혀 있어야 숫자 키가 입력창 대신 조각에 간다(시작 직후 첫 tick 에 닫힌다).
+  await page.waitForFunction(() => document.querySelector('.bb-input').disabled);
+  if (how === 'tap') await tapPiece(page, index);
+  else await page.keyboard.press(String(index + 1));
+  await page.waitForFunction(() => !document.querySelector('.bb-input').disabled);
+  return true;
+};
+const correct = async (page) => { await pickNext(page); await page.locator('.bb-input').fill(await target(page)); };
 const observeMoves = (page) => page.evaluate(async () => {
-  const { EventBus, Events } = await import('/src/game/EventBus.ts');
+  // 개발 서버가 HMR 로 무효화한 모듈은 ?t= 주소로 실린다. 앱과 같은 EventBus 인스턴스를 쓰도록 실제로 불린 주소를 찾는다.
+  const url = performance.getEntriesByType('resource').map((e) => e.name).find((name) => new URL(name).pathname === '/src/game/EventBus.ts') ?? '/src/game/EventBus.ts';
+  const { EventBus, Events } = await import(url);
   window.__testMoves = [];
   EventBus.on(Events.PLAYER_MOVE, ({ dir, pressed }) => window.__testMoves.push({ dir, pressed }));
 });
@@ -99,6 +131,9 @@ try {
   for (const language of ['ko', 'en']) {
     await run(`방향키 회귀 · ${language} 문장 커서·선택 교정·IME`, 'stage_3', async (page) => {
       const input = page.locator('.bb-input');
+      await page.waitForFunction(() => document.querySelector('.bb-input').disabled && window.__battle.snapshot().letter?.choices?.length === 3);
+      assert.equal((await snapshot(page)).target, null, 'The letter starts with a choice, not a typing target');
+      assert.ok(await pickNext(page, language === 'ko' ? 'tap' : 'key'), 'Choose the next piece by tap (ko) or number key (en)');
       const text = await target(page);
       const index = Math.floor(text.length / 2);
       const wrong = `${text.slice(0, index)}※${text.slice(index + 1)}`;
@@ -115,6 +150,8 @@ try {
       assert.equal((await snapshot(page)).wordsDone, 1, 'Replacing the selected typo completes the sentence');
       assert.equal(await page.evaluate(() => window.__battle.run.correctedCount), 1, 'Caret correction preserves learning evidence');
       assert.deepEqual(await page.evaluate(() => window.__testMoves), [], 'Sentence editing must not emit character movement');
+      assert.equal((await snapshot(page)).target, null, 'A completed sentence opens the next choice');
+      await pickNext(page);
       await input.fill((await target(page)).slice(0, 3));
       await assertImeArrows(page);
     }, language);
@@ -165,16 +202,17 @@ try {
     assert.equal(before.telegram.brake, 0);
     assert.equal(await page.locator('.result-screen').count(), 0);
     await page.screenshot({ path: `${OUT}/telegram-no-false-clear.png` });
-    for (let i = 0; i < 3; i++) await correct(page);
+    for (let i = 0; i < 5; i++) await correct(page); // 전보 5문장
     await page.waitForSelector('.result-body');
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('typing_adventure_save_v1')));
-    assert.equal(saved.records.learning.recent.at(-1).correct, 3);
+    assert.equal(saved.records.learning.recent.at(-1).correct, 5);
     assert.equal(saved.records.learning.recent.at(-1).skipped, 3);
     assert.ok(saved.records.learning.recent.at(-1).corrected >= 1);
   });
 
   await run('Escape·설정·탭숨김 일시정지와 명시 재개', 'stage_3', async (page) => {
     const input = page.locator('.bb-input');
+    await pickNext(page);
     await input.press('Escape');
     await page.getByRole('dialog', { name: '잠시 멈춤' }).waitFor();
     const paused = (await snapshot(page)).elapsedSec;
@@ -218,6 +256,15 @@ try {
   });
 
   await run('영문 문장 대소문자 교정·자판 가이드·완료', 'stage_3', async (page) => {
+    // 오답 조각: 입력은 계속 닫혀 있고 읽기 실수 1, 타자 제출 0. 정답 조각을 고르면 입력이 열린다.
+    await page.waitForFunction(() => document.querySelector('.bb-input').disabled && window.__battle.snapshot().letter?.choices);
+    const wrongPiece = await page.evaluate(() => { const b = window.__battle; return b.snapshot().letter.choices.findIndex((t) => t !== b.sentences[b.idx].text); });
+    await page.keyboard.press(String(wrongPiece + 1));
+    await page.waitForFunction(() => window.__battle.snapshot().letter.readingMistakes === 1);
+    assert.equal(await page.locator('.bb-input').isDisabled(), true, 'A wrong piece keeps the choice open');
+    assert.equal(await page.evaluate(() => window.__battle.run.stats.submissions), 0, 'Reading mistakes are not typing submissions');
+    assert.ok(await page.evaluate(() => window.__battle.snapshot().letter.choiceHint), 'A hint appears after a wrong piece');
+    await pickNext(page);
     const text = await target(page);
     assert.match(text, /^[\x20-\x7e]+$/);
     assert.equal(await page.locator('.bb-input').getAttribute('lang'), 'en');
@@ -234,7 +281,7 @@ try {
     await page.locator('.bb-input').fill(text.toLowerCase());
     await page.locator('.bb-input').press('Enter');
     assert.equal((await snapshot(page)).wordsDone, 0);
-    for (let i = 0; i < 6; i++) await correct(page);
+    for (let i = 0; i < 9; i++) await correct(page); // 편지 9문장
     await page.waitForSelector('.result-body');
     await page.screenshot({ path: `${OUT}/english-corrected-result.png` });
   }, 'en');

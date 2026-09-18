@@ -7,7 +7,6 @@ import { open, closeModal, closeBtn } from './ModalHost';
 import { confirmModal, popupCopy } from './BasicModals';
 import { guideModal, storyModal, aboutModal } from './GuideModals';
 import { practiceModal } from './RecordModals';
-import { classroomModal } from './ClassroomModal';
 
 /** 설정 모달: BGM / 효과음 / 화면 흔들림 / 키보드 가이드 / 초기화 */
 export function settingsModal(opts: { onReset?: () => void } = {}) {
@@ -56,7 +55,6 @@ export function settingsModal(opts: { onReset?: () => void } = {}) {
       { class: 'setting-links' },
       h('button', { class: 'btn btn-sm btn-sky', onclick: () => { AudioManager.sfx('click'); guideModal('student'); } }, icon('book'), ' 학생 가이드'),
       h('button', { class: 'btn btn-sm btn-purple', onclick: () => { AudioManager.sfx('click'); guideModal('teacher'); } }, icon('book'), ' 교사용 가이드'),
-      h('button', { class: 'btn btn-sm btn-sky', onclick: () => classroomModal() }, '수업 준비 · 오프라인'),
       h('button', { class: 'btn btn-sm btn-sky', disabled: !SaveSystem.hasSave(), onclick: () => { closeModal(); void navigate('setup', { step: 'pet' }); } }, '모험가·친구 변경'),
       h('button', { class: 'btn btn-sm btn-sky', onclick: () => practiceModal() }, '나의 교정 연습'),
       h('button', { class: 'btn btn-sm btn-gray', onclick: () => { AudioManager.sfx('click'); storyModal('prologue'); } }, '프롤로그 다시보기'),

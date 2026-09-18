@@ -60,9 +60,9 @@ function make(ghost: GhostRecord | null = null) {
   assert.ok(r.dist - r.chaser > beforeGap, '가속과 추격자 감속으로 실제 거리가 벌어진다');
 }
 
-// 4. 500m 도착 → 클리어. 같은 코스·규칙의 고스트만 비교한다.
+// 4. 800m 도착 → 클리어. 같은 코스·규칙의 고스트만 비교한다.
 {
-  const { r, count } = make({ samples: Array.from({ length: 194 }, (_, i) => Math.min(500, i * 2.6)), finishSec: 193, goalDistance: 500, rulesVersion: 2 });
+  const { r, count } = make({ samples: Array.from({ length: 194 }, (_, i) => Math.min(RACE.goal, i * 4.2)), finishSec: 193, goalDistance: RACE.goal, rulesVersion: RACE.rulesVersion });
   let guard = 0;
   while (!r.finished && guard++ < 5000) {
     r.submit(r.run.current!.text, false);
@@ -74,15 +74,16 @@ function make(ghost: GhostRecord | null = null) {
   assert.ok(r.beatGhost, '어제의 나 추월');
   const g = r.ghostRecord();
   assert.ok(g.samples.length >= 2 && g.samples[g.samples.length - 1] === RACE.goal && g.finishSec < 193);
-  assert.equal(g.goalDistance, 500);
-  assert.equal(g.rulesVersion, 2);
+  assert.equal(g.goalDistance, RACE.goal);
+  assert.equal(g.rulesVersion, RACE.rulesVersion);
   assert.ok(r.snapshot().race!.player === RACE.goal);
 }
 
-// 이전 1000m 또는 다른 규칙의 고스트를 500m 기록으로 비교하지 않는다.
+// 이전 1000m·500m 또는 다른 규칙의 고스트를 800m 기록으로 비교하지 않는다.
 for (const ghost of [
   { samples: [0, 500, 1000], finishSec: 40 },
-  { samples: [0, 250, 500], finishSec: 40, goalDistance: 500, rulesVersion: 1 },
+  { samples: [0, 250, 500], finishSec: 40, goalDistance: 500, rulesVersion: 2 },
+  { samples: [0, 400, 800], finishSec: 40, goalDistance: 800, rulesVersion: 2 },
 ]) {
   const { r } = make(ghost);
   assert.equal(r.ghostDist(), null);

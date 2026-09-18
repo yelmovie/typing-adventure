@@ -38,7 +38,7 @@ export class DailyScene extends Phaser.Scene {
     this.burst = this.add.particles(0, 0, 'p_star', {
       lifespan: { min: 300, max: 700 }, speed: { min: 150, max: 400 }, scale: { start: 1.1, end: 0 }, gravityY: 300, emitting: false, blendMode: Phaser.BlendModes.ADD, tint: [0xffd34d, 0xfff2b0, 0x8fe0ff, 0xffffff],
     }).setDepth(20);
-    this.bind(Events.SYLLABLE_HIT, () => { AudioManager.sfx('tap'); this.player?.jab(); playClassFx(this, this.cls, 'weak', { x: 560, y: 770 }, { x: 1250, y: 620 }); });
+    this.bind(Events.SYLLABLE_HIT, () => { AudioManager.sfx('tap'); playClassFx(this, this.cls, 'weak', { x: 560, y: 770 }, { x: 1250, y: 620 }); }); // 캐릭터는 낱말·문장 완성 때만 공격 동작
     this.bind(Events.PET_ACTIVE, () => this.pet?.skill());
     this.bind(Events.PET_PASSIVE, () => this.pet?.skill());
     this.bind(Events.INPUT_CORRECT, (d: { perfect: boolean; combo: number; target: { text: string } }) => {

@@ -62,7 +62,7 @@ export class HudController {
   private lastCombo = 0;
   private lastTargetKey = '';
 
-  constructor(opts: { stageIndex: number; stageName: string; playerName: string; level: number; portrait: string; petName: string; petPortrait: string; petSkill: string; countLabel?: string; progressKind?: 'targets' | 'words' | 'distance' | 'phase'; bestCpm?: number; race?: boolean; timeLabel?: string; hideEnemy?: boolean; telegram?: boolean; title?: string; petActive?: string; onHome?: () => void }) {
+  constructor(opts: { stageIndex: number; stageName: string; playerName: string; level: number; portrait: string; petName: string; petPortrait: string; petSkill: string; countLabel?: string; progressKind?: 'targets' | 'words' | 'distance' | 'phase'; bestCpm?: number; race?: boolean; timeLabel?: string; hideEnemy?: boolean; telegram?: boolean; title?: string; petActive?: string; comboInTop?: boolean; onHome?: () => void }) {
     this.progressKind = opts.progressKind ?? 'words';
     this.wordCur = h('span', { class: 'cur' }, '0');
     this.wordTot = h('span', {}, '0');
@@ -125,6 +125,9 @@ export class HudController {
     this.feverFill = h('div', { class: 'fever-fill' });
     this.feverBar = h('div', { class: 'fever-bar' }, this.feverFill);
     this.combo = h('div', { class: 'combo-box' }, this.comboNum, this.comboTxt, this.feverBar);
+    // 푸른 숲(wave)은 몬스터가 12시 방향에서 내려와 낱말이 화면 중앙 띠를 지난다.
+    // 콤보를 무대 위에 띄우지 않고 상단 HUD 바(진행도와 스탯 사이)에 배지로 넣어 낱말을 가리지 않게 한다.
+    if (opts.comboInTop) this.top.querySelector('.bt-stats')?.before(this.combo);
 
     this.trackYou = h('div', { class: 'tk-mark you' }, 'YOU');
     this.trackGhost = h('div', { class: 'tk-mark ghost' }, '어제');

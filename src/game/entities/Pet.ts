@@ -35,7 +35,7 @@ export class Pet {
   idle(dir: Dir = 'right') { this.facing = dir; this.motion = 'idle'; this.resume(); }
   walk(dir: Dir, run = false) { this.facing = dir; this.motion = run ? 'run' : 'walk'; this.resume(); }
   run(dir: Dir = 'right') { this.walk(dir, true); }
-  setRunPace(pace: number) { this.pace = Phaser.Math.Clamp(pace, 0.8, 1.45); if (this.motion !== 'idle') this.sprite.anims.timeScale = this.pace; }
+  setRunPace(pace: number) { this.pace = Phaser.Math.Clamp(pace, 0.8, 2.1); if (this.motion !== 'idle') this.sprite.anims.timeScale = this.pace; }
   private resume() {
     if (this.finalPose || !this.sprite.active) return;
     this.sprite.setAngle(0).setFlipX(false);

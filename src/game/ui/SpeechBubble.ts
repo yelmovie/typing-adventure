@@ -27,6 +27,8 @@ export class SpeechBubble {
   private textEl: HTMLElement;
   private timers: number[] = [];
   private done = false;
+  /** 글자를 다 찍었을 때의 상자 폭(디자인 px). 화면 안쪽으로 밀어 넣을 때 쓴다 */
+  readonly fullWidth: number;
 
   constructor(parent: HTMLElement, private opts: BubbleOpts) {
     // Translate the full line before revealing it; partial Korean cannot match a dictionary.
@@ -44,7 +46,24 @@ export class SpeechBubble {
     this.el.style.left = `${opts.x}px`;
     this.el.style.bottom = `${1080 - opts.y}px`;
     parent.append(this.el);
+    // 글자가 한 자씩 찍히므로 지금 폭은 최종 폭이 아니다. 잠깐 전부 채워 재 두고 비운다(아직 보이지 않는 상태).
+    this.textEl.textContent = this.opts.text;
+    this.fullWidth = this.el.offsetWidth;
+    this.textEl.textContent = '';
     this.after(opts.delay ?? 0, () => this.start());
+  }
+
+  /**
+   * 상자가 [minX, maxX] 밖(옆의 창이나 화면 가장자리)으로 나가면 안쪽으로 밀되,
+   * 꼬리는 계속 원래 지점(캐릭터 머리)을 가리키게 상자 안에서 옮긴다.
+   */
+  keepWithin(minX: number, maxX: number) {
+    const half = this.fullWidth / 2;
+    const shift = Math.max(0, minX + half - this.opts.x) || Math.min(0, maxX - half - this.opts.x);
+    if (!shift) return;
+    this.el.style.left = `${this.opts.x + shift}px`;
+    const tail = this.el.querySelector<HTMLElement>('.sb-tail');
+    if (tail) tail.style.left = `${Math.min(this.fullWidth - 24, Math.max(24, half - shift))}px`;
   }
 
   private after(ms: number, fn: () => void) {

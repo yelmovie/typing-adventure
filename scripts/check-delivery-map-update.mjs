@@ -46,7 +46,8 @@ try {
     const key='typing_adventure_save_v1';
     if(!localStorage.getItem(key)) localStorage.setItem(key,JSON.stringify({
       version:'2',profile:{name:'하늘',characterId:'brown_boy',petId:'cat',difficulty:'normal'},
-      progress:{unlockedStage:5,clearedStages:['stage_1'],stageStars:{stage_1:1},coins:0,tutorialCompleted:true},
+      // 해금은 실제 완료에서 계산된다(SaveValidation): 지역 4·5를 열려면 1~4 완료가 필요하고, 5는 미완료라 제목은 '모험 지도'다.
+      progress:{unlockedStage:5,clearedStages:['stage_1','stage_2','stage_3','stage_4'],stageStars:{stage_1:1,stage_2:1,stage_3:1,stage_4:1},coins:0,tutorialCompleted:true},
       settings:{language:'ko',bgm:false,sfx:false,prologueSeen:true},
     }));
   });

@@ -40,10 +40,12 @@ try {
     });
     await enter(page);
     await page.waitForFunction(() => typeof window.__releaseOpeningFrame === 'function');
-    assert.equal(requests.some(url => /\/phaser-[^/]+\.js(?:\?|$)/.test(url)), false, 'Phaser is not requested before the first video frame');
+    // Production serves the phaser chunk as /assets/phaser-<hash>.js; the dev server pre-bundles it as /node_modules/.vite/deps/phaser.js?v=…
+    const phaserRequested = () => requests.some(url => /\/phaser-[^/]+\.js(?:\?|$)/.test(url) || /\/node_modules\/\.vite\/deps\/phaser\.js(?:\?|$)/.test(url));
+    assert.equal(phaserRequested(), false, 'Phaser is not requested before the first video frame');
     await page.evaluate(() => window.__releaseOpeningFrame());
     await page.waitForFunction(() => document.querySelector('#game-root canvas'));
-    assert.equal(requests.some(url => /\/phaser-[^/]+\.js(?:\?|$)/.test(url)), true, 'The game runtime starts after the first video frame');
+    assert.equal(phaserRequested(), true, 'The game runtime starts after the first video frame');
     await page.locator('.opening-skip').click(); await closed(page);
     await page.locator('.home-menu').waitFor();
   });
@@ -98,7 +100,8 @@ try {
   });
   await run('game runtime missing offers a working full-page retry', async (page, context) => {
     let blocked = false;
-    await context.route(/\/runtime-[^/]+\.js(?:\?|$)/, route => {
+    // Production: /assets/runtime-<hash>.js; dev server: /src/runtime.ts
+    await context.route(/\/(?:runtime-[^/]+\.js|src\/runtime\.ts)(?:\?|$)/, route => {
       if (!blocked) { blocked = true; return route.abort(); }
       return route.continue();
     });

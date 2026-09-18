@@ -179,7 +179,7 @@ async function focusTrap(page) {
   assert.ok(await last.evaluate(el => document.activeElement === el), 'Shift+Tab wraps to last visible control');
 }
 
-const kinds = ['settings', 'guide-student', 'guide-teacher', 'story-prologue', 'story-ending', 'about', 'collection', 'certificate', 'practice', 'replay', 'classroom', 'daily', 'alert', 'confirm', 'sound'];
+const kinds = ['settings', 'guide-student', 'guide-teacher', 'story-prologue', 'story-ending', 'about', 'collection', 'certificate', 'practice', 'replay', 'daily', 'alert', 'confirm', 'sound'];
 try {
   for (const language of (BOUNDARY ? ['ko'] : ['ko', 'en'].filter(l => !LANG || LANG === l))) for (const [width, height] of sizes) {
     const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce', serviceWorkers: 'block' });
@@ -190,7 +190,9 @@ try {
     try {
       await page.goto(BASE, { waitUntil: 'domcontentloaded' });
       await page.locator('.opening-skip').click({ timeout: 60000 });
-      await page.waitForFunction(() => !document.querySelector('.opening-player') && !document.querySelector('#fade.on') && !document.getElementById('ui-stage').inert);
+      // The home navigation starts only after the opening closes and briefly makes #ui-stage
+      // inert (which drops any dialog focus). Wait for the mounted home menu with the transition over.
+      await page.waitForFunction(() => document.querySelector('.home-menu') && !document.querySelector('.opening-player') && !document.querySelector('#fade.on') && !document.getElementById('ui-stage').inert && !document.getElementById('ui-stage').hasAttribute('aria-busy'));
       await page.evaluate(async () => {
         if (!document.querySelector('script[src="/@vite/client"]')) throw new Error('Popup fixture requires the source dev server');
         window.__popupQA = await import('/src/game/ui/ModalController.ts');
@@ -206,7 +208,6 @@ try {
         try {
           const opener = page.getByRole('button', { name: language === 'en' ? 'Settings' : '설정', exact: true }).first();
           await opener.focus();
-          if (kind === 'classroom') await page.route('**/classroom-manifest.json', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ version: 'popup-ui-fixture', cacheName: 'typing-classroom-popup-ui-fixture', assets: [{ url: './qa-popup-one.dat', bytes: 1, revision: 'popup-fixture-1' }, { url: './qa-popup-two.dat', bytes: 1, revision: 'popup-fixture-2' }] }) }));
           await page.evaluate(({ kind, en }) => {
             const api = window.__popupQA;
             if (kind === 'settings') api.settingsModal();
@@ -217,7 +218,6 @@ try {
             else if (kind === 'certificate') api.certificateModal();
             else if (kind === 'practice') api.practiceModal();
             else if (kind === 'replay') api.replayModal();
-            else if (kind === 'classroom') api.classroomModal();
             else if (kind === 'daily') api.dailyPickModal();
             else if (kind === 'alert') void api.alertModal(en ? 'Ready for another try?' : '다시 도전할 준비 됐어?', en ? 'Your progress is saved. Take your time and try one letter at a time.' : '지금까지 해낸 기록을 남겼어. 한 글자씩 천천히 다시 도전해 보자.');
             else if (kind === 'confirm') void api.confirmModal(en ? 'Erase English progress?' : '한국어 기록을 지울까?', en ? 'Your English adventure will start at Stage 1. Your stars, coins, friends and typing records will be erased. Korean progress will stay.' : '한국어 모험 기록을 모두 지우고 1단계부터 시작해. 모은 별·코인·친구와 타자 기록이 사라져. 영어 기록은 그대로 남아.', '지우고 시작', '기록 남기기', { destructive: true }).then(answer => { window.__popupAnswer = answer; });
@@ -261,19 +261,7 @@ try {
               }
               await record(page, `${label}-success`, states, shots);
             } else {
-              if (kind === 'classroom') await page.waitForFunction(() => !document.querySelector('.classroom-status [role="status"]')?.textContent.includes('확인하고 있어요'));
               await pages(page, label, states, shots);
-            }
-            if (kind === 'classroom') {
-              // Exercise the real verification/status view with two disposable
-              // cache entries. This tests layout, not real offline readiness.
-              await page.evaluate(async () => {
-                const cache = await caches.open('typing-classroom-popup-ui-fixture');
-                for (const [file, revision] of [['qa-popup-one.dat', 'popup-fixture-1'], ['qa-popup-two.dat', 'popup-fixture-2']]) await cache.put(new URL(`./${file}`, document.baseURI), new Response('x', { headers: { 'x-classroom-revision': revision } }));
-              });
-              await page.getByRole('button', { name: language === 'en' ? 'Check readiness' : '준비 상태 확인', exact: true }).click();
-              await page.waitForFunction(() => document.querySelector('.classroom-status [role="status"]')?.textContent.match(/수업 준비 완료|Classroom ready!/));
-              await record(page, `${label}-ready`, states, shots);
             }
             if (kind === 'certificate' && BOUNDARY) {
               const before = await page.evaluate(key => JSON.parse(localStorage.getItem(key)).profile, KEY);
@@ -324,7 +312,6 @@ try {
           results.push({ label, pass: false, error: String(error), errors: errors.slice(errorStart), screenshot, states }); console.error(`FAIL ${label}: ${error}`);
         } finally {
           await page.evaluate(() => { window.__popupQA.closeModal(); document.querySelectorAll('.sound-popover.open').forEach(el => el.classList.remove('open')); }).catch(() => {});
-          if (kind === 'classroom') await page.unroute('**/classroom-manifest.json');
         }
       }
     } finally { await context.close(); }

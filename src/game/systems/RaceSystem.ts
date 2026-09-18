@@ -1,10 +1,10 @@
 /**
  * 스테이지 2 「네온 시티」 추격 레이스 — 타이핑 속도가 곧 달리는 속도.
- *  - 500m 트랙. 정확한 낱말이 BOOST를 만들고, 입력 완성이 끊기면 관성 주행도 멈춘다.
+ *  - 800m 트랙. 정확한 낱말이 BOOST를 만들고, 입력 완성이 끊기면 관성 주행도 멈춘다.
  *  - 오타 → 2초 감속. 10낱말 연속 무오타 → TURBO. FEVER·펫은 속도로 거리를 벌린다.
  *  - 추격자는 현재 거리·최근 주행 속도를 보고 완만하게 가감속한다. 피격 후에는 잠깐 비틀거리며 회복 기회를 준다.
  *  - 고스트: 개인 최고 기록의 1초 간격 거리 샘플. 화면에 '어제의 나'로 같이 달린다.
- *  - 500m + 정확한 낱말 8개 이상 → 클리어. 시간 0 / 3회 피격 → 실패.
+ *  - 800m + 정확한 낱말 14개 이상 → 클리어. 시간 0 / 3회 피격 → 실패.
  * 순수 로직. emit 주입.
  */
 import type { ContentUnit, Difficulty, StageDef, PetDef } from '../types';
@@ -13,12 +13,13 @@ import { calcWordScore } from './TypingStats';
 import { TypingRun, RULES, type Emit } from './TypingRun';
 import { applyVariant } from '../data/content';
 import { countStrokes } from '../util/hangul';
-import type { BattleSnapshot, EnemyState, TypingMode } from './BattleState';
+import type { BattleSnapshot, EnemyState, TypingMode, CheckpointState } from './BattleState';
+import { obj, readInt, readNum, readNums, restoreOrder } from './Checkpoint';
 
 export const RACE = {
-  goal: 500,
-  rulesVersion: 2,
-  minWords: 8,
+  goal: 800,
+  rulesVersion: 3, // 500m → 800m 코스 변경. 이전 고스트는 비교하지 않는다
+  minWords: 14,
   baseSpeed: 4.5,
   boostSpeed: 5.5,
   boostSec: 1.6,
@@ -335,6 +336,36 @@ export class RaceSystem implements TypingMode {
     this.running = false;
     this.run.stats.stop();
     this.emit('STAGE_FAILED', { reason, snapshot: this.snapshot() });
+  }
+
+  /** 중간 저장. 셔플된 낱말 순서(id)도 남겨 같은 낱말이 이어진다. */
+  serialize(): CheckpointState {
+    return {
+      dist: this.dist, chaser: this.chaser, elapsed: this.elapsed, catches: this.catches, playerHp: this.playerHp, timeLeft: this.timeLeft,
+      // 보고 있던 낱말이 복원 뒤 다시 나오도록 커서를 한 칸 되돌린다(뽑을 때 이미 지나갔다).
+      score: this.score, samples: [...this.samples], noTypoStreak: this.noTypoStreak, cursor: this.run.current ? Math.max(0, this.cursor - 1) : this.cursor, pool: this.pool.map((u) => u.id),
+      recentCpm: [...this.recentCpm], run: this.run.serializeCounters(),
+    };
+  }
+
+  /** 복원 — start() 전에. 추격자는 조금 뒤에서 잠시 비틀거리며 시작해 아이가 다시 손을 올릴 시간을 준다. */
+  restore(state: CheckpointState) {
+    const s = obj(state);
+    this.pool = restoreOrder(this.pool, s.pool, (u) => u.id);
+    this.cursor = readInt(s.cursor, 0, 0, 1e6);
+    this.dist = readNum(s.dist, 0, 0, RACE.goal - 1);
+    this.chaser = Math.min(readNum(s.chaser, RACE.chaserStart, -1e5, RACE.goal), this.dist - 10);
+    this.catchRecoveryLeft = RACE.catchRecoverySec;
+    this.elapsed = readNum(s.elapsed, 0, 0, 86400);
+    this.catches = readInt(s.catches, 0, 0, RACE.maxCatches - 1);
+    this.playerHp = readNum(s.playerHp, this.playerMaxHp, 1, this.playerMaxHp);
+    this.timeLeft = readNum(s.timeLeft, this.timeLimit, 0, this.timeLimit);
+    this.score = readInt(s.score, 0, 0, 1e7);
+    const samples = readNums(s.samples).map((n) => Math.min(RACE.goal, Math.max(0, n)));
+    this.samples = samples.length ? samples : [0];
+    this.noTypoStreak = readInt(s.noTypoStreak, 0, 0, 1e5);
+    this.recentCpm = readNums(s.recentCpm, 3).map((n) => Math.min(3000, Math.max(0, n)));
+    this.run.restoreCounters(s.run);
   }
 
   /** 클리어 시 저장할 고스트 (더 빠를 때만 호출자가 저장) */

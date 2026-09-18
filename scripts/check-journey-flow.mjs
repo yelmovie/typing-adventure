@@ -10,17 +10,19 @@ const FILTER = process.env.JOURNEY_CASE_FILTER || '';
 const STORAGE_KEY = 'typing_adventure_save_v1';
 fs.mkdirSync(OUT, { recursive: true });
 const cases = [
-  { language:'ko', stage:'stage_3', count:6, relic:'황금문의 열쇠', width:1280, height:800 },
-  { language:'ko', stage:'stage_4', count:3, relic:'정차 신호', width:1024, height:768 },
-  { language:'en', stage:'stage_3', count:6, relic:'Golden Key', width:1280, height:800 },
-  { language:'en', stage:'stage_4', count:3, relic:'Stop Signal', width:1024, height:768 },
+  { language:'ko', stage:'stage_3', count:9, relic:'황금문의 열쇠', width:1280, height:800 },
+  { language:'ko', stage:'stage_4', count:5, relic:'정차 신호', width:1024, height:768 },
+  { language:'en', stage:'stage_3', count:9, relic:'Golden Key', width:1280, height:800 },
+  { language:'en', stage:'stage_4', count:5, relic:'Stop Signal', width:1024, height:768 },
 ].filter(test => !FILTER || `${test.language}-${test.stage}`.includes(FILTER));
 assert.ok(cases.length, 'JOURNEY_CASE_FILTER must select a case');
-const seed = language => ({
+// Unlock state is derived from actual clears (SaveValidation), so the regions before the target are cleared; the target itself is new.
+const priorStages = stage => Array.from({length:Number(stage.slice(-1))-1},(_,i)=>`stage_${i+1}`);
+const seed = (language, stage) => ({
   version:'2',
   profile:{name:language==='en'?'Haneul':'하늘',characterId:'brown_boy',petId:'cat',difficulty:'normal'},
-  // Only S1 is cleared to expose the real Home Adventure Plus entry. S3/S4 are new.
-  progress:{unlockedStage:5,clearedStages:['stage_1'],stageStars:{stage_1:1},coins:0,tutorialCompleted:true},
+  // S1 cleared exposes the real Home Adventure Plus entry. The target region has never been cleared.
+  progress:{unlockedStage:Number(stage.slice(-1)),clearedStages:priorStages(stage),stageStars:Object.fromEntries(priorStages(stage).map(id=>[id,1])),coins:0,tutorialCompleted:true},
   settings:{language,bgm:false,sfx:false,prologueSeen:true,showKeyboardGuide:false},
 });
 const results = [];
@@ -97,7 +99,7 @@ async function completeStory(page, test) {
   assert.equal(final.accuracy,100);
   assert.ok(final.playerHp>0);
   if(test.stage==='stage_3') assert.equal(final.letter.locks,3);
-  else { assert.equal(final.telegram.brake,3); assert.equal(final.telegram.stopped,true); }
+  else { assert.equal(final.telegram.brake,5); assert.equal(final.telegram.stopped,true); }
   const options = await page.evaluate(async ({language,stage}) => {
     const {REMIX_STORIES}=await import('/src/game/data/remixStories.ts');
     return REMIX_STORIES[language][stage];
@@ -129,8 +131,9 @@ async function assertRestoredMap(page,test) {
   const label=await relic.getAttribute('aria-label');
   assert.ok(label.includes(test.relic));
   assert.ok(label.includes(test.language==='en'?'restored':'되찾았어'));
-  assert.equal(await page.locator('.journey-light.restored').count(),2,'only fixture S1 and newly completed region are restored');
-  assert.ok((await page.locator('.journey-map .mp-title').innerText()).includes('2/5'));
+  const restoredCount=Number(test.stage.slice(-1));
+  assert.equal(await page.locator('.journey-light.restored').count(),restoredCount,'only the fixture prerequisites and the newly completed region are restored');
+  assert.ok((await page.locator('.journey-map .mp-title').innerText()).includes(`${restoredCount}/5`));
   return label;
 }
 
@@ -142,7 +145,7 @@ try {
       if(!sessionStorage.getItem('journey-flow-seeded')) {
         localStorage.setItem(key,JSON.stringify(data)); sessionStorage.setItem('journey-flow-seeded','1');
       }
-    },{data:seed(test.language),key:STORAGE_KEY});
+    },{data:seed(test.language,test.stage),key:STORAGE_KEY});
     const page=await context.newPage(), errors=[];
     page.on('pageerror',error=>errors.push(error.message));
     const evidence={case:label,viewport:{width:test.width,height:test.height},pass:false,runs:[]};

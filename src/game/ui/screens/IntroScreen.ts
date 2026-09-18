@@ -13,6 +13,8 @@ import { SpeechBubble } from '../SpeechBubble';
 import { playerLine, petLine, enemyLine } from '../../data/introLines';
 import { EventBus, Events } from '../../EventBus';
 import { RACE } from '../../systems/RaceSystem';
+import { LETTER } from '../../systems/LetterSystem';
+import { TELE } from '../../systems/TelegramSystem';
 import { getLanguage } from '../../i18n/Locale';
 import { journeyFor, journeyGoal } from '../../data/worldJourney';
 import { StagePractice, stagePracticeParts, PART_LABELS } from '../../systems/StagePractice';
@@ -86,7 +88,7 @@ export class IntroScreen extends Screen<{ stageId: StageId; remix?: boolean }> {
             'div',
             { class: 'intro-diff' },
             h('span', { class: 'badge' }, h('span', { class: 'badge-icon' }, icon('bolt')), DIFFICULTY_LABEL[diff].name),
-            h('span', { class: 'muted' }, st.mode === 'letter' ? '편지 6문장 · 시간제한 없음' : st.mode === 'telegram' ? `전보 3문장 · 280m (약 ${fmt.time(Math.round(140 * rule.timeMul))})` : `${fmt.time(Math.round(st.timeLimitSec * rule.timeMul))} · ${st.mode === 'wave' ? `몬스터 ${st.targets}마리` : st.mode === 'race' ? `${RACE.goal}m` : st.mode === 'boss' ? '보스 3페이즈' : `낱말 ${st.targets}개`}`),
+            h('span', { class: 'muted' }, st.mode === 'letter' ? `편지 ${LETTER.sentences}문장 · 시간제한 없음` : st.mode === 'telegram' ? `전보 ${TELE.sentences}문장 · ${TELE.dist}m (약 ${fmt.time(Math.round((TELE.dist / TELE.speed) * rule.timeMul))})` : `${fmt.time(Math.round(st.timeLimitSec * rule.timeMul))} · ${st.mode === 'wave' ? `몬스터 ${st.targets}마리` : st.mode === 'race' ? `${RACE.goal}m` : st.mode === 'boss' ? '보스 3페이즈' : `낱말 ${st.targets}개`}`),
           ),
         ),
       ),
@@ -185,6 +187,9 @@ export class IntroScreen extends Screen<{ stageId: StageId; remix?: boolean }> {
     this.clearBubbles();
     const placed: { x: number; y: number }[] = [];
     let order = 0;
+    // 왼쪽 소개 창과 겹치지 않게: 창의 오른쪽 가장자리(디자인 px)보다 오른쪽에만 상자를 둔다.
+    const panel = this.el.querySelector<HTMLElement>('.intro-panel');
+    const minX = panel ? panel.offsetLeft + panel.offsetWidth + 14 : 0;
     for (const a of anchors) {
       const text = a.who === 'player' ? playerLine(characterId, stageId) : a.who === 'pet' ? petLine(petId) : enemyLine(a.who);
       if (!text) continue;
@@ -194,7 +199,9 @@ export class IntroScreen extends Screen<{ stageId: StageId; remix?: boolean }> {
       placed.push({ x: a.x, y });
       const tone = a.who === 'player' ? 'hero' : a.who === 'pet' ? 'pet' : 'foe';
       // 사라지게 두면 먼저 말한 캐릭터의 말풍선이 없어져 넷이 함께 보이질 않는다. 화면을 뜰 때까지 남긴다.
-      this.bubbles.push(new SpeechBubble(layer, { x: a.x, y, text, delay: 200 + order * 1100, tone }));
+      const bubble = new SpeechBubble(layer, { x: a.x, y, text, delay: 200 + order * 1100, tone });
+      bubble.keepWithin(minX, 1920 - 16);
+      this.bubbles.push(bubble);
       order++;
     }
   }

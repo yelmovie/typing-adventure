@@ -10,9 +10,10 @@
 | public/fonts/Jua-400-*.woff2 (87 슬라이스) | Google Fonts — Jua (Woowahan Brothers) | SIL Open Font License 1.1 | 2026-09-08 |
 | public/fonts/NotoSansKR-400-*.woff2 (124 슬라이스, 가변 폰트 400~700) | Google Fonts — Noto Sans KR (Google) | SIL Open Font License 1.1 | 2026-09-08 |
 | public/assets/video/finale-v1.mp4, finale-poster-v1.webp | 사용자 요청으로 Higgsfield Wan 3.0에서 생성. 생성 기록 `docs/media/finale-v1.md`; 기존 결과를 로컬 웹용 압축 | 생성 출처 확인. 납품 범위의 서비스 이용권 증빙은 운영자 확인 필요 | 2026-09-10 |
-| assets/ui/social-preview-source-v040.png, public/icons/social-preview.jpg | 사용자 선택 새 시안 1번을 Codex 내장 image_gen으로 제작. 원본 1774×887, JPG 1200×600. 원문 프롬프트 `docs/media/social-preview-v040.md` | 프로젝트 자체 제작 (생성형 AI) | 2026-09-12 |
+| assets/ui/social-preview-source-v040.png, public/icons/social-preview.jpg (2026-09-18 부터 _unused/icons/social-preview-v040.jpg 로 보관) | 사용자 선택 새 시안 1번을 Codex 내장 image_gen으로 제작. 원본 1774×887, JPG 1200×600. 원문 프롬프트 `docs/media/social-preview-v040.md` | 프로젝트 자체 제작 (생성형 AI) | 2026-09-12 |
 
 | assets/character/character-attack-ko-v1.png, character-walk-v1.png, pet-walk-v1.png 및 public/assets/sprites/ 대응 아틀라스 | 사용자 요청으로 Codex 내장 image_gen에서 기존 자체 제작 초상화를 참조해 생성. docs/media/motion-v2.md | 프로젝트 자체 제작 (생성형 AI) | 2026-09-10 |
+| public/icons/social-preview-v2.jpg | 새 생성 없이 보유 에셋 합성: 바탕 public/assets/og/og-sample-05-citadel-victory.png(2026-09-09 시안 5번) + 홈 아틀라스 펫 cheer 프레임 4개. 합성 기록 `docs/media/social-preview-20260918.md` | 프로젝트 자체 제작 (기존 생성 이미지 재구성) | 2026-09-18 |
 
 ## 캐릭터 보행 시트 v2
 

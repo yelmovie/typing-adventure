@@ -1,10 +1,13 @@
 /**
  * 스테이지 3 「사막 유적」 편지 복원 — 문장·장문 타이핑을 "문을 여는 퍼즐"로.
- *  - 편지 6문장이 한 줄씩 나타난다. 2문장 = 자물쇠 1개 (총 3개). 6문장 → 황금문 개방.
+ *  - 편지 9문장이 한 줄씩 나타난다. 3문장 = 자물쇠 1개 (총 3개). 9문장 → 황금문 개방.
  *  - 어절(띄어쓰기 단위)마다 룬이 하나. 어절을 다 치면 룬 점등, 틀린 음절 확정 시 룬 균열, 고치면 복구.
  *  - 10글자 연속 무오타 → 룬 발광(LETTER_GLOW). 한 문장 무오타 → PERFECT.
  *  - 시간제한·읽기 대기 감점 없음. 5초 무입력 → 천천히 읽기 안내만.
  *  - PERFECT 문장 2개 → 비밀방(코인 +30), 정확도 98% 이상 → 비밀 보상(코인 +20).
+ *  - 「다음 조각 고르기」(읽기 단계): 시작할 때와 문장을 완성할 때마다 다음 문장을 후보 3개 중에서 먼저 고른다.
+ *    고르는 동안 run.current 는 null(입력창 닫힘). 잘못 고르면 힌트(첫 낱말)만 주고 읽기 실수로 세며 타자 정확도에는 넣지 않는다.
+ *    점프는 고르기도 건너뛴다(점프 1회 소모, 그 문장은 뒤로).
  * 순수 로직. emit 주입.
  */
 import type { ContentUnit, Difficulty, StageDef, PetDef } from '../types';
@@ -12,11 +15,12 @@ import { DIFFICULTY_RULES } from '../data/stages';
 import { calcWordScore } from './TypingStats';
 import { TypingRun, RULES, type Emit } from './TypingRun';
 import { countStrokes } from '../util/hangul';
-import type { BattleSnapshot, TypingMode } from './BattleState';
+import type { BattleSnapshot, TypingMode, CheckpointState } from './BattleState';
+import { obj, readBool, readInt, readNum, readStrings, readUnits } from './Checkpoint';
 
 export const LETTER = {
-  sentences: 6,
-  perLock: 2,
+  sentences: 9,
+  perLock: 3,
   locks: 3,
   idleSec: 5,
   glowStreak: 10,
@@ -36,6 +40,12 @@ export interface LetterInfo {
   streak: number; // 연속 무오타 글자 수
   perfectLines: number;
   secretRoom: boolean;
+  /** 「다음 조각 고르기」 후보 3개. 고르는 중이 아니면 null */
+  choices: string[] | null;
+  /** 잘못 고른 뒤의 힌트(정답 문장의 첫 낱말) */
+  choiceHint: string | null;
+  /** 읽기(순서) 실수 수. 타자 정확도·오답 근거에는 들어가지 않는다 */
+  readingMistakes: number;
 }
 
 export class LetterSystem implements TypingMode {
@@ -62,16 +72,35 @@ export class LetterSystem implements TypingMode {
   private idleOn = false;
   private streak = 0;
   private lastMatched = 0;
+  /** 읽기 단계 기록. 타자 통계(TypingStats·learningAttempts)와 섞지 않는다. */
+  readingMistakes = 0;
+  choicesMade = 0;
+  private choiceUnits: ContentUnit[] | null = null;
+  private choosing = false;
+  private choiceHint: string | null = null;
+  private extras: ContentUnit[];
+  private rnd: () => number;
+  private syncTargetOnTick = false;
 
-  constructor(stage: StageDef, difficulty: Difficulty, pet: PetDef, sentences: ContentUnit[], emit: Emit) {
+  constructor(
+    stage: StageDef,
+    difficulty: Difficulty,
+    pet: PetDef,
+    sentences: ContentUnit[],
+    emit: Emit,
+    options: { /** 오답 후보로 쓸 다른 문장(같은 지역·다른 이야기). 없으면 편지 안에서만 고른다 */ distractors?: ContentUnit[]; random?: () => number } = {},
+  ) {
     this.stage = stage;
     this.difficulty = difficulty;
     this.emit = emit;
     this.sentences = sentences.slice(0, LETTER.sentences);
+    this.extras = options.distractors ?? [];
+    this.rnd = options.random ?? Math.random;
     const rule = DIFFICULTY_RULES[difficulty];
     this.playerMaxHp = rule.playerHp;
     this.playerHp = rule.playerHp;
-    this.run = new TypingRun({ stage, difficulty, pet, next: () => this.sentences[this.idx] ?? null, emit });
+    // 고르는 동안에는 목표가 없다(입력창 닫힘, 타수 시간 제외).
+    this.run = new TypingRun({ stage, difficulty, pet, next: () => (this.choosing ? null : this.sentences[this.idx] ?? null), emit });
   }
 
   private words(text: string): string[] {
@@ -80,16 +109,113 @@ export class LetterSystem implements TypingMode {
 
   start() {
     this.running = true;
+    // 첫 문장(복원 뒤에는 다음 문장)부터 「다음 조각 고르기」로 시작한다. 고르는 동안 목표는 없다.
+    this.choosing = true;
     this.run.start();
     this.resetRunes();
     this.emit('BATTLE_START', this.snapshot());
+    this.emitRestoredProgress();
+    this.openChoice();
     this.emit('TARGET_CHANGED', this.snapshot());
+    // 화면이 start() 직후 입력창을 무조건 열 수 있어(BattleScreen.start), 첫 tick 에 '목표 없음'을 한 번 더 알린다(멱등).
+    this.syncTargetOnTick = true;
   }
   pause() {
     this.running = false;
   }
+
+  /** 복원한 판: 이미 되찾은 문장과 열린 자물쇠를 씬이 다시 그리도록 알린다(연출·판정 문구 없이, restored 표시). */
+  private emitRestoredProgress() {
+    if (!this.lines.length) return;
+    this.emit('LETTER_LINE', { index: this.lines.length - 1, text: this.lines[this.lines.length - 1], perfect: false, restored: true });
+    for (let lock = 1; lock <= this.locksOpen; lock++) this.emit('LETTER_LOCK', { lock, total: LETTER.locks, restored: true });
+  }
+
+  /** 중간 저장. 편지 문장 자체를 남겨 변형 도전에서도 같은 편지가 이어진다. */
+  serialize(): CheckpointState {
+    return {
+      idx: this.idx, lines: [...this.lines], locksOpen: this.locksOpen, perfectLines: this.perfectLines, secretRoom: this.secretRoom,
+      elapsed: this.elapsed, score: this.score, playerHp: this.playerHp, sentences: this.sentences.map((u) => ({ ...u })), run: this.run.serializeCounters(),
+    };
+  }
+
+  /** 복원 — start() 전에. 자물쇠 수는 되찾은 문장 수에서 다시 계산한다. 문장 사이 선택이 걸려 있었다면 다시 고른다. */
+  restore(state: CheckpointState) {
+    const s = obj(state);
+    const sentences = readUnits(s.sentences, this.stage.id, LETTER.sentences).map((u) => ({ ...u, type: 'sentence' as const }));
+    if (sentences.length) this.sentences = sentences;
+    this.lines = readStrings(s.lines, Math.max(0, this.sentences.length - 1));
+    this.idx = this.lines.length;
+    this.locksOpen = Math.min(LETTER.locks, Math.floor(this.lines.length / LETTER.perLock));
+    this.perfectLines = readInt(s.perfectLines, 0, 0, this.lines.length);
+    this.secretRoom = readBool(s.secretRoom, false);
+    this.elapsed = readNum(s.elapsed, 0, 0, 86400);
+    this.score = readInt(s.score, 0, 0, 1e7);
+    this.playerHp = readNum(s.playerHp, this.playerMaxHp, 1, this.playerMaxHp);
+    this.streak = 0;
+    this.run.restoreCounters(s.run);
+  }
   resume() {
     if (!this.finished) this.running = true;
+  }
+
+  /** 후보 3개 = 정답 + 오답 2개. 오답은 아직 안 쓴 뒤 문장 → 다른 후보 문장(사막·리믹스) → 이미 되찾은 문장 순으로 채운다. */
+  private openChoice() {
+    const correct = this.sentences[this.idx];
+    if (!correct) return;
+    const inLetter = new Set(this.sentences.map((u) => u.text));
+    const pool = [
+      ...this.shuffle(this.sentences.slice(this.idx + 1)),
+      ...this.shuffle(this.extras.filter((u) => !inLetter.has(u.text))),
+      ...this.shuffle(this.sentences.slice(0, this.idx)),
+    ];
+    const distractors: ContentUnit[] = [];
+    for (const u of pool) {
+      if (distractors.length >= 2) break;
+      if (u.text !== correct.text && !distractors.some((d) => d.text === u.text)) distractors.push(u);
+    }
+    this.choiceUnits = this.shuffle([correct, ...distractors]);
+    this.choosing = true;
+    this.choiceHint = null;
+    this.emit('LETTER_CHOICE', { choices: this.choiceUnits.map((u) => u.text), index: this.lines.length, total: LETTER.sentences, choose: (i: number) => this.choose(i) });
+  }
+
+  /** 후보를 고른다. 정답이면 그 문장이 입력 목표가 된다. 오답이면 힌트만 주고 계속 고른다(타자 정확도와 무관). */
+  choose(index: number): boolean {
+    if (!this.running || this.finished || !this.choiceUnits) return false;
+    const picked = this.choiceUnits[index];
+    const correct = this.sentences[this.idx];
+    if (!picked || !correct) return false;
+    this.idleSec = 0;
+    this.choicesMade++;
+    if (picked.text !== correct.text) {
+      this.readingMistakes++;
+      const words = this.words(correct.text);
+      this.choiceHint = words.length > 1 ? words[0] : correct.text.slice(0, 2);
+      this.emit('LETTER_CHOICE_WRONG', { index, text: picked.text, hint: this.choiceHint, mistakes: this.readingMistakes });
+      return false;
+    }
+    this.closeChoice();
+    this.run.advance();
+    this.resetRunes();
+    this.emit('LETTER_CHOICE_OK', { index, text: correct.text });
+    this.emit('TARGET_CHANGED', this.snapshot());
+    return true;
+  }
+
+  private closeChoice() {
+    this.choiceUnits = null;
+    this.choosing = false;
+    this.choiceHint = null;
+  }
+
+  private shuffle<T>(list: T[]): T[] {
+    const a = [...list];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(this.rnd() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
   }
 
   private resetRunes() {
@@ -100,6 +226,10 @@ export class LetterSystem implements TypingMode {
 
   tick(dt: number) {
     if (!this.running || this.finished) return;
+    if (this.syncTargetOnTick) {
+      this.syncTargetOnTick = false;
+      if (this.choosing) this.emit('TARGET_CHANGED', this.snapshot());
+    }
     this.elapsed += dt;
     this.run.tick(dt);
     this.idleSec += dt;
@@ -168,6 +298,12 @@ export class LetterSystem implements TypingMode {
 
   skip(): boolean {
     if (!this.running || this.finished) return false;
+    if (this.choiceUnits) {
+      // 고르는 중의 점프: 고르기를 건너뛰고 그 문장도 뒤로 보낸다(점프 1회 소모, 읽기 실수 아님). 다음 문장은 바로 목표가 된다.
+      if (this.run.skipsLeft <= 0) return false;
+      this.closeChoice();
+      this.run.advance();
+    }
     const t = this.run.current;
     if (!t) return false;
     const r = this.run.skip();
@@ -223,8 +359,11 @@ export class LetterSystem implements TypingMode {
       this.clear();
       return;
     }
+    // 다음 문장은 바로 주지 않고 후보 3개 중에서 고르게 한다(읽기 단계).
+    this.choosing = true;
     this.run.advance();
     this.resetRunes();
+    this.openChoice();
     this.emit('TARGET_CHANGED', this.snapshot());
   }
 
@@ -288,7 +427,7 @@ export class LetterSystem implements TypingMode {
       bombLeft: r.bombLeft(),
       shielded: r.isShielded(),
       coins: r.coins,
-      nextHint: r.wordHint ? (this.sentences[this.idx + 1]?.text ?? null) : null,
+      nextHint: r.wordHint && !this.choosing ? (this.sentences[this.idx + 1]?.text ?? null) : null,
       letter: {
         lines: this.lines,
         current: r.current?.text ?? null,
@@ -298,6 +437,9 @@ export class LetterSystem implements TypingMode {
         streak: this.streak,
         perfectLines: this.perfectLines,
         secretRoom: this.secretRoom,
+        choices: this.choiceUnits ? this.choiceUnits.map((u) => u.text) : null,
+        choiceHint: this.choiceHint,
+        readingMistakes: this.readingMistakes,
       },
     };
   }

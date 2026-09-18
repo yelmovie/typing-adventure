@@ -1,5 +1,7 @@
 import type { ContentUnit, StageDef } from '../types';
 import type { FeverLevel, TypingRun } from './TypingRun';
+import type { CheckpointState } from './Checkpoint';
+export type { CheckpointState } from './Checkpoint';
 
 export interface EnemyState {
   id: string;
@@ -62,5 +64,9 @@ export interface TypingMode {
   move?(dir: 'left' | 'right' | 'up' | 'down', pressed: boolean): void;
   snapshot(): BattleSnapshot;
   wordsSeen(): string[];
+  /** 중간 저장: 새로고침 뒤 같은 자리에서 이어가기 위한 상태 (JSON-safe) */
+  serialize?(): CheckpointState;
+  /** 중간 저장 복원 — 생성 직후, start() 전에 호출한다. 손상된 값은 각 모드가 안전하게 보정한다 */
+  restore?(state: CheckpointState): void;
 }
 

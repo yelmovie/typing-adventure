@@ -138,13 +138,14 @@ try {
     assert.equal(requests.length, 0);
   }, { completed: false });
 
-  await run('1080p 실제 영상이 끝난 뒤 인증서 자동 표시', async (page) => {
+  await run('720p 실제 영상이 끝난 뒤 인증서 자동 표시', async (page) => {
     await open(page);
     await playing(page);
     await rememberVideo(page);
     const media = await page.locator('.finale-video').evaluate(video => ({ duration: video.duration, width: video.videoWidth, height: video.videoHeight, muted: video.muted }));
     assert.ok(media.duration >= 7.5 && media.duration <= 8.5);
-    assert.deepEqual([media.width, media.height, media.muted], [1920, 1080, true]);
+    // finale-v1.mp4 was re-encoded to 1280x720 (4.4MB) to stay under the 5MB media budget.
+    assert.deepEqual([media.width, media.height, media.muted], [1280, 720, true]);
     await certificate(page);
     await released(page);
     await page.screenshot({ path: `${OUT}/certificate-desktop.png` });

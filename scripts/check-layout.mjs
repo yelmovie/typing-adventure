@@ -58,7 +58,10 @@ async function settled(page) {
 }
 async function goStage(page, stage) {
   await page.goto(BASE + '/?go=battle&stage=' + stage + '&st=1', { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => document.querySelector('.bb-input') && !document.querySelector('.bb-input').disabled && window.__battle, undefined, { timeout: 60000 });
+  await page.waitForFunction(() => document.querySelector('.bb-input') && window.__battle && (!document.querySelector('.bb-input').disabled || window.__battle.snapshot().letter?.choices), undefined, { timeout: 60000 });
+  // 편지(stage_3)는 「다음 조각 고르기」부터 시작한다. 레이아웃은 입력 단계에서 잰다(정답 조각 = 순서상 다음 문장).
+  await page.evaluate(() => { const b = window.__battle; const c = b.snapshot().letter?.choices; if (c) b.choose(c.indexOf(b.sentences[b.idx].text)); });
+  await page.waitForFunction(() => !document.querySelector('.bb-input').disabled);
   await settled(page);
 }
 // DOM의 실제 px로 검사한다. 스크롤 가능한 본문의 세로 넘침은 허용한다.
@@ -94,7 +97,7 @@ async function inspect(page, panels, controls) {
   return { panels: data.panels.length, controls: data.controls.length, minControlHeight: Math.min(...data.controls.map(c => c.height)), verticalScrollAllowed: data.panels.some(p => p.scrollY > 1 && ['auto', 'scroll'].includes(p.overflowY)) };
 }
 async function finishTelegram(page) {
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 5; i++) { // 전보 5문장(TELE.sentences)
     await page.waitForFunction(() => document.querySelector('.bb-input') && !document.querySelector('.bb-input').disabled && !window.__battle.snapshot().telegram.outage);
     const completed = await page.evaluate(() => window.__battle.snapshot().wordsDone);
     await page.locator('.bb-input').fill(await page.locator('.bb-target').innerText());
@@ -127,6 +130,35 @@ try {
           assert.ok(waveLayout.mobScales.length > 0 && waveLayout.mobScales.every(scale => scale <= 0.66), '몬스터를 이전 표시 크기의 2/3로 축소한다');
           assert.ok(waveLayout.headGaps.every(gap => Math.abs(gap - 6) < 1), '몬스터 머리 바로 위 6px에 낱말 하단을 붙인다');
           assert.ok(waveLayout.mobLabelTops.every(top => top >= 100), '위쪽 몬스터 낱말이 상단 HUD 뒤로 숨지 않아야 한다');
+          // 콤보 배지가 몬스터 낱말을 가리지 않는지: 8마리를 잡아 콤보를 올리고(등장 대기는 스폰 타이머만 앞당긴다)
+          // 9번째 몬스터(12시 방향 진입로)가 나온 상태에서 콤보 DOM 사각형과 낱말 라벨(캔버스 좌표 → 화면 px)을 비교한다.
+          const comboLayout = await page.evaluate(() => {
+            const b = window.__battle, scene = window.__game.scene.getScene('Wave');
+            for (let kills = 0; kills < 8; kills++) {
+              for (let guard = 0; guard < 80 && !b.snapshot().target; guard++) b.tick(0.25);
+              b.submit(b.snapshot().target.text, false);
+            }
+            for (let guard = 0; guard < 80 && !b.snapshot().target; guard++) b.tick(0.25);
+            b.tick(0); // HUD_TICK 으로 콤보 표시를 갱신한다
+            const rect = e => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, right: r.right, bottom: r.bottom }; };
+            const stage = rect(document.querySelector('#ui-stage')), canvas = rect(document.querySelector('canvas')), combo = rect(document.querySelector('.combo-box'));
+            const k = (canvas.right - canvas.x) / 1920;
+            const toScreen = bounds => ({ x: canvas.x + bounds.x * k, y: canvas.y + bounds.y * k, right: canvas.x + bounds.right * k, bottom: canvas.y + bounds.bottom * k });
+            const overlaps = (a, c) => a.x < c.right && c.x < a.right && a.y < c.bottom && c.y < a.bottom;
+            const mobs = [...scene.mobs.values()].filter(mob => !mob.dead);
+            const labels = mobs.flatMap(mob => [mob.labelRest, mob.labelDone].filter(label => label.text).map(label => ({ word: label.text, top: Math.abs(mob.angle + Math.PI / 2) < 0.01, ...toScreen(label.getBounds()) })));
+            return {
+              combo, stage, canvas, mobs: mobs.length, topMobs: labels.filter(l => l.top).length, hidden: labels.filter(l => overlaps(l, combo)).map(l => l.word),
+              shown: document.querySelector('.combo-box').classList.contains('show'), comboNum: Number(document.querySelector('.combo-num').textContent),
+              inHud: !!document.querySelector('.battle-top .combo-box'), hudBottom: rect(document.querySelector('.battle-top')).bottom, leftColTop: rect(document.querySelector('.battle-left-col')).y,
+            };
+          });
+          assert.ok(comboLayout.inHud, '푸른 숲의 콤보는 상단 HUD 바 안에 있어야 한다');
+          assert.ok(comboLayout.shown && comboLayout.comboNum >= 5, '콤보 5 이상이 표시되어야 한다: ' + comboLayout.comboNum);
+          assert.ok(comboLayout.topMobs > 0, '12시 방향 몬스터가 있는 상태에서 검사해야 한다');
+          assert.deepEqual(comboLayout.hidden, [], '콤보가 몬스터 낱말을 가리면 안 된다');
+          assert.ok(comboLayout.combo.x >= comboLayout.stage.x - 1 && comboLayout.combo.right <= comboLayout.stage.right + 1 && comboLayout.combo.y >= comboLayout.stage.y - 1 && comboLayout.combo.bottom <= comboLayout.stage.bottom + 1, '콤보 배지가 화면 안에 있어야 한다');
+          assert.ok(comboLayout.hudBottom <= comboLayout.leftColTop + 1, '콤보 배지 때문에 HUD 바가 좌측 패널까지 내려오면 안 된다');
           const soundButton = page.locator('button[aria-label="소리 설정"]');
           await soundButton.click();
           assert.equal(await page.locator('.sound-toggle-row').count(), 2, 'BGM과 효과음을 따로 켜고 끌 수 있어야 한다');

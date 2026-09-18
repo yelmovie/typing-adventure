@@ -12,8 +12,9 @@ export function hasKoreanAttackFrames(scene: Phaser.Scene, row?: number) {
 }
 
 /** The visible ground follows the same bounded pace as the character's stride. */
+export const STRIDE_PACE = { min: 0.75, max: 2.4 };
 export function strideGroundSpeed(pace = 1) {
-  return 120 * Phaser.Math.Clamp(pace, 0.75, 1.35);
+  return 120 * Phaser.Math.Clamp(pace, STRIDE_PACE.min, STRIDE_PACE.max);
 }
 
 const WALK_ROWS: Record<string, number> = {

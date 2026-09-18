@@ -33,6 +33,8 @@ export function inputErrorCount(target: string, typed: string, submitted = true)
   return submitted ? row[expected.length] : Math.min(...row);
 }
 
+export interface StatsSnapshot { correctStrokes: number; wrongStrokes: number; submissions: number; correctSubmissions: number; activeSec: number; idleSec: number }
+
 /**
  * 타수 통계 누적기.
  *  - 정확도 = 정답 타수 / (정답 타수 + 오답 글자 수·삽입·누락 수) × 100
@@ -70,6 +72,20 @@ export class TypingStats {
   }
   elapsedSec(_now?: number): number {
     return this.activeSec;
+  }
+  /** Accuracy history and active time, for a mid-stage checkpoint. */
+  snapshot(): StatsSnapshot {
+    return { correctStrokes: this.correctStrokes, wrongStrokes: this.wrongStrokes, submissions: this.submissions, correctSubmissions: this.correctSubmissions, activeSec: this.activeSec, idleSec: this.idleSec };
+  }
+  /** Continue from a checkpoint. Values are coerced so a corrupt checkpoint cannot poison the result screen. */
+  restore(s: Partial<StatsSnapshot> | undefined) {
+    const n = (v: unknown, max = 1e7) => typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(0, v)) : 0;
+    this.correctStrokes = Math.floor(n(s?.correctStrokes));
+    this.wrongStrokes = Math.floor(n(s?.wrongStrokes));
+    this.submissions = Math.floor(n(s?.submissions));
+    this.correctSubmissions = Math.min(this.submissions, Math.floor(n(s?.correctSubmissions)));
+    this.activeSec = n(s?.activeSec, 86400);
+    this.idleSec = n(s?.idleSec, 86400);
   }
   /** 입력 중 확인한 오류를 기록한다. 같은 오류의 Enter 제출과 중복 집계하지 않는다. */
   addTypo(n = 1) {

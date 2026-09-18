@@ -2,7 +2,10 @@ import './styles/design-tokens.css';
 import './styles/animations.css';
 import './styles/responsive.css';
 import './styles/components.css';
-import './styles/screens.css';
+import './styles/screens-home-setup.css';
+import './styles/screens-map-intro.css';
+import './styles/screens-battle.css';
+import './styles/screens-result-collection.css';
 import './styles/finale.css';
 import './styles/opening.css';
 import './styles/learning.css';
@@ -35,6 +38,10 @@ const start = () => {
   if (!runtime) {
     runtime = import('./runtime')
       .then(module => module.startRuntime(activated))
+      .then(() => {
+        // Finish offline preparation quietly once the home screen is idle. Never blocks the game.
+        void import('./game/systems/BackgroundPrecache').then(module => module.scheduleBackgroundPrecache()).catch(() => {});
+      })
       .catch((error) => { runtime = undefined; throw error; });
   }
   return runtime;

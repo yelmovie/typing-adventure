@@ -6,4 +6,3 @@ export { guideModal, storyModal, aboutModal } from './modals/GuideModals';
 export { collectionModal } from './modals/CollectionModal';
 export { certificateModal, practiceModal } from './modals/RecordModals';
 export { dailyPickModal, introMovieModal, replayModal } from './modals/AdventureModals';
-export { classroomModal } from './modals/ClassroomModal';

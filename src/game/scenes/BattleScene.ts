@@ -171,7 +171,6 @@ export class BattleScene extends Phaser.Scene {
     const e = this.enemy;
     if (!e || e.dead) return;
     AudioManager.sfx('tap', { rate: AudioManager.comboRate(combo) * (1 + Math.random() * 0.06) });
-    this.player?.jab();
     e.hit(false);
     playClassFx(this, this.cls, 'weak', { x: this.player!.x, y: this.player!.y }, { x: e.sprite.x - 20, y: e.sprite.y - 140 });
     this.hitBurst?.explode(6, e.sprite.x - 20, e.sprite.y - 120);

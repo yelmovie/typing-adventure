@@ -1,0 +1,179 @@
+/* screens.css 를 2026-09-18 에 화면 묶음별로 나눴다(E2). 불러오는 순서가 곧 캐스케이드 순서다: home-setup → map-intro → battle → result-collection */
+/* ================= WORLD MAP ================= */
+.map-title {
+  position: absolute;
+  left: 50%;
+  top: 22px;
+  transform: translateX(-50%);
+  font-family: var(--font-title);
+  font-size: 56px;
+  color: var(--gold-400);
+  text-shadow: 0 4px 0 var(--brown-800), 0 7px 0 var(--outline), 0 0 24px rgba(247, 207, 90, 0.45);
+  white-space: nowrap;
+}
+.map-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.map-node {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: transform 0.15s;
+  width: 240px;
+}
+.map-node:hover .node-pin { transform: scale(1.1); }
+.map-node.locked { cursor: not-allowed; }
+.node-pin {
+  width: 92px;
+  height: 92px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  border: 4px solid var(--outline);
+  background: linear-gradient(180deg, #ff9b9b, #d63a3a);
+  box-shadow: 0 6px 0 var(--outline), 0 10px 20px rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: transform 0.15s;
+}
+.node-pin > span { transform: rotate(45deg); font-size: 44px; line-height: 1; filter: drop-shadow(0 2px 0 rgba(0,0,0,0.4)); }
+.map-node.cleared .node-pin { background: linear-gradient(180deg, #8ff29a, #2f9e42); }
+.map-node.current .node-pin { background: linear-gradient(180deg, #ffe27a, #e79a1c); animation: ta-marker-bounce 1.1s ease-in-out infinite; }
+.map-node.locked .node-pin { background: linear-gradient(180deg, #9aa0b8, #5b6178); filter: saturate(0.3); }
+.node-label {
+  padding: 6px 18px;
+  border: 3px solid var(--outline);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fff8e8, #f3e2bf);
+  color: var(--text-dark);
+  font-family: var(--font-title);
+  font-size: 24px;
+  white-space: nowrap;
+  box-shadow: 0 4px 0 var(--outline);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-shadow: 0 2px 0 rgba(11, 14, 35, 0.55);
+  box-shadow: 0 4px 0 rgba(11, 14, 35, 0.45), 0 0 0 2px rgba(255, 242, 176, 0.35);
+}
+.node-label .node-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--navy-600);
+  color: #fff;
+  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.map-node.locked .node-label { background: linear-gradient(180deg, #b9bdcc, #8b90a4); color: #3f435a; }
+.map-node .stars .star { font-size: 24px; }
+.node-lock { position: absolute; top: -6px; right: 40px; font-size: 40px; filter: drop-shadow(0 3px 0 rgba(0,0,0,0.5)); }
+.map-progress {
+  position: absolute;
+  left: 40px;
+  bottom: 36px;
+  width: 460px;
+  padding: 18px 22px 20px;
+}
+.map-progress .mp-title { font-family: var(--font-title); font-size: 24px; color: var(--gold-300); margin-bottom: 10px; display: flex; justify-content: space-between; }
+.map-progress .mp-next { margin-top: 10px; font-size: 18px; opacity: 0.85; }
+.map-legend {
+  position: absolute;
+  right: 40px;
+  bottom: 36px;
+  display: flex;
+  gap: 18px;
+  padding: 12px 22px;
+  border-radius: 40px;
+  background: rgba(10, 14, 45, 0.7);
+  border: 2px solid rgba(247, 207, 90, 0.4);
+  font-size: 18px;
+}
+.map-legend span::before { content: '●'; margin-right: 6px; }
+.map-legend .lg-clear::before { color: var(--green-400); }
+.map-legend .lg-cur::before { color: #ffd34d; }
+.map-legend .lg-lock::before { color: #8b90a4; }
+
+/* ================= STAGE INTRO ================= */
+/* 무대는 항상 1920×1080 디자인 좌표라 여기서 안 넘치면 어느 해상도에서도 안 넘친다.
+   스크롤을 두지 않고 세로 리듬을 줄여 창 안에서 끝낸다. */
+.intro-panel {
+  position: absolute;
+  left: 80px;
+  top: 118px;
+  width: 780px;
+  max-height: 924px;
+  display: flex;
+  flex-direction: column;
+  padding: 48px 40px 26px;
+  animation: ta-slide-up 0.45s ease-out both;
+}
+.intro-body { min-height: 0; }
+/* 말풍선 레이어: 캔버스 위 캐릭터 좌표(1920×1080)를 그대로 쓴다 */
+.intro-bubbles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+.intro-stage-num { font-family: var(--font-title); font-size: 22px; color: var(--sky-300); letter-spacing: 3px; }
+.intro-name { font-family: var(--font-title); font-size: 56px; color: var(--gold-300); text-shadow: 0 4px 0 var(--outline); line-height: 1.05; }
+.intro-focus { font-size: 20px; opacity: 0.9; margin-top: 4px; line-height: 1.4; }
+.intro-block { margin-top: 15px; }
+/* 몬스터 · 난이도 두 칸 */
+.intro-row2 { display: grid; grid-template-columns: auto 1fr; gap: 26px; align-items: start; }
+.intro-row2 .intro-diff { flex-wrap: wrap; gap: 8px; }
+.intro-row2 .muted { font-size: 18px; }
+.intro-block h4 { margin: 0 0 7px; font-family: var(--font-title); font-size: 22px; color: var(--gold-300); display: flex; align-items: center; gap: 8px; }
+.intro-mission { font-size: 21px; line-height: 1.45; }
+.intro-enemies { display: flex; gap: 12px; flex-wrap: wrap; }
+.intro-enemy {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px 6px 6px;
+  border: none;
+  border-radius: var(--pix-round-sm);
+  background: rgba(0, 0, 0, 0.3);
+  box-shadow: inset 0 0 0 4px var(--edge-dark), inset 0 0 0 6px rgba(143, 224, 255, 0.18);
+  font-family: var(--font-title);
+  font-size: 20px;
+}
+.intro-enemy img { width: 46px; height: 46px; object-fit: contain; }
+.intro-rewards { display: flex; gap: 10px; flex-wrap: wrap; }
+.intro-reward {
+  padding: 6px 14px;
+  border: none;
+  border-radius: var(--pix-round-sm);
+  background: rgba(247, 207, 90, 0.16);
+  box-shadow: inset 0 0 0 3px var(--edge-dark), inset 0 0 0 5px rgba(247, 207, 90, 0.42);
+  font-size: 18px;
+}
+.intro-diff { display: flex; align-items: center; gap: 12px; font-size: 20px; }
+.intro-actions {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 4px solid var(--edge-dark);
+}
+/* 타자 팁: 우상단 아이콘(홈·소리·설정) 바로 아래. 캐릭터·몬스터가 서 있는 화면 아래쪽을 비운다 */
+.intro-tip {
+  position: absolute;
+  right: 80px;
+  top: 132px;
+  width: 640px;
+  padding: 18px 26px;
+  font-size: 21px;
+  line-height: 1.5;
+}
+.intro-tip b { color: var(--gold-300); }
+.intro-block h4 .ui-icon { width: 26px; height: 26px; }
+.stars-sm .star { font-size: 20px; }

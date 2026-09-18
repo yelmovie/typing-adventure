@@ -175,8 +175,24 @@ export interface SaveSettings {
   /** 프롤로그를 봤는지 (새 모험 시작 시 1회 표시) */
   prologueSeen: boolean;
 }
+/** Mid-stage checkpoint: written after every correct submission and on pause, cleared when the stage ends or the player leaves. */
+export interface BattleCheckpoint {
+  stageId: StageId;
+  remix?: boolean;
+  dailyKind?: 'word' | 'sentence' | 'long';
+  /** ISO time; a checkpoint older than two hours is dropped on load. */
+  savedAt: string;
+  language: GameLanguage;
+  /** Progress shown on Home before resuming: targets done / total (metres for the race). */
+  done: number;
+  total: number;
+  unit?: 'm';
+  /** Mode-specific state written by the battle mode's serialize(); read back defensively by restore(). */
+  state: Record<string, unknown>;
+}
 export interface SaveData {
   languageArchives?: Partial<Record<GameLanguage, SaveSnapshot>>;
+  checkpoint?: BattleCheckpoint;
   version: string;
   profile: SaveProfile;
   progress: SaveProgress;

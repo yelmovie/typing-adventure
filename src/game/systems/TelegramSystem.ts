@@ -1,8 +1,8 @@
 /**
  * 스테이지 4 「폭주 열차」 긴급 전보 — 장문 + 시간 압박.
- *  - 위험 지점까지 280m, 열차는 초당 2m 씩 다가간다(기초 난이도는 느리게).
- *  - 전보 3문장. 전송률 = 완료 어절 / 전체 어절. 어절 완료마다 TELE_WORD.
- *  - 문장 완료 → 브레이크 1단(속도 25% 감소). 3문장 완료 → 비상 브레이크 → 열차 정지(클리어).
+ *  - 위험 지점까지 360m, 열차는 초당 2m 씩 다가간다(기초 난이도는 느리게).
+ *  - 전보 5문장. 전송률 = 완료 어절 / 전체 어절. 어절 완료마다 TELE_WORD.
+ *  - 문장 완료 → 브레이크 1단(속도 25% 감소). 5문장 완료 → 비상 브레이크 → 열차 정지(클리어).
  *  - 오타 확정 → 1.5초 통신 끊김(제출은 복구 후 처리). 2문장 연속 성공 → 친구 도움. FEVER → 급감속(속도 절반).
  *  - 거리 0 전에 미완 → 급정지 실패.
  * 순수 로직. emit 주입.
@@ -12,10 +12,12 @@ import { DIFFICULTY_RULES } from '../data/stages';
 import { calcWordScore } from './TypingStats';
 import { TypingRun, RULES, type Emit } from './TypingRun';
 import { countStrokes } from '../util/hangul';
-import type { BattleSnapshot, TypingMode } from './BattleState';
+import type { BattleSnapshot, TypingMode, CheckpointState } from './BattleState';
+import { obj, readInt, readNum, readStrings, readUnits } from './Checkpoint';
 
 export const TELE = {
-  dist: 280,
+  sentences: 5,
+  dist: 360,
   speed: 2, // m/s
   brakeMul: 0.75,
   outageSec: 1.5,
@@ -255,6 +257,34 @@ export class TelegramSystem implements TypingMode {
 
   wordsSeen(): string[] {
     return this.run.wordsSeen();
+  }
+
+  /** 중간 저장. 전보 문장 자체를 남겨 변형 도전에서도 같은 전보가 이어진다. */
+  serialize(): CheckpointState {
+    return {
+      idx: this.idx, lines: [...this.lines], brake: this.brake, dist: this.dist, elapsed: this.elapsed, score: this.score, playerHp: this.playerHp,
+      wordsDoneBefore: this.wordsDoneBefore, sentences: this.sentences.map((u) => ({ ...u })), run: this.run.serializeCounters(),
+    };
+  }
+
+  /** 복원 — start() 전에. 완료 문장 수에서 브레이크 단수와 전송 어절 수를 다시 계산한다. */
+  restore(state: CheckpointState) {
+    const s = obj(state);
+    const sentences = readUnits(s.sentences, this.stage.id, 20).map((u) => ({ ...u, type: 'sentence' as const }));
+    if (sentences.length) {
+      this.sentences = sentences;
+      this.wordsTotal = sentences.reduce((a, u) => a + this.words(u.text).length, 0);
+    }
+    this.lines = readStrings(s.lines, this.sentences.length - 1);
+    this.idx = this.lines.length;
+    this.brake = this.lines.length;
+    this.wordsDoneBefore = Math.min(this.wordsTotal, this.lines.reduce((a, text) => a + this.words(text).length, 0));
+    this.wordsCur = 0;
+    this.dist = readNum(s.dist, TELE.dist, 1, TELE.dist);
+    this.elapsed = readNum(s.elapsed, 0, 0, 86400);
+    this.score = readInt(s.score, 0, 0, 1e7);
+    this.playerHp = readNum(s.playerHp, this.playerMaxHp, 1, this.playerMaxHp);
+    this.run.restoreCounters(s.run);
   }
 
   snapshot(): BattleSnapshot {

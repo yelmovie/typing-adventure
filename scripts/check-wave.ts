@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { WaveSystem, WAVE } from '../src/game/systems/WaveSystem';
 import type { ContentUnit, PetDef, StageDef } from '../src/game/types';
 
-const stage = { id: 'stage_1', index: 1, mode: 'wave', targets: 20, timeLimitSec: 180 } as StageDef;
+const stage = { id: 'stage_1', index: 1, mode: 'wave', targets: WAVE.total, timeLimitSec: 225 } as StageDef;
 const pet: PetDef = { id: 'dragon', name: '', desc: '', sheet: '', passive: 'strong_bonus', passiveDesc: '', active: 'fire_aoe', activeDesc: '' };
 const unit = (text: string, tags: string[] = []): ContentUnit => ({ id: text, stage: 'stage_1', type: 'word', text, difficulty: 1, tags, weight: 1 });
 const bossUnit = unit('고슴도치', ['대장']); // 유일한 대장 태그 → bossWord()가 항상 이걸 고름
@@ -54,7 +54,7 @@ w.submit('틀림', false);
 assert.equal(w.playerHp, hp1 - 3);
 assert.equal(w.run.combo, 0);
 
-// 6. 20마리 처치 → 문 개방 + 클리어 (광역은 TypingRun 테스트의 FEVER 진입에 의존)
+// 6. 30마리(WAVE.total) 처치 → 문 개방 + 클리어 (광역은 TypingRun 테스트의 FEVER 진입에 의존)
 let guard = 0;
 while (!w.finished && guard++ < 800) {
   const t = w.target;
@@ -164,7 +164,7 @@ assert.equal(count('STAGE_CLEAR'), 1);
   assert.ok(slowMoved < normalMoved * 0.6, '번개: 적 이동 속도 절반');
 }
 
-// 10. S1 마지막 웨이브 대장 슬라임: 20번째(마지막) 몬스터가 큰 슬라임(HP 2배·느림)
+// 10. S1 마지막 웨이브 대장 슬라임: 마지막(WAVE.total 번째) 몬스터가 큰 슬라임(HP 2배·느림)
 {
   const w7 = new WaveSystem(stage, 'normal', pet, words, () => {});
   w7.start();

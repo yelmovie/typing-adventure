@@ -33,11 +33,38 @@ export class ResultScreen extends Screen<{ result: BattleResult }> {
     const stat = (label: string, value: string, isNew: boolean) => h('div', { class: 'result-stat' },
       h('span', { class: 'lbl' }, label), h('strong', { class: 'val' }, value),
       isNew ? h('span', { class: 'new' }, copy('최고!', 'BEST')) : null);
-    const cpmHero = h('section', { class: `result-cpm-hero ${r.isNewCpm ? 'is-best' : ''}`, 'aria-label': copy(`이번 기록 ${fmt.int(r.cpm)}타/분`, `This run ${fmt.int(r.cpm)} keys per minute`) },
-      h('span', { class: 'result-cpm-kicker' }, copy('이번 기록', 'MY SPEED')),
-      h('strong', { class: 'result-cpm-value' }, fmt.int(r.cpm)),
-      h('span', { class: 'result-cpm-unit' }, copy('타/분', 'keys/min')),
-      r.isNewCpm ? h('span', { class: 'result-cpm-best' }, copy('새로운 최고 기록!', 'NEW PERSONAL BEST!')) : null);
+    // 타수는 결과의 주인공: 크게 보여 주고, 지난 판과 비교해 "점점 빨라진다"는 성취감을 준다.
+    // 기록은 모든 지역의 실제 플레이(입력 1개 이상)를 시간순으로 본다. 이번 판은 finalizeAndSave 가 이미 recent 에 넣었다.
+    const history = (save.records.learning?.recent ?? []).filter((s) => s.source === 'game' && s.correct > 0);
+    const last = history[history.length - 1];
+    const isCurrent = !!last && last.stageId === r.stageId && Math.round(last.cpm) === Math.round(r.cpm);
+    const past = isCurrent ? history.slice(0, -1) : history;
+    const prev = past[past.length - 1];
+    const cpmNow = Math.round(r.cpm);
+    const delta = prev ? cpmNow - Math.round(prev.cpm) : 0;
+    const trend = [...past.slice(-7).map((s) => Math.round(s.cpm)), cpmNow];
+    const peak = Math.max(1, ...trend);
+    const compare = r.cpm <= 0
+      ? h('p', { class: 'result-cpm-compare' }, copy('낱말을 완성하면 타수가 기록돼. 다음 판에 도전!', 'Complete a word to record your speed. Try again!'))
+      : !prev
+        ? h('p', { class: 'result-cpm-compare' }, copy('첫 기록! 다음 판부터 얼마나 빨라졌는지 보여 줄게.', 'First record! Next time you will see how much faster you are.'))
+        : h('p', { class: 'result-cpm-compare' },
+          copy(`지난번 ${fmt.int(prev.cpm)}타 → `, `Last time ${fmt.int(prev.cpm)} → `),
+          h('b', { class: `delta ${delta > 0 ? 'up' : delta < 0 ? 'down' : 'same'}` }, delta > 0 ? `▲${delta}` : delta < 0 ? `▼${-delta}` : '='),
+          delta > 0 ? copy(' 더 빨라졌어!', ' faster!') : delta < 0 ? copy(' 다음엔 더 빨리!', ' faster next time!') : copy(' 같은 속도 · 꾸준해!', ' same speed · steady!'));
+    const bars = r.cpm > 0 && trend.length > 1
+      ? h('div', { class: 'result-cpm-bars', role: 'img', 'aria-label': copy(`최근 타수 ${trend.join(', ')}`, `Recent speeds ${trend.join(', ')}`) },
+        ...trend.map((v, i) => h('span', { class: `bar ${i === trend.length - 1 ? 'now' : ''}`, style: `height:${Math.max(10, Math.round((v / peak) * 100))}%` })))
+      : null;
+    const bestLine = r.isNewCpm ? h('span', { class: 'result-cpm-best' }, copy('새로운 최고 기록!', 'NEW PERSONAL BEST!'))
+      : save.records.bestCpm > 0 ? h('span', { class: 'result-cpm-best-line' }, copy(`내 최고 ${fmt.int(save.records.bestCpm)}타/분`, `My best ${fmt.int(save.records.bestCpm)} keys/min`)) : null;
+    const cpmValue = h('strong', { class: 'result-cpm-value' }, fmt.int(r.cpm));
+    const cpmHero = h('section', { class: `result-cpm-hero ${r.isNewCpm ? 'is-best' : ''} ${delta > 0 ? 'is-up' : ''}`, 'aria-label': copy(`이번 타수 ${fmt.int(r.cpm)}타/분`, `This run ${fmt.int(r.cpm)} keys per minute`) },
+      h('div', { class: 'result-cpm-main' },
+        h('span', { class: 'result-cpm-kicker' }, copy('이번 타수', 'MY SPEED')),
+        cpmValue,
+        h('span', { class: 'result-cpm-unit' }, copy('타/분', 'keys/min'))),
+      h('div', { class: 'result-cpm-growth' }, compare, bars, bestLine));
     const stars = h('div', { class: 'stars result-stars', 'aria-label': copy(`별 ${r.stars}개`, `${r.stars} stars`) }, [1, 2, 3].map(() => h('span', { class: 'star', 'aria-hidden': 'true' }, '★')));
     const banner = h('h1', { class: `result-banner ${r.cleared ? '' : 'fail'}`, 'data-no-translate': '' },
       r.cleared ? st.index === 5 ? copy('모험 완주!', 'Adventure complete!') : st.mode === 'daily' ? copy('오늘의 도전 완료!', 'Daily challenge complete!') : copy('스테이지 성공!', 'Stage clear!') : copy('다시 도전!', 'Try again!'));
@@ -45,11 +72,11 @@ export class ResultScreen extends Screen<{ result: BattleResult }> {
     const heading = h('header', { class: 'result-heading' }, h('div', {}, sub, banner), stars);
     const overview = h('section', { class: 'result-pane result-overview', role: 'tabpanel', id: 'result-pane-0', 'aria-labelledby': 'result-tab-0', 'data-no-translate': '' },
       h('div', { class: 'result-highlight-row' },
+        cpmHero,
         h('div', { class: 'journey-result-story' },
           h('span', { class: 'journey-relic-mark', 'aria-hidden': 'true', style: `--journey-color:${chapter?.color ?? '#77cf91'}` }, r.cleared ? chapter?.mark ?? '✓' : '↗'),
           h('div', {}, h('b', {}, r.cleared ? chapter ? copy(`${chapter.relic} 되찾기 성공!`, `${chapter.relic} restored!`) : copy('오늘도 한 걸음 해냈어!', 'One more step today!') : r.attemptedCount === 0 ? copy('첫 글자부터 천천히 해 보자.', 'Start slowly, one letter at a time.') : copy('해낸 만큼, 다음엔 더 멀리!', 'Build on what you completed!')),
-            h('p', { class: 'result-completed' }, copy(`정확히 완성 ${r.wordsDone}개 · 고쳐서 성공 ${r.correctedCount ?? 0}개`, `${r.wordsDone} completed · ${r.correctedCount ?? 0} corrected`)))),
-        cpmHero),
+            h('p', { class: 'result-completed' }, copy(`정확히 완성 ${r.wordsDone}개 · 고쳐서 성공 ${r.correctedCount ?? 0}개`, `${r.wordsDone} completed · ${r.correctedCount ?? 0} corrected`))))),
       h('div', { class: 'result-grid' },
         stat(copy('정확도', 'Accuracy'), r.attemptedCount === 0 ? '—' : `${fmt.pct(r.accuracy)}%`, r.isNewAccuracy),
         stat(copy('최대 콤보', 'Best combo'), String(r.maxCombo), r.isNewCombo),
@@ -107,6 +134,19 @@ export class ResultScreen extends Screen<{ result: BattleResult }> {
     const cast = h('aside', { class: 'result-cast-label', 'data-no-translate': '' }, h('strong', {}, `${t(getCharacter(save.profile.characterId).name)} & ${t(getPet(save.profile.petId).name)}`), h('p', {}, copy(r.cleared ? '함께 해냈어!' : '다시 할 수 있어!', r.cleared ? 'We did it together!' : 'We can try again!')));
     this.el.append(h('div', { class: 'result-wrap result-fit' }, cast, panel), commonTopBar());
     this.cleanups.push(learningPages.dispose, rewardPages.dispose);
+    // 타수가 0에서 차오르는 연출 (동작 줄이기 설정이면 바로 최종값)
+    if (r.cpm > 0 && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const startAt = performance.now(), total = 900;
+      let raf = 0;
+      const step = (now: number) => {
+        const p = Math.min(1, (now - startAt) / total), eased = 1 - Math.pow(1 - p, 3);
+        cpmValue.textContent = fmt.int(Math.round(r.cpm * eased));
+        if (p < 1) raf = requestAnimationFrame(step);
+        else cpmValue.textContent = fmt.int(r.cpm);
+      };
+      raf = requestAnimationFrame(step);
+      this.cleanups.push(() => cancelAnimationFrame(raf));
+    }
     const starEls = stars.querySelectorAll<HTMLElement>('.star');
     for (let i = 0; i < r.stars; i++) {
       const timer = window.setTimeout(() => { starEls[i]?.classList.add('on'); AudioManager.sfx('star'); }, 400 + i * 380);

@@ -1,11 +1,11 @@
 /**
- * 스테이지 1 「푸른 숲」 웨이브 규칙 — TypingRun 위에 "몬스터 20마리가 사방에서 다가온다"를 얹는다.
+ * 스테이지 1 「푸른 숲」 웨이브 규칙 — TypingRun 위에 "몬스터 30마리가 사방에서 다가온다"를 얹는다.
  *  - 몬스터 머리 위에 낱말. 가장 가까운 몬스터가 목표(죽을 때까지 고정).
  *  - 음절 확정 → 그 몬스터 타격(hp = 남은 음절), 낱말 완성 → 처치.
  *  - 몬스터가 닿으면 HP-10 후 밀려남(단, 슬라임은 점프중·박쥐는 앉기중이면 회피: 피해 0·밀림·+30점).
  *  - 오답 제출은 콤보 초기화 + HP-3(용서되면 0). 10콤보마다 +5, PERFECT +2 회복(상한 지킴).
  *  - FEVER 진입·드래곤 화염 → 화면의 몬스터 전부 처치. 폭탄 낱말 시간 초과 → 그 몬스터 뒤로 밀림 + 콤보 0.
- *  - 20마리 처치 → 숲의 문(WAVE_GATE) → STAGE_CLEAR. 시간 0 / HP 0 → STAGE_FAILED.
+ *  - 30마리 처치(6웨이브 × 5) → 숲의 문(WAVE_GATE) → STAGE_CLEAR. 시간 0 / HP 0 → STAGE_FAILED.
  * 순수 로직(DOM/Phaser 없음). emit 은 주입.
  */
 import type { ContentUnit, Difficulty, StageDef, PetDef } from '../types';
@@ -14,7 +14,8 @@ import { calcWordScore } from './TypingStats';
 import { TypingRun, RULES, type Emit } from './TypingRun';
 import { applyVariant } from '../data/content';
 import { countStrokes } from '../util/hangul';
-import type { BattleSnapshot, EnemyState } from './BattleState';
+import type { BattleSnapshot, EnemyState, CheckpointState } from './BattleState';
+import { obj, readBool, readInt, readNum } from './Checkpoint';
 
 export type MobKind = 'slime' | 'bat';
 export interface WaveMonster {
@@ -34,7 +35,7 @@ export interface WaveMonster {
 }
 
 export const WAVE = {
-  total: 20,
+  total: 30,
   perWave: 5,
   // 등장 간격 4초 → 2.2초 (20마리에 걸쳐 선형). 화면에 2~3마리가 늘 있어야 콤보가 이어진다
   intervalStart: 2.2,
@@ -93,7 +94,7 @@ export const WAVE = {
   jumpSec: 0.42, // Player.jump 의 착지 시간과 같게 — 키를 눌러도 이 시간이 지나면 회피 판정이 끝난다
   pushStunSec: 0.8,
   // 웨이브별 구성 [슬라임, 박쥐]. 마지막 웨이브의 마지막 한 마리는 대장 슬라임으로 교체된다
-  mix: [[5, 0], [3, 2], [2, 3], [1, 4]] as [number, number][], // 웨이브가 갈수록 빠른 박쥐 비중 ↑
+  mix: [[5, 0], [4, 1], [3, 2], [2, 3], [2, 3], [1, 4]] as [number, number][], // 6웨이브 × 5마리 = total. 웨이브가 갈수록 빠른 박쥐 비중 ↑
   bossHpMul: 2,
   bossScaleMul: 1.8,
   bossSpeedMul: 0.55,
@@ -106,7 +107,7 @@ const MOB: Record<MobKind, { sheet: string; name: string }> = {
 export const BOSS_SHEET = 'mon_boss_slime';
 
 export interface WaveSnapshot extends BattleSnapshot {
-  wave: number; // 1..4
+  wave: number; // 1..6
   monsters: WaveMonster[];
   targetUid: number;
 }
@@ -211,7 +212,7 @@ export class WaveSystem {
     if (this.spawnQueue.length === 0) return;
     const kind = this.spawnQueue.shift()!;
     this.spawned++;
-    const isBoss = this.spawned === WAVE.total; // 20번째(마지막 웨이브 끝) = 대장 슬라임
+    const isBoss = this.spawned === WAVE.total; // 마지막(30번째) = 대장 슬라임
     const effKind: MobKind = isBoss ? 'slime' : kind;
     const word = isBoss ? this.bossWord() : this.nextWord(effKind);
     const syl = [...word.text].filter((c) => c.trim()).length;
@@ -511,6 +512,40 @@ export class WaveSystem {
   }
   spawnedCount() {
     return this.spawned;
+  }
+
+  /** 중간 저장. 화면 위 몬스터는 저장하지 않는다(복원 시 새로 등장). */
+  serialize(): CheckpointState {
+    return {
+      defeated: this.defeated, spawned: this.spawned, playerHp: this.playerHp, timeLeft: this.timeLeft, score: this.score,
+      rallyUsed: this.rallyUsed, itemShieldCharges: this.itemShieldCharges, elapsed: this.elapsed, paceSec: this.paceSec,
+      run: this.run.serializeCounters(),
+    };
+  }
+
+  /**
+   * 복원 — start() 전에. 처치 수만큼 등장 큐를 줄여 총 30마리는 그대로다.
+   * 화면에 있던(등장했지만 못 잡은) 몬스터는 다시 등장하므로 spawned 는 defeated 로 맞춘다.
+   */
+  restore(state: CheckpointState) {
+    const s = obj(state);
+    this.defeated = readInt(s.defeated, 0, 0, WAVE.total - 1);
+    this.spawned = this.defeated;
+    this.spawnQueue = [];
+    for (const [sl, b] of WAVE.mix) {
+      for (let i = 0; i < sl; i++) this.spawnQueue.push('slime');
+      for (let i = 0; i < b; i++) this.spawnQueue.push('bat');
+    }
+    this.spawnQueue.splice(0, this.defeated);
+    this.playerHp = readNum(s.playerHp, this.playerMaxHp, 1, this.playerMaxHp);
+    this.timeLeft = readNum(s.timeLeft, this.timeLimit, 0, this.timeLimit);
+    this.score = readInt(s.score, 0, 0, 1e7);
+    this.rallyUsed = readBool(s.rallyUsed, false);
+    this.itemShieldCharges = readInt(s.itemShieldCharges, 0, 0, 9);
+    this.elapsed = readNum(s.elapsed, 0, 0, 86400);
+    this.lastResolveAt = this.elapsed;
+    this.paceSec = readNum(s.paceSec, WAVE.warmupInterval, WAVE.paceMin, WAVE.paceMax);
+    this.run.restoreCounters(s.run);
   }
 
   snapshot(): WaveSnapshot {

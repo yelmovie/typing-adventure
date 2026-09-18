@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { join, relative } from 'node:path';
 import { createHash } from 'node:crypto';
 import { chromium } from 'playwright';
 const DIST = process.env.DELIVERY_DIST || 'dist';
@@ -10,8 +11,21 @@ for (const asset of manifest.assets) {
   assert.equal(bytes.length, asset.bytes, asset.url);
   assert.equal(createHash('sha256').update(bytes).digest('hex'), asset.revision, asset.url);
 }
-assert.ok(manifest.assets.length >= 426);
-for (const name of ['char_attack_ko_v1', 'char_walk_v1', 'pet_walk_v1']) assert.ok(manifest.assets.some(asset => asset.url.endsWith(`/${name}.webp`)), `Motion asset included: ${name}`);
+// Expected size = every public/ file that scripts/delivery-exclusions.json keeps, plus the built bundle
+// (index.html and the hashed js/css). 419 assets today; a fixed number went stale whenever exclusions changed.
+const exclusions = JSON.parse(fs.readFileSync('scripts/delivery-exclusions.json', 'utf8'));
+const excluded = path => exclusions.some(entry => entry.endsWith('/') ? path.startsWith(entry) : path === entry);
+const walk = directory => fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => entry.isDirectory() ? walk(join(directory, entry.name)) : [relative('public', join(directory, entry.name)).replaceAll('\\', '/')]);
+const publicFiles = walk('public').filter(path => !excluded(path));
+const delivered = new Set(manifest.assets.map(asset => asset.url));
+for (const path of publicFiles) assert.ok(delivered.has(`./${path}`), `kept public asset is delivered: ${path}`);
+for (const path of exclusions) assert.ok(![...delivered].some(url => url.startsWith(`./${path}`)), `excluded asset stays out: ${path}`);
+// index.html itself is precached by the service worker, not listed in the classroom manifest.
+const bundle = manifest.assets.filter(asset => !publicFiles.includes(asset.url.slice(2)));
+assert.ok(bundle.length >= 2 && bundle.every(asset => /^\.\/assets\/[^/]+\.(js|css)$/.test(asset.url)), `bundle entries are hashed js/css only: ${bundle.map(a => a.url).join(', ')}`);
+assert.ok(bundle.some(asset => /\/index-[^/]+\.js$/.test(asset.url)) && bundle.some(asset => /\/phaser-[^/]+\.js$/.test(asset.url)) && bundle.some(asset => /\.css$/.test(asset.url)), 'entry, phaser and css bundles are delivered');
+assert.equal(manifest.assets.length, publicFiles.length + bundle.length);
+for (const name of ['char_attack_ko_v1', 'char_walk_v2', 'pet_walk_v1']) assert.ok(manifest.assets.some(asset => asset.url.endsWith(`/${name}.webp`)), `Motion asset included: ${name}`);
 const result = { date: new Date().toISOString(), directory: DIST, manifestVersion: manifest.version, assets: manifest.assets.length, bytes: manifest.assets.reduce((sum, a) => sum + a.bytes, 0), bundles: manifest.assets.filter(a => /^\.\/assets\/index-.*\.(js|css)$/.test(a.url)).map(a => a.url), layouts: [] };
 const browser = await chromium.launch({ channel: process.env.DELIVERY_BROWSER_CHANNEL || 'chrome' });
 try {
@@ -56,7 +70,9 @@ try {
           if (visible.right <= visible.left || visible.bottom <= visible.top) continue;
           assert.ok(!intersects(visible, layout.tip) && !intersects(visible, layout.footer), `${language} ${width}: visible ${button.text} does not cover tip/footer`);
         }
-        assert.equal(layout.overflowY, 'auto');
+        // The saved home menu no longer scrolls: extra actions moved into the "모험 메뉴 더보기" dialog.
+        assert.equal(layout.overflowY, 'visible');
+        assert.ok(layout.scrollHeight <= layout.clientHeight + 1, `${language} ${width}: home menu fits without scrolling`);
         await page.screenshot({ path: `tmp/delivery-check/saved-home-final-${language}-${width}.png` });
         result.layouts.push({ language, width, height, pass: true, ...layout });
       }

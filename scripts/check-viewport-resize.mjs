@@ -27,7 +27,10 @@ try {
       await page.goto(`${BASE}/?go=battle&stage=stage_3&st=1`);
       const input = page.locator('.bb-input');
       await input.waitFor();
-      await page.waitForFunction(() => !document.querySelector('.bb-input').disabled && window.__battle);
+      // 편지는 「다음 조각 고르기」부터 시작한다: 정답 조각(순서상 다음 문장)을 고른 뒤 입력 단계에서 잰다.
+      await page.waitForFunction(() => window.__battle && (!document.querySelector('.bb-input').disabled || window.__battle.snapshot().letter?.choices));
+      await page.evaluate(() => { const b = window.__battle; const c = b.snapshot().letter?.choices; if (c) b.choose(c.indexOf(b.sentences[b.idx].text)); });
+      await page.waitForFunction(() => !document.querySelector('.bb-input').disabled);
       const partial = (await page.locator('.bb-target').innerText()).slice(0, 2);
       await input.fill(partial);
       const done = await page.evaluate(() => window.__battle.snapshot().wordsDone);

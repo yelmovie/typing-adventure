@@ -53,7 +53,7 @@
 .btn-primary { --btn-bg-top: #6fe07f; --btn-bg-bot: #2f9e42; }
 .btn-gold { --btn-bg-top: #ffd966; --btn-bg-bot: #e39a1f; --btn-text: var(--brown-900); text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5); }
 .btn-sky { --btn-bg-top: #66ccff; --btn-bg-bot: #2a8fe0; }
-.btn-purple { --btn-bg-top: #b08cff; --btn-bg-bot: #6b3fd6; }
+.btn-purple { --btn-bg-top: #7c56d9; --btn-bg-bot: #5230b8; } /* 흰 글자 대비 5.0:1 (C9) */
 .btn-pink { --btn-bg-top: #ff9ad0; --btn-bg-bot: #e0479a; }
 .btn-red { --btn-bg-top: #ff8080; --btn-bg-bot: #d4383d; }
 .btn-gray { --btn-bg-top: #a9b0c6; --btn-bg-bot: #6d7590; }
@@ -107,7 +107,6 @@
   --panel-fill: rgba(16, 20, 60, 0.78);
   filter: var(--pix-shadow-sm);
 }
-.panel-glass::before { backdrop-filter: blur(6px); }
 /* 제목 리본: 창 위쪽 테두리에 박힌 금속 명판. 어두운선 + 위쪽 밝은선 2겹 */
 .panel-title {
   position: absolute;
@@ -130,9 +129,10 @@
   filter: drop-shadow(0 5px 0 var(--edge-dark));
   z-index: 2;
 }
-.panel-title.purple { background: var(--pix-grain), linear-gradient(180deg, #c4a8ff, #6c3fd6); color: #fff; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4); }
-.panel-title.sky { background: var(--pix-grain), linear-gradient(180deg, #9fe8ff, #2f9cf0); color: #fff; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4); }
-.panel-title.green { background: var(--pix-grain), linear-gradient(180deg, #9df5a8, #34a04a); color: #fff; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4); }
+/* 색 리본 제목: 흰 글자+그림자 대신 금색 리본처럼 진한 잉크를 쓴다 — 가장 연한 그라데이션 끝에서도 대비 4.5:1 이상(C9 실측). */
+.panel-title.purple { background: var(--pix-grain), linear-gradient(180deg, #d5c2ff, #a184f0); color: #2a1657; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35); }
+.panel-title.sky { background: var(--pix-grain), linear-gradient(180deg, #b8efff, #62b9f2); color: #0b2f52; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35); }
+.panel-title.green { background: var(--pix-grain), linear-gradient(180deg, #b6f7be, #66cc78); color: #0f3a25; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35); }
 
 /* 나무 팻말 느낌 라벨 */
 .sign {
@@ -404,7 +404,7 @@
   border: none;
   border-radius: 0;
   border-radius: var(--pix-round-sm);
-  background: var(--pix-grain), linear-gradient(180deg, #ff8f8f, #c93036);
+  background: var(--pix-grain), linear-gradient(180deg, #c8333a, #8f1a20); /* 흰 ✕ 가 가장 연한 끝에서도 4.9:1 (C9 실측) */
   color: #fff;
   font-family: var(--font-title);
   font-size: 28px;

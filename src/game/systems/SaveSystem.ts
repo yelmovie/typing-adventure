@@ -1,6 +1,7 @@
-import type { SaveData, Difficulty, SaveSettings } from '../types';
+import type { SaveData, Difficulty, SaveSettings, BattleCheckpoint } from '../types';
 import { EventBus, Events } from '../EventBus';
 import { defaultSave, validateSave, hasInvalidStructure } from './SaveValidation';
+import { checkpointFresh } from './Checkpoint';
 import { nameForCharacter } from '../data/characters';
 import { STORAGE_KEY } from './SaveKey';
 
@@ -57,6 +58,21 @@ class SaveSystemImpl {
   setProfile(name: string, characterId: string, petId: string, difficulty: Difficulty) {
     this.data.profile = { ...this.data.profile, name: nameForCharacter(name, characterId), characterId, petId, difficulty }; this.save();
   }
+  /** The battle in progress, if it was saved less than two hours ago. */
+  checkpoint(): BattleCheckpoint | undefined {
+    const cp = this.data.checkpoint;
+    return cp && checkpointFresh(cp) ? cp : undefined;
+  }
+  setCheckpoint(checkpoint: BattleCheckpoint) {
+    this.data.checkpoint = checkpoint;
+    this.save();
+  }
+  /** Drop the battle in progress. `persist=false` when the caller saves right afterwards anyway. */
+  clearCheckpoint(persist = true) {
+    if (!this.data.checkpoint) return;
+    delete this.data.checkpoint;
+    if (persist) this.save();
+  }
   private syncCharacterName() {
     // An empty name still means a new adventure has not completed setup.
     if (this.data.profile.name.trim()) this.data.profile.name = nameForCharacter(this.data.profile.name, this.data.profile.characterId);
@@ -73,6 +89,7 @@ class SaveSystemImpl {
       this.data.records = copy.records;
       this.data.collection = copy.collection;
       this.data.stats = copy.stats;
+      delete this.data.checkpoint; // a battle belongs to the corpus it was started in
     }
     this.data.settings = { ...this.data.settings, ...patch }; this.save();
     EventBus.emit(Events.SETTINGS_CHANGED, this.data.settings);

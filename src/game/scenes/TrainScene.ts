@@ -9,7 +9,7 @@ import { EventBus, Events } from '../EventBus';
 import { AudioManager, STAGE_BGM } from '../systems/AudioManager';
 import { DESIGN_W, DESIGN_H } from '../Game';
 import type { StageId } from '../types';
-import type { TelegramInfo } from '../systems/TelegramSystem';
+import { TELE, type TelegramInfo } from '../systems/TelegramSystem';
 
 const DECK_Y = 780; // 발끝 760: 하단 입력 패널(830~) 위
 
@@ -112,8 +112,7 @@ export class TrainScene extends Phaser.Scene {
     }).setDepth(1);
 
     this.bind(Events.TELE_TICK, (t: TelegramInfo) => this.onTick(t));
-    this.bind(Events.TELE_WORD, () => this.pulseTelegraph());
-    this.bind(Events.SYLLABLE_HIT, () => this.player?.jab());
+    this.bind(Events.TELE_WORD, () => this.pulseTelegraph()); // 어절마다 전신기만 깜빡인다. 캐릭터는 문장 완성 때만 움직인다
     this.bind(Events.PET_ACTIVE, () => this.pet?.skill());
     this.bind(Events.IDLE_DRAIN, () => { this.player?.hit(); AudioManager.sfx('hurt', { gain: 0.5 }); });
     this.bind(Events.PET_PASSIVE, () => this.pet?.skill());
@@ -121,7 +120,8 @@ export class TrainScene extends Phaser.Scene {
     this.bind(Events.TELE_BRAKE, (d: { stage: number }) => this.onBrake(d.stage));
     this.bind(Events.TELE_STOP, () => this.onStop());
     this.bind(Events.TELE_CRASH, () => this.onCrash());
-    this.bind(Events.INPUT_CORRECT, (d: { perfect: boolean; combo: number }) => { AudioManager.sfx(d.perfect ? 'perfect' : 'hit', { rate: AudioManager.comboRate(d.combo) }); this.pet?.cheer(); this.player?.hop(); });
+    // 문장 완성: 진짜 공격 자세 + 깡충. 어절·글자 단위로는 캐릭터가 움직이지 않는다
+    this.bind(Events.INPUT_CORRECT, (d: { perfect: boolean; combo: number }) => { AudioManager.sfx(d.perfect ? 'perfect' : 'hit', { rate: AudioManager.comboRate(d.combo) }); this.pet?.cheer(); this.player?.hop(); this.player?.attack(() => {}); });
     this.bind(Events.INPUT_WRONG, (d: { forgiven: boolean }) => { if (!d.forgiven) AudioManager.sfx('miss'); });
     this.bind(Events.PLAYER_MOVE, (d: { dir: 'left' | 'right' | 'up' | 'down'; pressed: boolean }) => {
       if (!this.player) return;
@@ -151,14 +151,14 @@ export class TrainScene extends Phaser.Scene {
     // 가까울수록 자주 흔들림
     if (this.shakeOn && !this.reducedMotion && !this.stopped && this.speed > 0) {
       this.shakeAcc += dt;
-      const period = Phaser.Math.Clamp(this.dist / 280, 0.15, 1) * 1.2;
+      const period = Phaser.Math.Clamp(this.dist / TELE.dist, 0.15, 1) * 1.2;
       if (this.shakeAcc >= period) {
         this.shakeAcc = 0;
-        this.cameras.main.shake(120, 0.002 + (1 - this.dist / 280) * 0.006);
+        this.cameras.main.shake(120, 0.002 + (1 - this.dist / TELE.dist) * 0.006);
       }
     }
     if (this.bridge) {
-      const p = 1 - this.dist / 280; // 0 → 멀리, 1 → 눈앞
+      const p = 1 - this.dist / TELE.dist; // 0 → 멀리, 1 → 눈앞
       this.bridge.setX(DESIGN_W + 300 - p * 1100).setScale(0.4 + p * 0.9);
     }
   }

@@ -22,6 +22,11 @@ assert.equal(safe.records.bestAccuracy, 0);
 const legacy = validateSave({ profile: { name: '하늘' }, progress: { clearedStages: ['stage_2'], stageStars: { stage_2: 2 } } });
 assert.equal(legacy.progress.unlockedStage, 3);
 assert.equal(legacy.profile.name, '하늘');
+// 해금은 저장된 숫자가 아니라 실제 완료·별에서 다시 계산한다(편집·오염된 플래그 무시).
+assert.equal(defaultSave().progress.unlockedStage, 1);
+assert.equal(validateSave({ progress: { unlockedStage: 5, clearedStages: [] } }).progress.unlockedStage, 1);
+assert.equal(validateSave({ progress: { unlockedStage: 1, clearedStages: [], stageStars: { stage_3: 1 } } }).progress.unlockedStage, 4, '별을 받은 지역도 완료 근거다');
+assert.equal(validateSave({ progress: { unlockedStage: 2, clearedStages: ['stage_5'] } }).progress.unlockedStage, 5, '마지막 지역 이후로는 넘지 않는다');
 assert.deepEqual(validateSave(null).progress.clearedStages, []);
 assert.equal(Object.prototype.hasOwnProperty.call(validateSave(JSON.parse('{"progress":{"stageStars":{"__proto__":3}}}')).progress.stageStars, '__proto__'), false);
 const archived = validateSave({ ...defaultSave(), languageArchives: { en: { ...defaultSave(), profile: { name: 'English hero' }, progress: { stageStars: null } } } });
@@ -132,7 +137,7 @@ for (const language of ['ko', 'en'] as const) {
     const pool = getContentForStage(stage.id);
     assert.ok(pool.length > 0);
     const remix = getRemixContent(stage.id);
-    assert.equal(remix.length, stage.id === 'stage_3' ? 6 : stage.id === 'stage_4' ? 3 : pool.length);
+    assert.equal(remix.length, stage.id === 'stage_3' ? 9 : stage.id === 'stage_4' ? 5 : pool.length); // 편지 9문장 · 전보 5문장
     if (stage.id === 'stage_5') {
       // 보스 출제의 세트 다양화·연속 중복 회피는 check-boss가 실제 BossSystem으로 검증한다.
       // 여기서는 변형 도전이 편지·전보를 보스의 갑옷/코어/마무리로 잘못 붙이는 의미 오류를 막는다.
@@ -156,8 +161,8 @@ for (const language of ['ko', 'en'] as const) {
       // 이야기별 연결·순서·연속 중복 회피는 check-journey에서 검증한다.
     } else assert.deepEqual(remix.map((u) => u.tags), pool.map((u) => u.tags));
   }
-  assert.ok(getContentForStage('stage_3').filter((u) => u.tags.includes('편지')).length >= 6);
-  assert.ok(getContentForStage('stage_4').filter((u) => u.tags.includes('전보')).length >= 3);
+  assert.ok(getContentForStage('stage_3').filter((u) => u.tags.includes('편지')).length >= 9);
+  assert.ok(getContentForStage('stage_4').filter((u) => u.tags.includes('전보')).length >= 5);
   assert.ok(getContentForStage('stage_5').filter((u) => u.tags.includes('결정')).length >= 5);
   assert.ok(content.filter((u) => u.tags.includes('오늘문장')).length >= 3);
 }

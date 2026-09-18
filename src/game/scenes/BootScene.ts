@@ -53,13 +53,15 @@ export class BootScene extends Phaser.Scene {
     }
     if (loading) loading.classList.add('hide');
     // 개발용 바로가기: ?go=battle&stage=stage_1 / ?go=worldmap / ?go=intro&stage=stage_2
+    // ?go=battle 은 항상 새 판이다(자동 검사가 새 시작을 전제한다). 중간 저장을 이어가려면 &resume=1 을 붙인다.
     const q = new URLSearchParams(location.search);
     const go = q.get('go');
     const stageId = (q.get('stage') ?? 'stage_1') as StageId;
     if (import.meta.env.DEV && go && SaveSystem.hasSave()) {
       if (go === 'battle') {
         // navigate validates full character and stage atlases before constructing a battle.
-        void navigate('battle', { stageId });
+        const checkpoint = q.get('resume') === '1' ? SaveSystem.checkpoint() : undefined;
+        void navigate('battle', { stageId, ...(checkpoint?.stageId === stageId ? { resume: true, remix: checkpoint.remix, dailyKind: checkpoint.dailyKind } : {}) });
         return;
       }
       if (go === 'intro') {

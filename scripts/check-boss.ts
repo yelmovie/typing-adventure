@@ -5,7 +5,7 @@ import type { ContentUnit, PetDef, StageDef } from '../src/game/types';
 import { getContentForStage } from '../src/game/data/content';
 import { setLanguage } from '../src/game/i18n/Locale';
 
-const stage = { id: 'stage_5', index: 5, mode: 'boss', targets: 20, timeLimitSec: 300 } as StageDef;
+const stage = { id: 'stage_5', index: 5, mode: 'boss', targets: 20, timeLimitSec: 360 } as StageDef;
 const pet: PetDef = { id: 'dragon', name: '', desc: '', sheet: '', passive: 'strong_bonus', passiveDesc: '', active: 'fire_aoe', activeDesc: '' };
 const w = (text: string, type: 'word' | 'sentence' = 'word'): ContentUnit => ({ id: text, stage: 'stage_5', type, text, difficulty: 1, tags: [], weight: 1 });
 const words = {
@@ -237,17 +237,55 @@ for (const [pool, previous] of [[ko, chosenKo], [en, chosenEn]] as const) {
   assert.ok(presented.every((text) => !mode.crystals.some((c) => c.word.text === text)), '결정에서 이미 본 낱말보다 새 낱말 우선');
 }
 
-// 실제 한국어/영어 콘텐츠도 정상 정답으로 완주하며 한 판의 최종 문장은 중복되지 않는다.
+// 실제 한국어/영어 콘텐츠: 마지막 장문은 역할마다 같은 이야기 세트의 2문장씩(총 6문장)이고, 갑옷은 2문장 뒤·코어는 4문장 뒤에 드러난다.
 for (const language of ['ko', 'en'] as const) {
   setLanguage(language);
   const content = getContentForStage('stage_5');
   const pool = { crystals: content.filter((u) => u.tags.includes('결정')), rush: content.filter((u) => u.tags.includes('러시')), final: content.filter((u) => u.tags.includes('최종')) };
-  const { mode } = make(pool); reachFinal(mode);
-  const chosen = finishSentences(mode);
-  assert.equal(chosen.length, 3);
-  assert.equal(new Set(chosen).size, 3);
+  const { mode, emitted } = make(pool); reachFinal(mode);
+  const setOf = (text: string) => pool.final.find((u) => u.text === text)!.tags.find((t) => t.startsWith('이야기'));
+  const chosen: string[] = [];
+  const rolesSeen: string[] = [];
+  while (!mode.finished) {
+    const text = mode.run.current!.text;
+    chosen.push(text);
+    rolesSeen.push(mode.snapshot().boss!.finalRole!);
+    assert.equal(mode.snapshot().boss!.finalStep, chosen.length);
+    assert.equal(mode.snapshot().boss!.finalTotal, 6);
+    mode.submit(text, false);
+    if (chosen.length === 1) assert.equal(mode.armorBroken, false, '갑옷 문장 하나로는 갑옷이 안 깨진다');
+    if (chosen.length === 2) assert.ok(mode.armorBroken && !mode.coreExposed, '갑옷 2문장 → 갑옷 파괴');
+    if (chosen.length === 4) assert.ok(mode.coreExposed && !mode.finalDone, '코어 2문장 → 코어 노출');
+  }
+  assert.equal(chosen.length, 6);
+  assert.equal(new Set(chosen).size, 6);
+  assert.deepEqual(rolesSeen, ['armor', 'armor', 'core', 'core', 'finale', 'finale']);
+  for (const pair of [[0, 1], [2, 3], [4, 5]]) assert.equal(setOf(chosen[pair[0]]), setOf(chosen[pair[1]]), '같은 역할의 두 문장은 같은 이야기 세트에서 온다');
   assert.ok(mode.finalDone);
-  console.log(`check-boss: ${language} actual content, ${pool.final.length} final candidates, 3 unique correct sentences, clear passed`);
+  const strongHits = emitted.filter(([ev, hit]) => ev === 'BOSS_HIT' && !hit.weak && hit.phase === 3).map(([, hit]) => hit as Hit);
+  assert.equal(strongHits.reduce((sum, hit) => sum + hit.damage, 0), 30, '장문 6문장이 30→0을 나눠 깎는다');
+  console.log(`check-boss: ${language} actual content, ${pool.final.length} final candidates, 6-sentence passage in role order, clear passed`);
 }
 setLanguage('ko');
 console.log('check-boss: all passed');
+
+// P1 조작 다양성: ←→ 로 깰 결정을 고른다. 다른 페이즈에서는 목표가 바뀌지 않는다.
+{
+  const { mode, emitted } = make();
+  const first = mode.run.current!.text;
+  mode.move('right', true);
+  const second = mode.run.current!.text;
+  assert.notEqual(second, first, '→ 는 다음 결정으로');
+  assert.equal(emitted.filter(([ev]) => ev === 'BOSS_CRYSTAL_SELECT').length, 1);
+  mode.move('left', true);
+  assert.equal(mode.run.current!.text, first, '← 는 이전 결정으로');
+  mode.move('up', true);
+  assert.equal(mode.run.current!.text, first, '↑↓ 는 결정을 바꾸지 않는다');
+  mode.submit(first, false);
+  assert.equal(mode.crystals.filter((c) => c.broken).length, 1);
+  reachRush(mode);
+  const rushTarget = mode.run.current!.text;
+  mode.move('right', true);
+  assert.equal(mode.run.current!.text, rushTarget, 'P2 에서는 방향키가 목표를 바꾸지 않는다');
+}
+console.log('check-boss: crystal selection passed');
