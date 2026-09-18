@@ -179,7 +179,7 @@ async function focusTrap(page) {
   assert.ok(await last.evaluate(el => document.activeElement === el), 'Shift+Tab wraps to last visible control');
 }
 
-const kinds = ['settings', 'guide-student', 'guide-teacher', 'story-prologue', 'story-ending', 'about', 'collection', 'certificate', 'practice', 'replay', 'daily', 'alert', 'confirm', 'sound'];
+const kinds = ['settings', 'guide-student', 'guide-teacher', 'story-prologue', 'story-ending', 'about', 'collection', 'certificate', 'practice', 'replay', 'daily', 'dark', 'alert', 'confirm', 'sound'];
 try {
   for (const language of (BOUNDARY ? ['ko'] : ['ko', 'en'].filter(l => !LANG || LANG === l))) for (const [width, height] of sizes) {
     const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce', serviceWorkers: 'block' });
@@ -219,6 +219,7 @@ try {
             else if (kind === 'practice') api.practiceModal();
             else if (kind === 'replay') api.replayModal();
             else if (kind === 'daily') api.dailyPickModal();
+            else if (kind === 'dark') api.darkModal();
             else if (kind === 'alert') void api.alertModal(en ? 'Ready for another try?' : '다시 도전할 준비 됐어?', en ? 'Your progress is saved. Take your time and try one letter at a time.' : '지금까지 해낸 기록을 남겼어. 한 글자씩 천천히 다시 도전해 보자.');
             else if (kind === 'confirm') void api.confirmModal(en ? 'Erase English progress?' : '한국어 기록을 지울까?', en ? 'Your English adventure will start at Stage 1. Your stars, coins, friends and typing records will be erased. Korean progress will stay.' : '한국어 모험 기록을 모두 지우고 1단계부터 시작해. 모은 별·코인·친구와 타자 기록이 사라져. 영어 기록은 그대로 남아.', '지우고 시작', '기록 남기기', { destructive: true }).then(answer => { window.__popupAnswer = answer; });
           }, { kind, en: language === 'en' });

@@ -5,7 +5,7 @@ import { navigate, currentScreen } from '../../Game';
 import { getCharacter, getPet, portraitUrl, profileDisplayName } from '../../data/characters';
 import { DIFFICULTY_LABEL, getStage } from '../../data/stages';
 import { collectionModal, certificateModal, confirmModal, dailyPickModal, replayModal, introMovieModal, homeMenuModal, closeModal, darkModal, speedrunModal } from '../ModalController';
-import { endgameUnlocked } from '../../systems/SpeedrunSystem';
+import { endgameUnlocked, stageNumber, SPEEDRUN_STAGES } from '../../systems/SpeedrunSystem';
 import { AudioManager } from '../../systems/AudioManager';
 import { currentTitle, nextTitle, unlockedDecors } from '../../data/titles';
 import { ABOUT } from '../../data/about';
@@ -139,8 +139,11 @@ export class HomeScreen extends Screen {
       const st = getStage(resume.stageId);
       const region = st.id === 'daily' ? (language === 'en' ? 'Daily practice' : '오늘의 도전') : `STAGE ${st.index} ${journeyFor(st.id, language)?.region ?? st.name}`;
       const progress = resume.unit === 'm' ? `${resume.done}m/${resume.total}m` : `${resume.done}/${resume.total}`;
+      // 스피드런·어둠 모드 중간 저장은 어떤 판을 이어가는지 라벨에 밝힌다.
+      const mode = resume.speedrun ? (language === 'en' ? `Speedrun ${stageNumber(resume.speedrun)}/${SPEEDRUN_STAGES.length} · ` : `스피드런 ${stageNumber(resume.speedrun)}/${SPEEDRUN_STAGES.length} · `)
+        : resume.dark ? (language === 'en' ? 'Dark · ' : '어둠 · ') : '';
       return h('div', { class: 'home-resume', 'data-no-translate': 'true' },
-        this.btn(icon('pin'), language === 'en' ? `Continue · ${region} (${progress})` : `이어서 하기 · ${region} (진행 ${progress})`, 'btn-primary btn-lg home-resume-continue',
+        this.btn(icon('pin'), language === 'en' ? `Continue · ${mode}${region} (${progress})` : `이어서 하기 · ${mode}${region} (진행 ${progress})`, 'btn-primary btn-lg home-resume-continue',
           () => void navigate('battle', { stageId: resume.stageId, remix: resume.remix, dailyKind: resume.dailyKind, resume: true })),
         this.btn(icon('flag'), language === 'en' ? 'Start over' : '처음부터', 'btn-gray btn-md home-resume-restart', () => { SaveSystem.clearCheckpoint(); this.show({}); }));
     })() : null;

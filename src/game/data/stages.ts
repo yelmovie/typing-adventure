@@ -19,7 +19,7 @@ export const STAGES: StageDef[] = [
     timeLimitSec: 270,
     bgIntro: 'bg_practice_forest',
     bgBattle: 'bg_forest_roguelite',
-    map: { x: 300, y: 730, icon: '숲' },
+    map: { x: 300, y: 680, icon: '숲' },
     goalTimeSec: 120,
     goalCombo: 15,
     playable: true,
