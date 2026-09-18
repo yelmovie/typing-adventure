@@ -7,6 +7,9 @@ import { TITLES, DECORS, unlockMet2 } from '../../data/titles';
 import { ENEMIES } from '../../data/enemies';
 import { PETS, CHARACTERS, portraitUrl } from '../../data/characters';
 import { ITEMS } from '../../data/items';
+import { STAGES } from '../../data/stages';
+import { getContentForStage } from '../../data/content';
+import type { SaveData } from '../../types';
 import { getLanguage } from '../../i18n/Locale';
 import { chunkItems, pagedContent } from '../PagedContent';
 import { open, closeBtn } from './ModalHost';
@@ -19,9 +22,29 @@ function portraitWithFallback(sheet: string, alt: string, fallback: string): HTM
   return img;
 }
 
+/** 도감 완성률: 배지·친구(캐릭터+펫)·몬스터·지역 낱말(내용 기준)을 합쳐 n/N 과 % 로 센다. */
+export function collectionProgress(save: SaveData) {
+  const stageWords = new Set(STAGES.flatMap((st) => getContentForStage(st.id)).filter((u) => u.type === 'word').map((u) => u.text));
+  const sections = [
+    { key: 'monsters', done: save.collection.enemiesSeen.filter((id) => ENEMIES.some((e) => e.id === id)).length, total: ENEMIES.length },
+    { key: 'badges', done: save.collection.badges.filter((id) => BADGES.some((b) => b.id === id)).length, total: BADGES.length },
+    { key: 'pets', done: (save.collection.charactersUnlocked ?? []).filter((id) => CHARACTERS.some((c) => c.id === id)).length + save.collection.petsUnlocked.filter((id) => PETS.some((p) => p.id === id)).length, total: CHARACTERS.length + PETS.length },
+    { key: 'words', done: save.collection.wordsSeen.filter((w) => stageWords.has(w)).length, total: stageWords.size },
+  ];
+  const done = sections.reduce((n, s) => n + s.done, 0), total = sections.reduce((n, s) => n + s.total, 0);
+  return { sections, done, total, percent: total ? Math.round((done / total) * 100) : 0 };
+}
+
 /** 도감: 고정된 제목·탭 아래에서 카드 목록만 스크롤한다. */
 export function collectionModal() {
   const save = SaveSystem.get();
+  const progress = collectionProgress(save);
+  const en = getLanguage() === 'en';
+  const sectionLabel: Record<string, string> = en ? { monsters: 'Monsters', badges: 'Badges', pets: 'Companions', words: 'Words' } : { monsters: '몬스터', badges: '배지', pets: '친구들', words: '낱말' };
+  const meterText = en ? `Collection ${progress.done} / ${progress.total} (${progress.percent}%)` : `도감 ${progress.done} / ${progress.total} (${progress.percent}%)`;
+  const meter = h('div', { class: 'coll-meter', 'data-no-translate': 'true', role: 'group', 'aria-label': meterText },
+    h('div', { class: 'coll-meter-row' }, h('b', {}, meterText), h('span', { class: 'coll-meter-bar', role: 'progressbar', 'aria-valuenow': String(progress.percent), 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-label': meterText }, h('i', { style: `width:${progress.percent}%` }))),
+    h('div', { class: 'coll-meter-sections' }, progress.sections.map((s) => h('span', { class: s.done >= s.total ? 'done' : '' }, `${sectionLabel[s.key]} ${s.done}/${s.total}`))));
   const pageByTab: Record<string, number> = {};
   const cardsPerPage = () => window.innerWidth >= 1500 && window.innerHeight >= 800 ? 6 : window.innerWidth >= 1100 && window.innerHeight >= 650 ? 4 : 2;
   let activeTab = 'monsters', pageSize = cardsPerPage();
@@ -146,7 +169,7 @@ export function collectionModal() {
     tabs.appendChild(h('button', { class: 'btn btn-sm btn-gray', dataset: { tab: key }, onclick: () => { AudioManager.sfx('click'); paginate(key); } }, label));
   }
   const panel = h('div', { class: 'panel modal modal-xl collection-modal detail-modal popup-paged', 'aria-labelledby': 'collection-title' },
-    h('div', { class: 'detail-modal-header' }, h('h2', { class: 'panel-title sky', id: 'collection-title' }, icon('book'), '모험 도감'), closeBtn(refreshEquipment)), tabs, body);
+    h('div', { class: 'detail-modal-header' }, h('h2', { class: 'panel-title sky', id: 'collection-title' }, icon('book'), '모험 도감'), closeBtn(refreshEquipment)), meter, tabs, body);
   const resize = () => { if (panel.isConnected && cardsPerPage() !== pageSize) paginate(activeTab); };
   window.addEventListener('resize', resize);
   open(panel, refreshEquipment, () => window.removeEventListener('resize', resize));

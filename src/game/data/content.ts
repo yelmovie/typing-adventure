@@ -77,11 +77,18 @@ export function allContent(): ContentUnit[] {
 
 /** Same rules, a fresh combination of suitable targets on every replay. */
 export function getRemixContent(stage: StageId): ContentUnit[] {
+  return getRemixPick(stage).units;
+}
+/** 모험 플러스 출제 + (편지·전보) 고른 이야기 번호. `played` 에 없는 이야기를 먼저 낸다. */
+export function getRemixPick(stage: StageId, played: number[] = []): { units: ContentUnit[]; storyIndex?: number } {
   const originals = getContentForStage(stage);
   // BossSystem draws fresh role-based targets; unrelated stories break its finale.
-  if (stage === 'stage_5') return originals;
-  const story = buildRemixStory(stage, getLanguage(), originals);
+  if (stage === 'stage_5') return { units: originals };
+  const story = buildRemixStory(stage, getLanguage(), originals, Math.random, played);
   if (story) return story;
+  return { units: remixWords(stage, originals) };
+}
+function remixWords(stage: StageId, originals: ContentUnit[]): ContentUnit[] {
   const groups = new Map<string, ContentUnit[]>();
   const replacements = new Map<string, ContentUnit>();
   for (const unit of originals) {

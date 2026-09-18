@@ -11,7 +11,8 @@ import { DailySystem, todayKey, type DailyKind } from '../../systems/DailySystem
 import { allContent } from '../../data/content';
 import { currentTitle } from '../../data/titles';
 import { getEnemy } from '../../data/enemies';
-import { getContentForStage, getRemixContent } from '../../data/content';
+import { getContentForStage, getRemixPick } from '../../data/content';
+import { remixStoryIndexOf } from '../../data/remixStories';
 import { TypingSystem } from '../../systems/TypingSystem';
 import { HudController } from '../HudController';
 import { KeyboardGuide } from '../KeyboardGuide';
@@ -26,10 +27,16 @@ import { getLanguage, t } from '../../i18n/Locale';
 import { createBattleMode } from '../battle/createBattleMode';
 import { getBattleCopy } from '../battle/BattleCopy';
 import { BattleFeedback } from '../battle/BattleFeedback';
+import { applyDarkModifier, darkDifficulty, recordDarkClear } from '../../data/darkMode';
+import { type SpeedrunRun, startSpeedrun, nextStage as speedrunStep, stageNumber, totalSec, isComplete, finishSpeedrun, formatSpeedrunTime, readSpeedrunRun, SPEEDRUN_STAGES } from '../../systems/SpeedrunSystem';
+import { journeyFor } from '../../data/worldJourney';
+
+/** 전투 진입 옵션. speedrun 은 5지역 연속 타임어택(진행은 speedrunRun 으로 다음 지역에 넘긴다), dark 는 어둠 모드(뉴게임+). */
+export interface BattleData { stageId: StageId; dailyKind?: DailyKind; remix?: boolean; resume?: boolean; speedrun?: boolean; dark?: boolean; speedrunRun?: SpeedrunRun }
 
 
 /** 전투 화면 DOM: HUD + 실제 한글 입력창 + 키보드 가이드. 여섯 모드의 타이핑 로직을 연결한다. */
-export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKind; remix?: boolean; resume?: boolean }> {
+export class BattleScreen extends Screen<BattleData> {
   private battle?: TypingMode;
   private dailyKind: DailyKind = 'word';
   private checkpointTimer = 0;
@@ -52,6 +59,12 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
   private modalObserver?: MutationObserver;
   private lifetime = 0;
   private remix = false;
+  /** 어둠 모드 판(시간 ×0.7·속도 ×1.3, 별은 progress.darkStars) */
+  private dark = false;
+  /** 스피드런 진행: 이 판이 스피드런의 한 지역이면 채워진다 */
+  private speedrun?: SpeedrunRun;
+  private interstitialTimer = 0;
+  private remixStory?: number;
   private visibilityHandler = () => {
     if (document.hidden) void this.pauseMenu(this.copy.pauseHidden);
   };
@@ -73,9 +86,9 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
     super('battle');
   }
 
-  protected render(data: { stageId: StageId; dailyKind?: DailyKind; remix?: boolean; resume?: boolean }) {
+  protected render(data: BattleData) {
     this.lifetime++;
-    const st = getStage(data.stageId);
+    const base = getStage(data.stageId);
     const save = SaveSystem.get();
     const ch = getCharacter(save.profile.characterId);
     const pet = getPet(save.profile.petId);
@@ -87,12 +100,21 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
     this.dailyKind = data.dailyKind ?? 'word';
     // 중간 저장은 같은 스테이지·같은 언어·같은 종류일 때만 이어간다. 새로 시작하는 판은 이전 저장을 지운다(?go=battle 개발 경로도 기본은 새 시작).
     const checkpoint = data.resume ? SaveSystem.checkpoint() : undefined;
-    const resuming = !!checkpoint && checkpoint.stageId === st.id && checkpoint.language === getLanguage() && (checkpoint.remix === true) === this.remix
-      && (st.id !== 'daily' || checkpoint.dailyKind === this.dailyKind);
+    const resuming = !!checkpoint && checkpoint.stageId === base.id && checkpoint.language === getLanguage() && (checkpoint.remix === true) === this.remix
+      && (base.id !== 'daily' || checkpoint.dailyKind === this.dailyKind);
     if (!resuming) SaveSystem.clearCheckpoint();
-    const stagePool = data.remix ? getRemixContent(st.id) : getContentForStage(st.id);
+    // 어둠 모드·스피드런: 이어가는 판은 중간 저장의 표시를 따르고(홈 「이어서 하기」는 이 플래그를 모른다), 새 판은 호출한 쪽의 옵션을 따른다.
+    this.dark = base.id !== 'daily' && (resuming && checkpoint ? checkpoint.dark === true : data.dark === true);
+    this.speedrun = base.id === 'daily' ? undefined
+      : resuming && checkpoint ? (checkpoint.speedrun ? { ...checkpoint.speedrun, stageSec: [...checkpoint.speedrun.stageSec] } : undefined)
+        : data.speedrun === true ? readSpeedrunRun(data.speedrunRun) ?? startSpeedrun() : undefined;
+    // 어둠 모드는 StageDef 를 한 곳(darkMode.ts)에서 바꾼 사본으로 전투·별 계산을 한다.
+    const st = this.dark ? applyDarkModifier(base) : base;
+    const remixPick = data.remix ? getRemixPick(st.id, save.progress.storiesDone?.[st.id] ?? []) : undefined;
+    const stagePool = remixPick?.units ?? getContentForStage(st.id);
+    this.remixStory = remixPick?.storyIndex;
     // 도움 모드: 그 스테이지만 기초 난이도 규칙(시간 +35%, 적 느리게)
-    const difficulty = save.progress.assist?.[st.id] ? 'beginner' : save.profile.difficulty;
+    const difficulty = this.dark ? darkDifficulty(save.profile.difficulty) : save.progress.assist?.[st.id] ? 'beginner' : save.profile.difficulty;
 
     const build = () => createBattleMode({
       stage: st, difficulty, pet, stagePool,
@@ -108,10 +130,10 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
       try { this.battle.restore?.(checkpoint.state); }
       catch { this.battle = build(); SaveSystem.clearCheckpoint(); } // 손상된 저장은 버리고 새로 시작한다
     }
-    if (import.meta.env.DEV) (window as unknown as { __battle: TypingMode }).__battle = this.battle; // 개발용 콘솔 접근
+    if (import.meta.env.DEV) Object.assign(window as unknown as Record<string, unknown>, { __battle: this.battle, __speedrun: this.speedrun ?? null, __dark: this.dark }); // 개발용 콘솔 접근
     this.hud = new HudController({
       stageIndex: st.index,
-      stageName: st.name,
+      stageName: `${st.name}${this.modeSuffix()}`,
       playerName: profileDisplayName(save.profile, getLanguage()),
       level: SaveSystem.level(),
       portrait: portraitUrl(ch.sheet),
@@ -419,6 +441,7 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
     SaveSystem.setCheckpoint({
       stageId: st.id, savedAt: new Date().toISOString(), language: getLanguage(),
       ...(this.remix ? { remix: true } : {}), ...(st.id === 'daily' ? { dailyKind: this.dailyKind } : {}),
+      ...(this.dark ? { dark: true } : {}), ...(this.speedrun ? { speedrun: { ...this.speedrun, stageSec: [...this.speedrun.stageSec] } } : {}),
       done: race ? Math.round(s.dealtDamage) : s.targetIndex, total: race ? s.totalEnemyHp : s.targetTotal, ...(race ? { unit: 'm' as const } : {}),
       state,
     });
@@ -511,23 +534,77 @@ export class BattleScreen extends Screen<{ stageId: StageId; dailyKind?: DailyKi
         skippedCount: this.battle.run.skippedCount,
         correctedCount: this.battle.run.correctedCount,
         remix: this.remix,
+        dark: this.dark,
+        // 이어하기로 복원한 판은 실제로 친 문장에서 이야기 번호를 되찾는다(복원 전 새로 뽑힌 번호와 다를 수 있다).
+        remixStory: this.remix ? remixStoryIndexOf(st.id, getLanguage(), this.battle.wordsSeen()) ?? this.remixStory : undefined,
         ghost: this.battle instanceof RaceSystem && cleared ? this.battle.ghostRecord() : undefined,
         beatGhost: this.battle instanceof RaceSystem ? this.battle.beatGhost : undefined,
         wordsSeen: this.battle.wordsSeen(),
       },
       st,
     );
+    // 어둠 모드 완료는 보통 별과 따로 기록한다(코인·배지·클리어는 finalizeAndSave 가 보통 판처럼 처리했다).
+    if (this.dark && result.cleared) { recordDarkClear(SaveSystem.get(), st.id, result.stars); SaveSystem.save(); }
+    // 스피드런: 클리어면 이 판의 전투 시간을 더하고 다음 지역으로, 실패면 시간을 더하지 않고 같은 지역을 다시. 5지역째 클리어만 결과 화면.
+    let speedrunNextId: StageId | undefined;
+    if (this.speedrun) {
+      const step = speedrunStep(this.speedrun, result.cleared, result.elapsedSec);
+      this.speedrun = step.run;
+      if (result.cleared && isComplete(step.run)) { result.speedrun = finishSpeedrun(SaveSystem.get().records, step.run); SaveSystem.save(); }
+      else speedrunNextId = step.stageId ?? st.id;
+    }
     if (cleared) {
       this.feedback?.judge(this.copy.stageClear, 'fever big');
     } else {
       this.feedback?.judge(st.mode === 'telegram' ? this.copy.trainFailed : reason === 'time' ? this.copy.timeUp(fmt.time(0)) : this.copy.hpEmpty, 'miss');
     }
+    if (speedrunNextId) { this.speedrunInterstitial(result.cleared, speedrunNextId); return; }
     const lifetime = this.lifetime;
     window.setTimeout(() => { if (lifetime === this.lifetime) void navigate('result', { result }); }, cleared ? (st.mode === 'boss' ? 4200 : 2200) : 1600);
   }
 
+  /** HUD 지역 이름 뒤에 붙는 모드 표시: "· 스피드런 2/5" 또는 "· 어둠 모드" (관찰자가 영어로 바꿀 수 있게 낱말 단위로 둔다) */
+  private modeSuffix(): string {
+    const en = getLanguage() === 'en';
+    if (this.speedrun) return en ? ` · Speedrun ${stageNumber(this.speedrun)}/${SPEEDRUN_STAGES.length}` : ` · 스피드런 ${stageNumber(this.speedrun)}/${SPEEDRUN_STAGES.length}`;
+    if (this.dark) return en ? ' · Dark mode' : ' · 어둠 모드';
+    return '';
+  }
+
+  /**
+   * 스피드런 막간(1.5초, 모달 아님): "2 / 5 · 누적 1:52" 를 띄운 뒤 지도·소개를 건너뛰고 바로 다음 지역 전투로 간다.
+   * 실패한 판은 "같은 지역 다시" 를 알리고 시간은 더하지 않는다. 동작 줄이기 설정이면 CSS 가 애니메이션을 끈다.
+   */
+  private speedrunInterstitial(cleared: boolean, nextId: StageId) {
+    const run = this.speedrun;
+    if (!run) return;
+    const lifetime = this.lifetime;
+    const en = getLanguage() === 'en';
+    const done = run.stageSec.length;
+    const region = journeyFor(nextId, getLanguage())?.region ?? getStage(nextId).name;
+    const head = cleared
+      ? (en ? `${done} / ${SPEEDRUN_STAGES.length} cleared` : `${done} / ${SPEEDRUN_STAGES.length} 완료`)
+      : (en ? `Retry · ${region}` : `다시 도전 · ${region}`);
+    const sub = cleared
+      ? (en ? `Total ${formatSpeedrunTime(totalSec(run))} · next: ${region}` : `누적 ${formatSpeedrunTime(totalSec(run))} · 다음: ${region}`)
+      : (en ? `Failed time is not counted · retries ${run.retries}` : `실패한 시간은 더하지 않아 · 재도전 ${run.retries}회`);
+    const overlay = h('div', { class: `speedrun-interstitial ${cleared ? '' : 'retry'}`, role: 'status', 'aria-live': 'polite', 'data-no-translate': 'true' },
+      h('div', { class: 'speedrun-interstitial-card' }, h('span', { class: 'speedrun-kicker' }, en ? 'SPEEDRUN' : '스피드런'), h('strong', {}, head), h('span', {}, sub)));
+    window.clearTimeout(this.interstitialTimer);
+    this.interstitialTimer = window.setTimeout(() => {
+      if (lifetime !== this.lifetime) return;
+      this.el.append(overlay);
+      this.interstitialTimer = window.setTimeout(() => {
+        if (lifetime !== this.lifetime) return;
+        void navigate('battle', { stageId: nextId, speedrun: true, speedrunRun: { ...run, stageSec: [...run.stageSec] } });
+      }, 1500);
+    }, cleared ? 600 : 900);
+  }
+
   protected onHide() {
     this.lifetime++;
+    window.clearTimeout(this.interstitialTimer);
+    this.el.querySelector('.speedrun-interstitial')?.remove();
     document.removeEventListener('visibilitychange', this.visibilityHandler);
     document.removeEventListener('keydown', this.shortcutHandler);
     this.modalObserver?.disconnect();

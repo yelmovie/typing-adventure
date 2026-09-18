@@ -1,9 +1,10 @@
 import { Screen } from '../Screen';
-import { currentDailyKind } from '../../systems/DailySystem';
+import { currentDailyKind, dailyCompare, shiftDay, todayKey } from '../../systems/DailySystem';
 import { h, fmt, icon, uiImg } from '../../util/dom';
 import { navigate } from '../../Game';
 import { getStage, getStageByIndex } from '../../data/stages';
 import { getBadge } from '../../data/badges';
+import { challengesFor, challengesDone, getChallenge, challengeName, challengeDesc, type ChallengeDef } from '../../data/challenges';
 import { getCharacter, getPet } from '../../data/characters';
 import type { BattleResult } from '../../types';
 import { AudioManager } from '../../systems/AudioManager';
@@ -16,6 +17,7 @@ import { journeyFor } from '../../data/worldJourney';
 import { scoreGuide } from '../../systems/ScoreGuide';
 
 import { resultPages } from '../ResultPages';
+import { speedrunResultBlock, darkResultRibbon } from '../SpeedrunResult';
 
 export class ResultScreen extends Screen<{ result: BattleResult }> {
   private cleanups: (() => void)[] = [];
@@ -58,13 +60,21 @@ export class ResultScreen extends Screen<{ result: BattleResult }> {
       : null;
     const bestLine = r.isNewCpm ? h('span', { class: 'result-cpm-best' }, copy('새로운 최고 기록!', 'NEW PERSONAL BEST!'))
       : save.records.bestCpm > 0 ? h('span', { class: 'result-cpm-best-line' }, copy(`내 최고 ${fmt.int(save.records.bestCpm)}타/분`, `My best ${fmt.int(save.records.bestCpm)} keys/min`)) : null;
+    // 오늘의 도전만: 같은 종류의 어제(또는 가장 최근 지난 날) 최고 기록과 오늘을 나란히.
+    const dailyLine = st.mode === 'daily' && r.cpm > 0 ? (() => {
+      const today = todayKey(), cmp = dailyCompare(save, currentDailyKind(), today);
+      if (!cmp.prev) return h('p', { class: 'result-cpm-compare result-daily-compare' }, copy('오늘 첫 도전 기록! 내일 다시 오면 어제의 나와 비교해 줄게.', 'First daily record! Come back tomorrow to compare with yesterday.'));
+      const shortDay = cmp.prev.day.slice(5).replace('-', '/');
+      const label = cmp.prev.day === shiftDay(today, -1) ? copy('어제의 나', 'Yesterday') : copy(`지난 도전(${shortDay})`, `Last time (${shortDay})`);
+      return h('p', { class: 'result-cpm-compare result-daily-compare', 'data-no-translate': '' }, copy(`${label} ${fmt.int(cmp.prev.cpm)}타 → 오늘 ${cpmNow}타`, `${label} ${fmt.int(cmp.prev.cpm)} → today ${cpmNow} keys/min`));
+    })() : null;
     const cpmValue = h('strong', { class: 'result-cpm-value' }, fmt.int(r.cpm));
     const cpmHero = h('section', { class: `result-cpm-hero ${r.isNewCpm ? 'is-best' : ''} ${delta > 0 ? 'is-up' : ''}`, 'aria-label': copy(`이번 타수 ${fmt.int(r.cpm)}타/분`, `This run ${fmt.int(r.cpm)} keys per minute`) },
       h('div', { class: 'result-cpm-main' },
         h('span', { class: 'result-cpm-kicker' }, copy('이번 타수', 'MY SPEED')),
         cpmValue,
         h('span', { class: 'result-cpm-unit' }, copy('타/분', 'keys/min'))),
-      h('div', { class: 'result-cpm-growth' }, compare, bars, bestLine));
+      h('div', { class: 'result-cpm-growth' }, compare, dailyLine, bars, bestLine));
     const stars = h('div', { class: 'stars result-stars', 'aria-label': copy(`별 ${r.stars}개`, `${r.stars} stars`) }, [1, 2, 3].map(() => h('span', { class: 'star', 'aria-hidden': 'true' }, '★')));
     const banner = h('h1', { class: `result-banner ${r.cleared ? '' : 'fail'}`, 'data-no-translate': '' },
       r.cleared ? st.index === 5 ? copy('모험 완주!', 'Adventure complete!') : st.mode === 'daily' ? copy('오늘의 도전 완료!', 'Daily challenge complete!') : copy('스테이지 성공!', 'Stage clear!') : copy('다시 도전!', 'Try again!'));
@@ -84,6 +94,9 @@ export class ResultScreen extends Screen<{ result: BattleResult }> {
       h('p', { class: 'result-star-hint' }, r.cleared ? r.stars >= 3 ? copy('정확한 입력으로 별 3개를 모았어!', 'Three stars for accurate typing!') : copy('별을 더 모으는 방법은 성장 기록에서 볼 수 있어.', 'Find your next star goal in Growth.') : r.attemptedCount === 0 ? copy('아직 입력한 기록이 없어. 다시 도전해 보자!', 'No typing yet. Ready for another try?') : copy('어려웠던 부분은 성장 기록에서 함께 연습하자.', 'Practice the tricky parts in Growth.')),
       h('p', { class: 'journey-result-next' }, r.cleared ? chapter?.next ?? copy('새 낱말로 한 번 더 도전해 보자.', 'Try again with new words.') : copy('틀려도 괜찮아. 한 글자씩 완성하면 돼.', 'Mistakes are OK. Finish one letter at a time.')));
 
+    // 스피드런 완주 블록(5지역째만)·어둠 모드 리본: 다른 결과 요소는 그대로 두고 덧붙인다.
+    if (r.speedrun) overview.append(speedrunResultBlock(r.speedrun, en));
+    if (r.dark) sub.prepend(darkResultRibbon(r.cleared, en));
     const learning = learningSummary(r, () => practiceModal(() => {
       if (this.el.style.display === 'none') return;
       this.show({ result: r });
@@ -101,6 +114,24 @@ export class ResultScreen extends Screen<{ result: BattleResult }> {
     const learningPages = resultPages(learningBlocks, en);
 
     const rewards: HTMLElement[] = [];
+    // 도전 카드: 이번 판에 채운 카드와 이 지역에 남은 카드를 보여 줘 다시 도전할 목표가 보이게 한다.
+    const stageCards = challengesFor(st.id);
+    if (r.cleared && stageCards.length) {
+      const earned = (r.newChallenges ?? []).map(getChallenge).filter((c): c is ChallengeDef => !!c);
+      const doneIds = challengesDone(save, st.id);
+      const remaining = stageCards.filter((c) => !doneIds.includes(c.id));
+      const remainLine = remaining.length
+        ? copy(`남은 도전 ${remaining.length}개 · 다음: ${challengeName(remaining[0], language)} — ${challengeDesc(remaining[0], language)}`, `${remaining.length} left · Next: ${challengeName(remaining[0], language)} — ${challengeDesc(remaining[0], language)}`)
+        : copy('이 지역의 도전 카드를 모두 채웠어!', 'Every challenge card in this region is filled!');
+      rewards.push(card(
+        h('h3', {}, earned.length ? copy(`도전 카드 달성! +${earned.length}`, `Challenge cards filled! +${earned.length}`) : copy(`도전 카드 ${doneIds.length}/${stageCards.length}`, `Challenge cards ${doneIds.length}/${stageCards.length}`)),
+        earned.length ? h('div', { class: 'result-challenge-list' }, earned.map((c) => h('span', { class: 'result-challenge-card' }, h('i', { class: 'card-slot on', 'aria-hidden': 'true' }), `${challengeName(c, language)} · ${challengeDesc(c, language)}`))) : null,
+        h('p', { class: 'result-challenge-remain' }, remainLine)));
+      // 첫 화면에도 한 줄: 채운 카드 수와 남은 목표가 바로 보이게(자세한 내용은 「받은 선물」).
+      overview.append(h('p', { class: 'result-challenge-line' },
+        h('span', { class: 'card-slots', 'aria-hidden': 'true' }, stageCards.map((c) => h('i', { class: `card-slot ${doneIds.includes(c.id) ? 'on' : ''}` }))),
+        earned.length ? copy(` 도전 카드 +${earned.length} · 남은 도전 ${remaining.length}개`, ` Challenge cards +${earned.length} · ${remaining.length} left`) : remaining.length ? copy(` 도전 카드 ${doneIds.length}/${stageCards.length} · 다음 목표: ${challengeName(remaining[0], language)}`, ` Challenge cards ${doneIds.length}/${stageCards.length} · Next goal: ${challengeName(remaining[0], language)}`) : copy(' 도전 카드 모두 달성!', ' All challenge cards filled!')));
+    }
     if (r.coins > 0) rewards.push(card(h('h3', {}, icon('coin'), copy(` 코인 +${r.coins}`, ` +${r.coins} coins`)), h('p', { class: 'result-coins' }, copy(`모두 ${fmt.int(save.progress.coins)}코인`, `${fmt.int(save.progress.coins)} coins in total`))));
     for (const name of r.newUnlocks ?? []) rewards.push(card(h('h3', {}, icon('unlock'), copy(' 새 친구!', ' New friend!')), h('p', {}, t(name))));
     if (r.newUnlocks?.length) rewards.push(card(h('button', { class: 'btn btn-sky', onclick: () => void navigate('setup', { step: 'pet' }) }, copy('새 친구와 함께하기', 'Meet your new friend'))));
@@ -127,7 +158,7 @@ export class ResultScreen extends Screen<{ result: BattleResult }> {
     });
     const actions = h('div', { class: 'result-actions' },
       st.index === 5 && r.cleared ? h('button', { class: 'btn btn-primary result-main', onclick: () => certificateModal() }, copy('완주 영상 · 인증서', 'Movie & certificate')) : null,
-      h('button', { class: `btn ${r.cleared ? 'btn-sky' : 'btn-primary result-main'}`, onclick: () => { AudioManager.sfx('click'); void navigate('battle', { stageId: st.id, remix: r.remix, dailyKind: st.id === 'daily' ? currentDailyKind() : undefined }); } }, copy('바로 다시 도전', 'Play again')),
+      h('button', { class: `btn ${r.cleared ? 'btn-sky' : 'btn-primary result-main'}`, onclick: () => { AudioManager.sfx('click'); void navigate('battle', { stageId: st.id, remix: r.remix, dark: r.dark, dailyKind: st.id === 'daily' ? currentDailyKind() : undefined }); } }, copy('바로 다시 도전', 'Play again')),
       unlockedNext ? h('button', { class: 'btn btn-primary', onclick: () => void navigate('worldmap', { focusIndex: next!.index }) }, icon('flag'), copy(' 다음 지역', ' Next region'))
         : h('button', { class: 'btn btn-gold', onclick: () => void navigate('worldmap', { focusIndex: st.index }) }, icon('pin'), copy(' 지도로', ' Map')));
     const panel = h('div', { class: 'panel panel-deep result-panel result-fit-panel' }, heading, tabs, h('div', { class: 'result-body' }, ...panes), actions);

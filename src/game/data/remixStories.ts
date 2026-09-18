@@ -36,22 +36,40 @@ export const REMIX_STORIES = {
   },
 } satisfies Record<GameLanguage, Record<'stage_3' | 'stage_4', string[][]>>;
 
+export interface RemixStory { units: ContentUnit[]; storyIndex: number }
+export function remixStoryCount(stage: StageId): number {
+  return stage === 'stage_3' || stage === 'stage_4' ? REMIX_STORIES.ko[stage].length : 0;
+}
+/** 완주한 문장 목록(wordsSeen)이 어느 이야기인지 — 이어하기로 복원한 판도 같은 이야기로 기록한다. */
+export function remixStoryIndexOf(stage: StageId, language: GameLanguage, texts: string[]): number | undefined {
+  if (stage !== 'stage_3' && stage !== 'stage_4') return;
+  const seen = new Set(texts.map(t => t.normalize('NFC')));
+  const index = REMIX_STORIES[language][stage].findIndex(story => story.some(line => seen.has(line.normalize('NFC'))));
+  return index >= 0 ? index : undefined;
+}
+
 const previous = new Map<string, number>();
-export function buildRemixStory(stage: StageId, language: GameLanguage, originals: ContentUnit[], random = Math.random): ContentUnit[] | undefined {
+/**
+ * 이야기를 통째로 고른다. 아직 완주하지 않은 이야기(`played` 에 없는 번호)를 순서대로 먼저 내고,
+ * 모두 완주했으면 직전 이야기를 피해 무작위로 고른다 — 학생이 지도의 "이야기 1/5 → 2/5" 를 실제로 채울 수 있게.
+ */
+export function buildRemixStory(stage: StageId, language: GameLanguage, originals: ContentUnit[], random = Math.random, played: number[] = []): RemixStory | undefined {
   if (stage !== 'stage_3' && stage !== 'stage_4') return;
   const options = REMIX_STORIES[language][stage];
   const key = `${language}:${stage}`;
   const candidates = options.map((_, i) => i).filter(i => i !== previous.get(key));
-  const selected = candidates[Math.min(candidates.length - 1, Math.max(0, Math.floor(random() * candidates.length)))];
+  const unplayed = candidates.filter(i => !played.includes(i));
+  const selected = unplayed.length ? unplayed[0] : candidates[Math.min(candidates.length - 1, Math.max(0, Math.floor(random() * candidates.length)))];
   previous.set(key, selected);
   const tag = stage === 'stage_3' ? '편지' : '전보';
   const bases = originals.filter(unit => unit.tags.includes(tag)).sort((a, b) => {
     const order = (u: ContentUnit) => Number(u.tags.find(t => /^순서\d+$/.test(t))?.slice(2) ?? 0);
     return order(a) - order(b);
   });
-  return options[selected].map((text, i) => ({
+  const units: ContentUnit[] = options[selected].map((text, i) => ({
     ...(bases[i] ?? bases[0]), id: `remix-${language}-${stage}-${selected}-${i}`, stage,
     type: 'sentence', text: text.normalize('NFC'), difficulty: bases[i]?.difficulty ?? 2,
     weight: 1, tags: [tag, `순서${i + 1}`, `이야기${selected + 1}`],
   }));
+  return { units, storyIndex: selected };
 }

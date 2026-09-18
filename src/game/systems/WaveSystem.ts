@@ -162,7 +162,7 @@ export class WaveSystem {
     this.playerHp = rule.playerHp;
     this.timeLimit = Math.round(stage.timeLimitSec * rule.timeMul);
     this.timeLeft = this.timeLimit;
-    this.speedMul = 1 / rule.timeMul; // 기초 난이도는 느리게, 도전은 빠르게
+    this.speedMul = (1 / rule.timeMul) * (stage.speedMul ?? 1); // 기초 난이도는 느리게, 도전은 빠르게, 어둠 모드는 stage.speedMul 만큼 더 빠르게
     for (const [s, b] of WAVE.mix) {
       for (let i = 0; i < s; i++) this.spawnQueue.push('slime');
       for (let i = 0; i < b; i++) this.spawnQueue.push('bat');

@@ -81,5 +81,14 @@ export function validateCheckpoint(value: unknown, now = Date.now()): BattleChec
   if (typeof v.dailyKind === 'string' && (DAILY_KINDS as readonly string[]).includes(v.dailyKind)) cp.dailyKind = v.dailyKind as BattleCheckpoint['dailyKind'];
   if (stageId === 'daily' && !cp.dailyKind) cp.dailyKind = 'word';
   if (v.unit === 'm') cp.unit = 'm';
+  if (v.dark === true) cp.dark = true;
+  // 스피드런 진행: 완료한 지역 시간(0 이상, 최대 5개)과 재도전 수. 모양이 깨졌으면 이 판은 보통 판으로 이어간다.
+  const sr = obj(v.speedrun);
+  if (Object.keys(sr).length && Array.isArray(sr.stageSec) && sr.stageSec.every((n) => typeof n === 'number' && Number.isFinite(n) && n >= 0) && sr.stageSec.length < 5) {
+    cp.speedrun = {
+      startedAt: typeof sr.startedAt === 'string' && Number.isFinite(Date.parse(sr.startedAt)) ? new Date(sr.startedAt).toISOString() : cp.savedAt,
+      stageSec: (sr.stageSec as number[]).map((n) => Math.round(n)), retries: readInt(sr.retries, 0, 0, 1000),
+    };
+  }
   return cp;
 }

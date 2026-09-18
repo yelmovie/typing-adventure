@@ -175,7 +175,8 @@ export class RaceSystem implements TypingMode {
     const targetGap = RACE.chaseGap + (this.difficulty === 'beginner' ? 8 : this.difficulty === 'challenge' ? -6 : 0);
     const idlePressure = clamp((this.run.idleSeconds - 3) / 4, 0, 1) * 3;
     const errorPressure = this.slowLeft > 0 ? 1.5 : 0;
-    let speed = this.chasePace + (gap - targetGap) * RACE.chaseResponse + idlePressure + errorPressure;
+    // 어둠 모드(stage.speedMul): 추격자가 내 평균 속도보다 그만큼 빠르게 달려 간격이 스스로 좁혀진다.
+    let speed = this.chasePace * (this.stage.speedMul ?? 1) + (gap - targetGap) * RACE.chaseResponse + idlePressure + errorPressure;
     if (this.chaserSlowLeft > 0) speed *= 0.55;
     return clamp(speed, 1.5, RACE.chaserMaxSpeed);
   }

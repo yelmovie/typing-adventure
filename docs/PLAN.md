@@ -380,3 +380,14 @@ DOM 좌표는 전부 `#ui-stage` 기준으로 1920×1080 디자인 좌표로 환
 - 수업 준비는 전체 배포 자산의 개수·바이트·SHA-256으로 완료를 확인한다. 중단/누락분 재개와 버전별 캐시를 사용하며 앱 업데이트 뒤 준비 상태를 다시 확인한다.
 
 회귀 검사는 `npm run check`의 9종 순수 로직과 전투·저장·학습·영상·레이아웃·오디오·production 오프라인 브라우저 검사로 구분한다. 자세한 결과와 남은 현장 조건은 최신 `docs/reviews/UPGRADE-VERIFIED-20260910.md`에 기록한다. 실제 아동의 재미·학습 전이, 학교 키보드/IME·전자칠판, 최종 호스트와 사용권 증빙은 자동화 검사로 대체하지 않는다.
+
+## 16. 재도전 동력 (2026-09-18 저녁, 에이전트 3개 병렬)
+
+250타 학생이 10분에 엔딩을 보면 "타수 말고는 다시 할 이유가 없다"는 피드백으로 네 가지를 넣었다. 커밋 직전 검사: typecheck, `npm run check`(17종, check-challenges·check-speedrun 추가), check-layout 1(7/7), check-popup-fit(112/112), check-result-fit(36/36), check-delivery-translations(76).
+
+- **도전 카드**(`src/game/data/challenges.ts`): 지역마다 3장(정확도 100%·골드 시간·PERFECT/콤보/고스트 추월), `progress.challenges`. 지도 노드 아래 ☐☐☐ + "도전 카드 n/15 · 이야기 n/10", 결과 화면 "도전 카드 달성!" 카드. 모험 플러스는 안 한 이야기부터 고르고(`progress.storiesDone`, `remixStory`), 도감 모달에 완성률 미터(short-display 에서는 숨김). stage_1 지도 노드 y 800→730(진행 패널과 겹침 해소).
+- **출석 스트릭**(`DailySystem.touchStreak`, `records.streak`): 클리어한 날 연속 일수, `streak_3/7/14` 뱃지, 엔딩 뒤 홈 상단 "오늘의 도전" 히어로 블록(오늘/어제 타수, 스트릭 칩), 오늘의 도전 모달에 7일 점, daily 결과에 "어제의 나 → 오늘".
+- **스피드런**(`SpeedrunSystem.ts`, `records.speedrun`): 홈 「스피드런」 → 5지역 연속, 총 시간 = 지역 elapsed 합(실패 시도는 미포함), 1.5초 막간 오버레이 뒤 다음 지역, 체크포인트에 실려 새로고침 복원, 결과에 "총 9:12 · 최고 → ▲단축" + 구간 기록(`ui/SpeedrunResult.ts`).
+- **어둠 모드**(`data/darkMode.ts`, `modals/DarkModal.ts`, `progress.darkStars/darkCleared`): 홈 「어둠의 모험」 모달에서 지역별 도전, 제한시간·골드 시간 ×0.7, 몬스터/추격자/열차/러시 속도 ×1.3(`stage.speedMul`), 도움 모드 무시, 별은 따로 기록. S5 장문 3개/역할은 콘텐츠가 2개뿐이라 보류.
+
+**집에서 이어서 할 것**: (1) 브라우저 실주행 미검증 — 스피드런 5지역 연속·어둠 모드 진입·홈 히어로를 헤드리스로 한 번 돌리기(`tmp/replay-20260918/probe-a/b/c.mjs` 초안 있음, c 는 미실행). (2) 홈 「이어서 하기」 라벨에 스피드런/어둠 표시. (3) check-popup-fit 에 dark 모달 종류 추가. (4) Vercel 로그인 뒤 배포(`npx vercel login` → `npx vercel --prod`). (5) NotebookLM 인수인계 기록은 이번엔 못 남김.

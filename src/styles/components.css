@@ -546,6 +546,19 @@
 }
 .badge.locked { background: linear-gradient(180deg, #7c8199, #4d5268); color: #d9dcea; filter: saturate(0.3); }
 
+/* 도전 카드 칸: 빈 칸은 테두리만, 채운 칸은 금색 카드 + 체크(이모지 없이 CSS 로 그린다) */
+.card-slots { display: inline-flex; gap: 5px; align-items: center; vertical-align: middle; }
+.card-slot {
+  display: inline-block; width: 16px; height: 21px; border-radius: 3px; box-sizing: border-box; position: relative;
+  border: 2px solid #f4f0ff; background: rgba(12, 16, 48, 0.72); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+}
+.card-slot.on { border-color: #fff4bf; background: linear-gradient(180deg, #ffe27a, #e79a1c); }
+.card-slot.on::after {
+  content: ''; position: absolute; left: 4px; top: 2px; width: 4px; height: 9px;
+  border: solid #2b2410; border-width: 0 3px 3px 0; transform: rotate(45deg);
+}
+.card-slot.half { background: linear-gradient(180deg, #ffe27a 50%, rgba(12, 16, 48, 0.72) 50%); border-color: #fff4bf; }
+
 /* ---------- 텍스트 ---------- */
 .title-gold {
   font-family: var(--font-title);
@@ -637,3 +650,43 @@
 .about-body { display: grid; gap: 10px; padding: 4px 10px; font-size: 18px; line-height: 1.5; }
 .about-body p { margin: 0; }
 .about-body b { color: var(--gold-300); margin-right: 6px; }
+
+/* 어둠의 모험 모달(뉴게임+): 지역 5줄, 어둠 별, 「도전」 버튼. 명도 대비 4.5:1 이상 유지 */
+.dark-body { display: grid; gap: 12px; }
+.dark-lead, .dark-note { margin: 0; font-size: 22px; line-height: 1.5; color: #e9e4ff; text-align: center; }
+.dark-note { font-size: 19px; color: #cfc6f2; }
+.dark-routes { display: grid; gap: 12px; }
+.dark-route { display: flex; align-items: center; gap: 16px; padding: 14px 18px; border: 3px solid #4f4a7d; border-radius: 16px; background: #1b1a3c; color: #f1edff; min-height: 96px; box-shadow: 0 4px 0 #0c0b22; }
+.dark-route.cleared { border-color: #a184f0; }
+.dark-route-mark { flex: 0 0 auto; width: 54px; height: 54px; display: grid; place-items: center; border-radius: 50%; background: var(--route-color, #baabef); color: #1a1230; font-family: var(--font-title); font-size: 28px; }
+.dark-route-copy { flex: 1 1 auto; min-width: 0; display: grid; gap: 4px; text-align: left; }
+.dark-route-heading { font-family: var(--font-title); font-size: 26px; color: #fff; }
+.dark-route-meta { font-size: 19px; color: #cfc6f2; }
+.dark-route-stars { font-size: 22px; color: #ffd45a; }
+.dark-route-stars small { font-size: 17px; color: #cfc6f2; }
+.dark-route-go { flex: 0 0 auto; min-width: 140px; }
+#ui-stage .dark-panel .dark-route .btn { min-height: var(--touch-size); }
+#ui-stage.small-display .dark-route { gap: 10px; padding: 10px 12px; min-height: 0; }
+#ui-stage.small-display .dark-route-mark { width: 40px; height: 40px; font-size: 20px; }
+#ui-stage.small-display .dark-route-heading { font-size: 20px; }
+#ui-stage.small-display .dark-route-meta, #ui-stage.small-display .dark-route-stars small { font-size: 15px; }
+#ui-stage.small-display .dark-lead { font-size: 17px; }
+#ui-stage.small-display .dark-note { font-size: 15px; }
+#ui-stage.small-display .dark-route-go { min-width: 96px; }
+
+/* 결과 화면: 스피드런 완주 블록 · 어둠 모드 리본 */
+.result-speedrun { display: grid; gap: 10px; margin-top: 12px; padding: 14px 18px; border: 3px solid #67cfe5; border-radius: 16px; background: #0f1a46; color: #f4f8ff; }
+.result-speedrun.is-best { border-color: #ffd45a; box-shadow: 0 0 22px rgba(255, 212, 90, 0.35); }
+.result-speedrun-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
+.result-speedrun-kicker { font-family: var(--font-title); font-size: 20px; letter-spacing: 0.08em; color: #8fe6ff; }
+.result-speedrun-total { font-family: var(--font-title); font-size: 34px; color: #ffe27a; text-shadow: 0 3px 0 #5a3d0c; }
+.result-speedrun-compare { font-size: 20px; color: #e6f4ff; }
+.result-speedrun-compare.up { color: #a5ffb8; }
+.result-speedrun-splits { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; padding: 0; list-style: none; font-size: 18px; color: #d6e6ff; }
+.result-speedrun-splits li { display: flex; gap: 8px; }
+.result-speedrun-splits b { color: #fff; }
+.result-dark-ribbon { display: inline-flex; align-items: center; gap: 4px; color: #d5c2ff; }
+.result-dark-ribbon.cleared { color: #ffe27a; }
+#ui-stage.small-display .result-speedrun { padding: 10px 12px; gap: 6px; }
+#ui-stage.small-display .result-speedrun-total { font-size: 24px; }
+#ui-stage.small-display .result-speedrun-compare, #ui-stage.small-display .result-speedrun-splits { font-size: 15px; }

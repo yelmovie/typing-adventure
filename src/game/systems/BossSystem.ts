@@ -129,7 +129,7 @@ export class BossSystem implements TypingMode {
     this.playerHp = rule.playerHp;
     this.timeLimit = Math.round(stage.timeLimitSec * rule.timeMul);
     this.timeLeft = this.timeLimit;
-    this.rushSec = BOSS.rushSec * rule.timeMul;
+    this.rushSec = (BOSS.rushSec * rule.timeMul) / (stage.speedMul ?? 1); // 어둠 모드는 러시 낱말이 stage.speedMul 만큼 빨리 쌓인다
     this.run = new TypingRun({ stage, difficulty, pet, next: () => this.nextTarget(), emit });
   }
 

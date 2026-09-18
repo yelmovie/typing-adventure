@@ -73,7 +73,7 @@ export class TelegramSystem implements TypingMode {
     const rule = DIFFICULTY_RULES[difficulty];
     this.playerMaxHp = rule.playerHp;
     this.playerHp = rule.playerHp;
-    this.baseSpeed = TELE.speed / rule.timeMul;
+    this.baseSpeed = (TELE.speed / rule.timeMul) * (stage.speedMul ?? 1); // 어둠 모드는 열차가 stage.speedMul 만큼 빠르다(제한 시간도 그만큼 준다)
     this.run = new TypingRun({ stage, difficulty, pet, next: () => this.sentences[this.idx] ?? null, emit });
   }
 

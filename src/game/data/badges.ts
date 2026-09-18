@@ -17,7 +17,18 @@ export const BADGES: BadgeDef[] = [
   { id: 'train_calm', name: '침착한 통신사', icon: '통', desc: '열차를 별 3개로 세웠어요' },
   { id: 'ending', name: '글자를 되찾은 영웅', icon: '왕', desc: '어둠의 성채를 밝혔어요' },
   { id: 'coin_collector', name: '보물 사냥꾼', icon: '보', desc: '코인 200개를 모았어요' },
+  { id: 'streak_3', name: '사흘 연속 모험가', icon: '3일', desc: '3일 연속으로 모험을 완료했어요' },
+  { id: 'streak_7', name: '일주일의 약속', icon: '7일', desc: '7일 연속으로 모험을 완료했어요' },
+  { id: 'streak_14', name: '보름달 타자', icon: '14', desc: '14일 연속으로 모험을 완료했어요' },
 ];
+
+/** 출석 스트릭 배지(오늘의 도전만 완료한 날도 포함). 이미 가진 것은 제외. */
+export function evaluateStreakBadges(save: Pick<SaveData, 'records' | 'collection'>): string[] {
+  const count = save.records.streak?.count ?? 0;
+  return ([[3, 'streak_3'], [7, 'streak_7'], [14, 'streak_14']] as const)
+    .filter(([days, id]) => count >= days && !save.collection.badges.includes(id))
+    .map(([, id]) => id);
+}
 
 export function getBadge(id: string): BadgeDef | undefined {
   return BADGES.find((b) => b.id === id);
@@ -50,5 +61,6 @@ export function evaluateBadges(
   if (result.stageId === 'stage_4' && result.stars >= 3) add('train_calm');
   if (result.stageId === 'stage_5') add('ending');
   if ((save.progress.coins ?? 0) >= 200) add('coin_collector');
+  for (const id of evaluateStreakBadges(save)) add(id);
   return earned;
 }

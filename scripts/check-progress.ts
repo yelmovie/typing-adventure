@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { defaultSave, validateSave, hasInvalidStructure } from '../src/game/systems/SaveValidation';
 import { recordLearning, practicePlan, errorPattern, strongestFocus, needsCorrection, learningOf } from '../src/game/systems/LearningSystem';
 import { awardReplay } from '../src/game/systems/ReplaySystem';
+import { evaluateStreakBadges } from '../src/game/data/badges';
 import { calcStars, hasAchievement } from '../src/game/systems/AwardRules';
 import { allContent, getContentForStage, getRemixContent } from '../src/game/data/content';
 import { STAGES, DAILY_STAGE } from '../src/game/data/stages';
@@ -28,6 +29,17 @@ assert.equal(validateSave({ progress: { unlockedStage: 5, clearedStages: [] } })
 assert.equal(validateSave({ progress: { unlockedStage: 1, clearedStages: [], stageStars: { stage_3: 1 } } }).progress.unlockedStage, 4, '별을 받은 지역도 완료 근거다');
 assert.equal(validateSave({ progress: { unlockedStage: 2, clearedStages: ['stage_5'] } }).progress.unlockedStage, 5, '마지막 지역 이후로는 넘지 않는다');
 assert.deepEqual(validateSave(null).progress.clearedStages, []);
+// 출석 스트릭: 날짜 형식이 아니면 0, best 는 count 보다 작을 수 없고, 정수·음수 방어
+assert.deepEqual(defaultSave().records.streak, { count: 0, best: 0, last: '' });
+assert.deepEqual(validateSave({ records: { streak: { count: 3, best: 1, last: '2026-09-10' } } }).records.streak, { count: 3, best: 3, last: '2026-09-10' });
+assert.deepEqual(validateSave({ records: { streak: { count: 2.7, best: 5, last: '2026-09-10' } } }).records.streak, { count: 2, best: 5, last: '2026-09-10' });
+assert.deepEqual(validateSave({ records: { streak: { count: -4, best: -1, last: '2026-09-10' } } }).records.streak, { count: 0, best: 0, last: '2026-09-10' });
+assert.deepEqual(validateSave({ records: { streak: { count: 9, best: 9, last: 'yesterday' } } }).records.streak, { count: 0, best: 0, last: '' });
+assert.deepEqual(validateSave({ records: { streak: 'no' } }).records.streak, { count: 0, best: 0, last: '' });
+// 스트릭 배지: 3·7·14일, 이미 가진 것은 다시 주지 않는다
+assert.deepEqual(evaluateStreakBadges({ records: { streak: { count: 2, best: 9, last: '2026-09-10' } }, collection: { badges: [] } } as never), []);
+assert.deepEqual(evaluateStreakBadges({ records: { streak: { count: 7, best: 7, last: '2026-09-10' } }, collection: { badges: ['streak_3'] } } as never), ['streak_7']);
+assert.deepEqual(evaluateStreakBadges({ records: { streak: { count: 14, best: 14, last: '2026-09-10' } }, collection: { badges: [] } } as never), ['streak_3', 'streak_7', 'streak_14']);
 assert.equal(Object.prototype.hasOwnProperty.call(validateSave(JSON.parse('{"progress":{"stageStars":{"__proto__":3}}}')).progress.stageStars, '__proto__'), false);
 const archived = validateSave({ ...defaultSave(), languageArchives: { en: { ...defaultSave(), profile: { name: 'English hero' }, progress: { stageStars: null } } } });
 assert.equal(archived.languageArchives?.en?.profile.name, 'English hero');
@@ -35,6 +47,13 @@ assert.deepEqual(archived.languageArchives?.en?.progress.stageStars, {});
 assert.equal(hasInvalidStructure({ ...defaultSave(), languageArchives: { en: { progress: { stageStars: null, clearedStages: null } } } }), true, 'Archive repairs also show the recovery notice');
 assert.equal(hasInvalidStructure({ ...defaultSave(), languageArchives: { en: null } }), true);
 assert.equal(hasInvalidStructure({ ...defaultSave(), languageArchives: { en: defaultSave() } }), false);
+// 도전 카드·이야기 진행: 지역 밖 키, 다른 지역 카드 id, 범위 밖 번호는 버린다. 옛 저장은 빈 값으로 읽는다.
+assert.deepEqual(validateSave({ progress: { challenges: { stage_2: ['stage_2_ghost', 'stage_1_swift', ''], stage_7: ['stage_7_x'] }, storiesDone: { stage_3: [4, 0, 9, 'two', 2.5], stage_1: [0] } } }).progress.challenges, { stage_2: ['stage_2_ghost'] });
+assert.deepEqual(validateSave({ progress: { storiesDone: { stage_3: [4, 0, 9, 'two', 2.5, 4], stage_1: [0] } } }).progress.storiesDone, { stage_3: [4, 0], stage_1: [0] });
+assert.deepEqual(validateSave({ progress: { challenges: null, storiesDone: 'x' } }).progress.challenges, {});
+assert.deepEqual(validateSave({ progress: { challenges: null, storiesDone: 'x' } }).progress.storiesDone, {});
+assert.deepEqual(legacy.progress.challenges, {});
+assert.deepEqual(legacy.progress.storiesDone, {});
 
 const save = defaultSave();
 const attempt = (target: string, typed: string, outcome: LearningAttempt['outcome'], corrected = false): LearningAttempt => ({ targetId: target, target, typed, outcome, corrected });

@@ -3,7 +3,7 @@
  *  같은 날 다시 하면 더 좋은 기록만 저장. 인증서에 반영.
  * 순수 로직. emit 주입.
  */
-import type { ContentUnit, Difficulty, StageDef, PetDef } from '../types';
+import type { ContentUnit, Difficulty, StageDef, PetDef, SaveData } from '../types';
 import { calcWordScore } from './TypingStats';
 import { TypingRun, type Emit } from './TypingRun';
 import { countStrokes } from '../util/hangul';
@@ -63,6 +63,56 @@ export function pickDailyLong(pool: ContentUnit[], key = todayKey()): ContentUni
 let activeKind: DailyKind = 'word';
 export function currentDailyKind(): DailyKind {
   return activeKind;
+}
+
+// ---- 출석 스트릭 (순수 함수, 저장 객체를 직접 고친다) ----
+export type StreakState = NonNullable<SaveData['records']['streak']>;
+const DAY_KEY = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
+
+/** YYYY-MM-DD 키를 delta 일만큼 옮긴다(로컬 달력). */
+export function shiftDay(key: string, delta: number): string {
+  const [y, m, d] = key.split('-').map(Number);
+  return todayKey(new Date(y, m - 1, d + delta));
+}
+
+/** 저장된 스트릭을 정규화해서 읽는다(없거나 깨졌으면 0). */
+export function streakOf(save: Pick<SaveData, 'records'>): StreakState {
+  const s = save.records.streak;
+  if (!s || !DAY_KEY.test(s.last) || !Number.isFinite(s.count)) return { count: 0, best: 0, last: '' };
+  const count = Math.max(0, Math.floor(s.count));
+  return { count, best: Math.max(count, Math.floor(s.best || 0)), last: s.last };
+}
+
+/** 오늘 완료한 판이 있으면 출석 도장을 찍는다. 어제와 이어지면 +1, 하루라도 비면 1부터. 같은 날은 몇 번을 해도 그대로.
+ *  (기기 시계가 뒤로 간 경우: last 가 오늘보다 미래면 손대지 않는다) */
+export function touchStreak(save: Pick<SaveData, 'records'>, today = todayKey()): StreakState {
+  const prev = streakOf(save);
+  if (prev.last === today || prev.last > today) return (save.records.streak = prev);
+  const count = prev.last === shiftDay(today, -1) ? prev.count + 1 : 1;
+  return (save.records.streak = { count, best: Math.max(prev.best, count), last: today });
+}
+
+/** 최근 days 일(오래된 날 → 오늘) 출석 여부. 스트릭 구간(last 에서 count-1 일 전까지)과 오늘의 도전 기록이 있는 날을 출석으로 본다. */
+export function streakDots(save: Pick<SaveData, 'records'>, today = todayKey(), days = 7): { day: string; done: boolean }[] {
+  const s = streakOf(save);
+  const from = s.count > 0 ? shiftDay(s.last, -(s.count - 1)) : '';
+  const recorded = new Set(Object.keys(save.records.daily ?? {}).map((k) => k.slice(0, 10)));
+  return Array.from({ length: days }, (_, i) => {
+    const day = shiftDay(today, i - (days - 1));
+    return { day, done: (s.count > 0 && day >= from && day <= s.last) || recorded.has(day) };
+  });
+}
+
+/** 오늘의 도전 기록 비교: 같은 종류의 오늘 기록과, 그보다 앞선 가장 최근 날의 기록. */
+export function dailyCompare(save: Pick<SaveData, 'records'>, kind: DailyKind = 'word', today = todayKey()): { today?: number; prev?: { day: string; cpm: number } } {
+  const suffix = kind === 'word' ? '' : `:${kind}`;
+  const daily = save.records.daily ?? {};
+  const mine = daily[`${today}${suffix}`];
+  const earlier = Object.keys(daily)
+    .filter((k) => (kind === 'word' ? k.length === 10 : k.endsWith(suffix)) && k.slice(0, 10) < today)
+    .sort()
+    .pop();
+  return { today: mine ? Math.round(mine.cpm) : undefined, prev: earlier ? { day: earlier.slice(0, 10), cpm: Math.round(daily[earlier].cpm) } : undefined };
 }
 
 export class DailySystem implements TypingMode {

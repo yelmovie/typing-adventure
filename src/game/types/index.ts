@@ -73,6 +73,8 @@ export interface StageDef {
   goalTimeSec: number; // 3성 조건용 목표 시간
   goalCombo: number; // 3성 조건용 콤보
   playable: boolean;
+  /** 어둠 모드: 몬스터·추격자·열차·러시 속도 배수 (data/darkMode.ts 가 넣는다, 기본 1) */
+  speedMul?: number;
 }
 
 export interface BadgeDef {
@@ -105,6 +107,13 @@ export interface SaveProgress {
   fails: Record<string, number>;
   /** 도움 모드 켠 스테이지 (기초 난이도 규칙 적용) */
   assist: Record<string, boolean>;
+  /** 도전 카드: 지역별로 채운 카드 id (data/challenges.ts) */
+  challenges?: Record<string, string[]>;
+  /** 모험 플러스 이야기: 지역별로 완주한 이야기 번호(0부터, remixStories.ts 순서) */
+  storiesDone?: Record<string, number[]>;
+  /** 어둠 모드(뉴게임+): 지역별 최고 별 · 완료한 지역 (보통 판의 별과 따로 둔다) */
+  darkStars?: Record<string, number>;
+  darkCleared?: string[];
 }
 export interface SaveRecords {
   bestCpm: number;
@@ -117,6 +126,10 @@ export interface SaveRecords {
   daily: Record<string, { cpm: number; accuracy: number; score: number; maxCombo: number }>;
   learning?: LearningProgress;
   replay?: { day: string; completed: string[]; stamps: number };
+  /** 출석 스트릭: 완료한 판(지역·모험 플러스·오늘의 도전)이 있는 날이 이어진 수. last 는 YYYY-MM-DD(로컬) */
+  streak?: { count: number; best: number; last: string };
+  /** 스피드런(5지역 연속 타임어택): 최고 총 시간과 최근 완주 10회. 총 시간은 지역별 전투 시간의 합(초) */
+  speedrun?: { bestSec: number; bestAt: string; runs: Array<{ at: string; totalSec: number; stageSec: number[] }> };
 }
 
 export type LearningPattern = 'letters' | 'batchim' | 'vowel' | 'spacing' | 'punctuation';
@@ -187,6 +200,10 @@ export interface BattleCheckpoint {
   done: number;
   total: number;
   unit?: 'm';
+  /** 스피드런 진행: 이미 완료한 지역의 전투 시간과 재도전 수. 새로고침 뒤 같은 지역부터 이어간다. */
+  speedrun?: { startedAt: string; stageSec: number[]; retries: number };
+  /** 어둠 모드 판 */
+  dark?: boolean;
   /** Mode-specific state written by the battle mode's serialize(); read back defensively by restore(). */
   state: Record<string, unknown>;
 }
@@ -217,6 +234,10 @@ export interface RaceGhost {
 }
 export interface BattleResult {
   remix?: boolean;
+  /** 모험 플러스(편지·전보)에서 고른 이야기 번호 — 완료하면 progress.storiesDone 에 기록 */
+  remixStory?: number;
+  /** 이번 판으로 새로 채운 도전 카드 id */
+  newChallenges?: string[];
   replayRewards?: string[];
   stageId: StageId;
   cleared: boolean;
@@ -252,6 +273,10 @@ export interface BattleResult {
   isNewCombo: boolean;
   isNewScore: boolean;
   wordsSeen: string[];
+  /** 어둠 모드 판 */
+  dark?: boolean;
+  /** 스피드런 완주(5지역째 클리어)에서만 채운다: 총 시간·지역별 시간·이전 최고와 비교 */
+  speedrun?: { totalSec: number; stageSec: number[]; retries: number; prevBestSec: number; isNewBest: boolean };
 }
 
 export type ScreenName = 'home' | 'setup' | 'tutorial' | 'worldmap' | 'intro' | 'battle' | 'result';

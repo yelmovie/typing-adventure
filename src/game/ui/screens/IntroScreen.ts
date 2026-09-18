@@ -3,6 +3,7 @@ import { h, icon } from '../../util/dom';
 import { SaveSystem } from '../../systems/SaveSystem';
 import { navigate } from '../../Game';
 import { getStage, DIFFICULTY_LABEL, DIFFICULTY_RULES } from '../../data/stages';
+import { applyDarkModifier, darkDifficulty } from '../../data/darkMode';
 import { getEnemy } from '../../data/enemies';
 import { portraitUrl } from '../../data/characters';
 import type { StageId } from '../../types';
@@ -20,7 +21,7 @@ import { journeyFor, journeyGoal } from '../../data/worldJourney';
 import { StagePractice, stagePracticeParts, PART_LABELS } from '../../systems/StagePractice';
 import { infoPagesModal, closeModal } from '../ModalController';
 
-export class IntroScreen extends Screen<{ stageId: StageId; remix?: boolean }> {
+export class IntroScreen extends Screen<{ stageId: StageId; remix?: boolean; dark?: boolean }> {
   private bubbles: SpeechBubble[] = [];
   private offAnchors?: () => void;
 
@@ -28,10 +29,12 @@ export class IntroScreen extends Screen<{ stageId: StageId; remix?: boolean }> {
     super('intro');
   }
 
-  protected render(data: { stageId: StageId; remix?: boolean }) {
-    const st = getStage(data.stageId);
+  protected render(data: { stageId: StageId; remix?: boolean; dark?: boolean }) {
+    // 어둠 모드는 규칙(시간 ×0.7·속도 ×1.3)을 여기서부터 적용해 소개의 제한 시간·별 조건이 실제 전투와 같게 보인다.
+    const dark = data.dark === true;
+    const st = dark ? applyDarkModifier(getStage(data.stageId)) : getStage(data.stageId);
     const save = SaveSystem.get();
-    const diff = save.progress.assist?.[st.id] ? 'beginner' : save.profile.difficulty;
+    const diff = dark ? darkDifficulty(save.profile.difficulty) : save.progress.assist?.[st.id] ? 'beginner' : save.profile.difficulty;
     const rule = DIFFICULTY_RULES[diff];
     const best = save.records.bestScoreByStage[st.id];
     const fails = save.progress.fails?.[st.id] ?? 0;
@@ -88,7 +91,7 @@ export class IntroScreen extends Screen<{ stageId: StageId; remix?: boolean }> {
             'div',
             { class: 'intro-diff' },
             h('span', { class: 'badge' }, h('span', { class: 'badge-icon' }, icon('bolt')), DIFFICULTY_LABEL[diff].name),
-            h('span', { class: 'muted' }, st.mode === 'letter' ? `편지 ${LETTER.sentences}문장 · 시간제한 없음` : st.mode === 'telegram' ? `전보 ${TELE.sentences}문장 · ${TELE.dist}m (약 ${fmt.time(Math.round((TELE.dist / TELE.speed) * rule.timeMul))})` : `${fmt.time(Math.round(st.timeLimitSec * rule.timeMul))} · ${st.mode === 'wave' ? `몬스터 ${st.targets}마리` : st.mode === 'race' ? `${RACE.goal}m` : st.mode === 'boss' ? '보스 3페이즈' : `낱말 ${st.targets}개`}`),
+            h('span', { class: 'muted' }, st.mode === 'letter' ? `편지 ${LETTER.sentences}문장 · 시간제한 없음` : st.mode === 'telegram' ? `전보 ${TELE.sentences}문장 · ${TELE.dist}m (약 ${fmt.time(Math.round((TELE.dist / (TELE.speed * (st.speedMul ?? 1))) * rule.timeMul))})` : `${fmt.time(Math.round(st.timeLimitSec * rule.timeMul))} · ${st.mode === 'wave' ? `몬스터 ${st.targets}마리` : st.mode === 'race' ? `${RACE.goal}m` : st.mode === 'boss' ? '보스 3페이즈' : `낱말 ${st.targets}개`}`),
           ),
         ),
       ),
@@ -114,7 +117,7 @@ export class IntroScreen extends Screen<{ stageId: StageId; remix?: boolean }> {
             'div',
             { class: 'intro-block intro-assist' },
             h('h4', {}, icon('heart'), '도움 모드'),
-            h('div', { class: 'intro-diff' }, h('span', { class: 'muted' }, assist ? '켜져 있어요: 시간이 넉넉하고 적이 느려요' : `${fails}번 도전했어요. 도움 모드를 켜면 시간이 넉넉해지고 적이 느려져요 — 켜도 별은 그대로 받아요`), h('button', { class: `btn btn-sm ${assist ? 'btn-gray' : 'btn-sky'}`, onclick: () => { AudioManager.sfx('click'); save.progress.assist ??= {}; save.progress.assist[st.id] = !assist; SaveSystem.save(); this.show({ stageId: st.id, remix: data.remix }); } }, assist ? '도움 모드 끄기' : '도움 모드 켜기')),
+            h('div', { class: 'intro-diff' }, h('span', { class: 'muted' }, assist ? '켜져 있어요: 시간이 넉넉하고 적이 느려요' : `${fails}번 도전했어요. 도움 모드를 켜면 시간이 넉넉해지고 적이 느려져요 — 켜도 별은 그대로 받아요`), h('button', { class: `btn btn-sm ${assist ? 'btn-gray' : 'btn-sky'}`, onclick: () => { AudioManager.sfx('click'); save.progress.assist ??= {}; save.progress.assist[st.id] = !assist; SaveSystem.save(); this.show({ stageId: st.id, remix: data.remix, dark: data.dark }); } }, assist ? '도움 모드 끄기' : '도움 모드 켜기')),
           )
         : null,
     );
@@ -122,14 +125,14 @@ export class IntroScreen extends Screen<{ stageId: StageId; remix?: boolean }> {
     const panel = h(
       'div',
       { class: 'panel intro-panel journey-intro-panel' },
-      h('div', { class: 'panel-title green' }, `STAGE ${st.index}`),
+      h('div', { class: `panel-title ${dark ? 'purple' : 'green'}`, 'data-no-translate': 'true' }, dark ? `STAGE ${st.index} · ${en ? 'Dark mode' : '어둠 모드'}` : `STAGE ${st.index}`),
       body,
       h(
         'div',
         { class: 'intro-actions' },
         h('button', { class: 'btn btn-gray btn-md', onclick: () => { AudioManager.sfx('click'); void navigate('worldmap', { focusIndex: st.index }); } }, '← 지도로'),
         !practiceReady ? h('button', { class: 'btn btn-primary btn-lg intro-practice', 'data-no-translate': 'true', onclick: () => void navigate('tutorial', { stageId: st.id, remix: data.remix }) }, en ? 'Practice, then start' : '연습하고 시작하기') : null,
-        practiceReady ? h('button', { class: 'btn btn-primary btn-lg intro-battle', disabled: !st.playable, 'data-no-translate': 'true', onclick: () => { AudioManager.sfx('go'); void navigate('battle', { stageId: st.id, remix: data.remix }); } }, en ? 'Start battle!' : '전투 시작!') : null,
+        practiceReady ? h('button', { class: 'btn btn-primary btn-lg intro-battle', disabled: !st.playable, 'data-no-translate': 'true', onclick: () => { AudioManager.sfx('go'); void navigate('battle', { stageId: st.id, remix: data.remix, dark: data.dark }); } }, en ? 'Start battle!' : '전투 시작!') : null,
       ),
     );
     this.el.append(panel);

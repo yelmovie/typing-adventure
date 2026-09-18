@@ -2,7 +2,8 @@ import { h, icon, type IconName } from '../../util/dom';
 import { SaveSystem } from '../../systems/SaveSystem';
 import { AudioManager } from '../../systems/AudioManager';
 import { navigate } from '../../Game';
-import type { DailyKind } from '../../systems/DailySystem';
+import { type DailyKind, todayKey, shiftDay, streakOf, streakDots } from '../../systems/DailySystem';
+import type { SaveData } from '../../types';
 import { REPLAY_GOALS, replayProgress, replayTitle } from '../../systems/ReplaySystem';
 import { STAGES } from '../../data/stages';
 import { getLanguage } from '../../i18n/Locale';
@@ -11,6 +12,30 @@ import { createOpeningPlayer } from '../OpeningPlayer';
 import { chunkItems, pagedContent, type ContentPage } from '../PagedContent';
 import { open, closeModal, closeBtn } from './ModalHost';
 import { popupCopy } from './BasicModals';
+
+/** 출석 스트릭 칩: "3일 연속 모험 중 · 최고 5일" (홈 주인공 블록과 오늘의 도전 모달이 같이 쓴다) */
+export function streakChip(save: SaveData = SaveSystem.get(), today = todayKey()): HTMLElement {
+  const en = getLanguage() === 'en';
+  const s = streakOf(save);
+  const active = s.count > 0 && s.last === today;
+  const pending = s.count > 0 && s.last === shiftDay(today, -1);
+  const main = active ? (en ? `${s.count}-day streak` : `${s.count}일 연속 모험 중`)
+    : pending ? (en ? `${s.count}-day streak · keep it going today` : `${s.count}일 연속 · 오늘도 이어가자`)
+    : s.best > 0 ? (en ? 'Start a new streak today' : '오늘부터 새 연속 도전')
+    : (en ? 'Your first attendance stamp is waiting' : '오늘 첫 출석 도장을 찍어 보자');
+  const best = s.best > 0 ? (en ? ` · best ${s.best} days` : ` · 최고 ${s.best}일`) : '';
+  return h('span', { class: `streak-chip ${active ? 'is-active' : ''}`, 'data-no-translate': 'true' }, icon('bolt'), `${main}${best}`);
+}
+
+/** 최근 7일 출석 점(오래된 날 → 오늘). 요일 글자를 넣어 어느 날인지 알 수 있게 한다. */
+export function streakDotsRow(save: SaveData = SaveSystem.get(), today = todayKey()): HTMLElement {
+  const en = getLanguage() === 'en';
+  const dots = streakDots(save, today, 7);
+  const weekday = (day: string) => { const [y, m, d] = day.split('-').map(Number); return (en ? 'SMTWTFS' : '일월화수목금토')[new Date(y, m - 1, d).getDay()]; };
+  const stamped = dots.filter((d) => d.done).length;
+  return h('div', { class: 'streak-dots', role: 'img', 'data-no-translate': 'true', 'aria-label': en ? `Last 7 days: ${stamped} stamped` : `최근 7일 출석 ${stamped}일` },
+    dots.map((d) => h('span', { class: `streak-dot ${d.done ? 'done' : ''} ${d.day === today ? 'today' : ''}`, title: d.day, 'aria-hidden': 'true' }, weekday(d.day))));
+}
 
 /** 오늘의 도전 종류 선택: 단어 / 문장 / 긴 글 */
 export function dailyPickModal() {
@@ -24,7 +49,7 @@ export function dailyPickModal() {
     { class: 'panel modal modal-md' },
     h('div', { class: 'panel-title sky' }, icon('clock'), '오늘의 도전'),
     closeBtn(),
-    h('div', { class: 'modal-body' }, '어떤 도전을 해볼까요?'),
+    h('div', { class: 'modal-body' }, '어떤 도전을 해볼까요?', h('div', { class: 'daily-streak' }, streakChip(), streakDotsRow())),
     h(
       'div',
       { class: 'daily-pick-grid' },

@@ -55,7 +55,7 @@ for (const lang of ['ko', 'en'] as const) {
     }
     let previous = '';
     for (let n = 0; n < 12; n++) {
-      const units = buildRemixStory(stage, lang, getContentForStage(stage), () => n % 2)!;
+      const { units } = buildRemixStory(stage, lang, getContentForStage(stage), () => n % 2, [0, 1, 2, 3, 4])!; // 전부 완주한 뒤에는 무작위 순환
       const text = units.map(unit => unit.text);
       assert.ok(REMIX_STORIES[lang][stage].some(story => JSON.stringify(story) === JSON.stringify(text)), 'An intact ordered story is selected');
       const signature = text.join('|');

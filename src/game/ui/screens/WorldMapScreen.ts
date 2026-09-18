@@ -9,6 +9,8 @@ import { toast } from '../ModalController';
 import { commonTopBar } from '../TopBar';
 import { getLanguage } from '../../i18n/Locale';
 import { journeyFor, journeyProgress } from '../../data/worldJourney';
+import { CHALLENGE_TOTAL, challengeCount, challengeName, challengesDone, challengesFor } from '../../data/challenges';
+import { remixStoryCount } from '../../data/remixStories';
 
 
 export class WorldMapScreen extends Screen {
@@ -37,6 +39,12 @@ export class WorldMapScreen extends Screen {
       const locked = st.index > unlocked;
       const current = !locked && !cleared && st.index === unlocked;
       const stars = save.progress.stageStars[st.id] ?? 0;
+      // 도전 카드 3칸 + (편지·전보) 이야기 n/5: 별을 다 모은 뒤에도 "아직 못 채운 빈칸" 이 보이게.
+      const cards = challengesFor(st.id), cardsDone = challengesDone(save, st.id);
+      const storyTotal = remixStoryCount(st.id), storiesDone = storyTotal ? (save.progress.storiesDone?.[st.id] ?? []).length : 0;
+      const cardLabel = cards.map((c) => `${challengeName(c, language)}${cardsDone.includes(c.id) ? (language === 'en' ? ' (done)' : ' (달성)') : ''}`).join(', ');
+      const cardText = language === 'en' ? `Challenge cards ${cardsDone.length}/${cards.length}: ${cardLabel}` : `도전 카드 ${cardsDone.length}/${cards.length}: ${cardLabel}`;
+      const storyText = storyTotal ? (language === 'en' ? `Stories ${storiesDone}/${storyTotal}` : `이야기 ${storiesDone}/${storyTotal}`) : '';
       const node = h(
         'button',
         {
@@ -50,6 +58,9 @@ export class WorldMapScreen extends Screen {
         h('div', { class: 'node-pin' }, locked ? icon('lock', 'lg') : uiImg(`map_${st.id}`, 'pin', st.map.icon)),
         h('div', { class: 'node-label' }, h('span', { class: 'node-num' }, String(st.index)), st.name),
         h('div', { class: 'stars' }, [1, 2, 3].map((i) => h('span', { class: `star ${i <= stars ? 'on' : ''}` }, '★'))),
+        locked ? null : h('div', { class: 'node-goals', 'data-no-translate': 'true' },
+          h('span', { class: 'card-slots', role: 'img', 'aria-label': cardText, title: cardText }, cards.map((c) => h('i', { class: `card-slot ${cardsDone.includes(c.id) ? 'on' : ''}` }))),
+          storyTotal ? h('span', { class: `node-stories ${storiesDone >= storyTotal ? 'done' : ''}`, title: storyText }, storyText) : null),
         h('div', { class: 'node-status' }, locked ? '잠김' : cleared ? '완료 · 다시 도전' : '지금 도전'),
       );
       this.el.append(node);
@@ -57,12 +68,19 @@ export class WorldMapScreen extends Screen {
 
     // 진행도 패널
     const starTotal = Object.values(save.progress.stageStars).reduce((a, b) => a + b, 0);
+    const cardTotal = challengeCount(save);
+    const storyTotalAll = STAGES.reduce((n, st) => n + remixStoryCount(st.id), 0);
+    const storyDoneAll = STAGES.reduce((n, st) => n + (remixStoryCount(st.id) ? (save.progress.storiesDone?.[st.id] ?? []).length : 0), 0);
     const nextRegion = journey.next ? journeyFor(journey.next.id, language)?.region : undefined;
     this.el.append(
       h(
         'div',
         { class: 'panel panel-glass map-progress journey-map', 'data-no-translate': 'true' },
         h('div', { class: 'mp-title' }, h('span', {}, language === 'en' ? `Lights restored ${journey.restored.length}/5` : `되찾은 빛 ${journey.restored.length}/5`), h('span', {}, icon('star_on'), ` ${starTotal}/15`)),
+        h('div', { class: 'mp-cards', title: language === 'en' ? 'Challenge cards: three goals per region, stricter than stars' : '도전 카드: 지역마다 별보다 엄격한 목표 3개' },
+          h('i', { class: `card-slot ${cardTotal >= CHALLENGE_TOTAL ? 'on' : 'half'}`, 'aria-hidden': 'true' }),
+          h('span', {}, language === 'en' ? ` Challenge cards ${cardTotal}/${CHALLENGE_TOTAL}` : ` 도전 카드 ${cardTotal}/${CHALLENGE_TOTAL}`),
+          storyTotalAll ? h('span', { class: 'mp-stories' }, language === 'en' ? ` · Stories ${storyDoneAll}/${storyTotalAll}` : ` · 이야기 ${storyDoneAll}/${storyTotalAll}`) : null),
         h('div', { class: 'journey-lights', role: 'list', 'aria-label': language === 'en' ? 'Five lights of the world' : '다섯 지역의 빛' }, journey.chapters.map(chapter => {
           const restored = journey.restored.some(item => item.stageId === chapter.stageId);
           const label = `${chapter.relic} · ${language === 'en' ? restored ? 'restored' : 'waiting' : restored ? '되찾았어' : '아직 기다리는 중'}`;

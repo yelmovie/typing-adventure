@@ -84,6 +84,7 @@
 #ui-stage.portrait-display .map-node .stars { grid-column: 3; grid-row: 1 / 3; align-self: center; }
 #ui-stage.portrait-display .map-progress { position: static; width: 100%; transform: none; margin-top: auto; }
 #ui-stage.portrait-display .map-legend { display: none; }
+#ui-stage.portrait-display .map-node .node-goals { grid-column: 2; grid-row: 3; justify-self: start; }
 #ui-stage.portrait-display .tutorial-header { inset: var(--layout-edge) var(--layout-edge) auto; font-size: var(--read-copy); }
 #ui-stage.portrait-display .tutorial-header-actions { gap: 12px; }
 #ui-stage.portrait-display .tutorial-scene-caption { display: none; }

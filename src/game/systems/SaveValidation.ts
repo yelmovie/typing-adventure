@@ -19,8 +19,8 @@ export function defaultSave(): SaveData {
   return {
     version: CURRENT_SAVE_VERSION,
     profile: { name: '', characterId: 'brown_boy', petId: 'cat', difficulty: 'normal' },
-    progress: { tutorialCompleted: false, practicedParts: [], skippedPracticeStages: [], unlockedStage: 1, stageStars: {}, clearedStages: [], coins: 0, fails: {}, assist: {} },
-    records: { bestCpm: 0, bestAccuracy: 0, bestCombo: 0, bestScoreByStage: {}, ghosts: {}, daily: {}, learning: { patterns: {}, recent: [], seen: [] } },
+    progress: { tutorialCompleted: false, practicedParts: [], skippedPracticeStages: [], unlockedStage: 1, stageStars: {}, clearedStages: [], coins: 0, fails: {}, assist: {}, challenges: {}, storiesDone: {} },
+    records: { bestCpm: 0, bestAccuracy: 0, bestCombo: 0, bestScoreByStage: {}, ghosts: {}, daily: {}, learning: { patterns: {}, recent: [], seen: [] }, streak: { count: 0, best: 0, last: '' } },
     collection: { badges: [], wordsSeen: [], petsUnlocked: ['cat', 'rabbit'], charactersUnlocked: characters.slice(0, 3), enemiesSeen: [] },
     settings: { language: 'ko', bgm: true, sfx: true, screenShake: true, showKeyboardGuide: false, bgmVolume: 0.7, sfxVolume: 0.9, prologueSeen: false },
     stats: { totalClears: 0, totalWords: 0, totalPlaySec: 0 },
@@ -49,6 +49,26 @@ function learning(v: unknown): LearningProgress {
     }),
   };
 }
+/** 출석 스트릭: 날짜가 YYYY-MM-DD 가 아니면 처음부터(0). best 는 count 보다 작을 수 없다. */
+function streak(v: unknown): NonNullable<SaveData['records']['streak']> {
+  const s = obj(v);
+  const last = str(s.last, 10);
+  if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(last)) return { count: 0, best: 0, last: '' };
+  const count = Math.floor(num(s.count, 0, 100000));
+  return { count, best: Math.max(count, Math.floor(num(s.best, 0, 100000))), last };
+}
+/** 스피드런 기록: 총 시간은 양의 정수 초, 지역별 시간은 최대 5개, 최근 완주 10회만 남긴다. 기록이 없거나 깨졌으면 undefined. */
+function speedrun(v: unknown): SaveData['records']['speedrun'] {
+  const s = obj(v);
+  const runs = (Array.isArray(s.runs) ? s.runs : []).map((raw) => {
+    const r = obj(raw);
+    return { at: date(r.at), totalSec: Math.round(num(r.totalSec, 0, 86400)), stageSec: (Array.isArray(r.stageSec) ? r.stageSec : []).slice(0, 5).map((n) => Math.round(num(n, 0, 86400))) };
+  }).filter((r) => r.totalSec > 0 && r.stageSec.length === 5).slice(-10);
+  const bestSec = Math.round(num(s.bestSec, 0, 86400));
+  if (!runs.length && bestSec <= 0) return undefined;
+  const best = bestSec > 0 ? bestSec : Math.min(...runs.map((r) => r.totalSec));
+  return { bestSec: best, bestAt: date(s.bestAt), runs };
+}
 /** Validate storage as untrusted input; preserve valid fields without accepting malformed nested values. */
 export function validateSave(value: unknown, includeArchives = true): SaveData {
   const d = defaultSave(), v = obj(value), p = obj(v.profile), progress = obj(v.progress), records = obj(v.records), c = obj(v.collection), s = obj(v.settings), stats = obj(v.stats);
@@ -64,6 +84,12 @@ export function validateSave(value: unknown, includeArchives = true): SaveData {
     clearedStages: strings(progress.clearedStages).filter((id) => stages.includes(id)), coins: num(progress.coins),
     fails: Object.fromEntries(entries(progress.fails).filter(([id]) => stages.includes(id)).map(([id, n]) => [id, Math.floor(num(n))])),
     assist: Object.fromEntries(entries(progress.assist).filter(([id]) => stages.includes(id)).map(([id, flag]) => [id, bool(flag, false)])),
+    // 도전 카드 id 는 `${stage}_xxx` 꼴만, 이야기 번호는 0~4 정수만 남긴다(지역별 최대 5개).
+    challenges: Object.fromEntries(entries(progress.challenges).filter(([id]) => stages.includes(id)).map(([id, list]) => [id, strings(list, 10, 40).filter((card) => card.startsWith(`${id}_`))])),
+    storiesDone: Object.fromEntries(entries(progress.storiesDone).filter(([id]) => stages.includes(id)).map(([id, list]) => [id, [...new Set((Array.isArray(list) ? list : []).filter((n): n is number => typeof n === 'number' && Number.isInteger(n) && n >= 0 && n < 5))].slice(0, 5)])),
+    // 어둠 모드(뉴게임+): 별 0~3, 완료 지역은 알려진 지역만.
+    darkStars: Object.fromEntries(entries(progress.darkStars).filter(([id]) => stages.includes(id)).map(([id, n]) => [id, Math.floor(num(n, 0, 3))])),
+    darkCleared: strings(progress.darkCleared).filter((id) => stages.includes(id)),
   };
   // Unlock state is derived from evidence (clears and earned stars), never from a stored flag that could be edited or drift.
   d.progress.unlockedStage = Math.min(stages.length, Math.max(1,
@@ -85,6 +111,8 @@ export function validateSave(value: unknown, includeArchives = true): SaveData {
     })),
     learning: learning(records.learning),
     replay: { day: str(obj(records.replay).day, 10), completed: strings(obj(records.replay).completed, 3).filter((id) => ['steady', 'repair', 'remix'].includes(id)), stamps: Math.floor(num(obj(records.replay).stamps)) },
+    streak: streak(records.streak),
+    speedrun: speedrun(records.speedrun),
   };
   d.collection = { badges: strings(c.badges, 100), wordsSeen: strings(c.wordsSeen, 500), petsUnlocked: unlockedPets, charactersUnlocked: unlockedCharacters, enemiesSeen: strings(c.enemiesSeen, 100) };
   d.settings = { language: s.language === 'en' ? 'en' : 'ko', bgm: bool(s.bgm, true), sfx: bool(s.sfx, true), screenShake: bool(s.screenShake, true), showKeyboardGuide: bool(s.showKeyboardGuide, false), bgmVolume: num(s.bgmVolume, 0.7, 1), sfxVolume: num(s.sfxVolume, 0.9, 1), prologueSeen: bool(s.prologueSeen, false) };
