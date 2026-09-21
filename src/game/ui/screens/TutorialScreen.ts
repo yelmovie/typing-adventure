@@ -1,6 +1,6 @@
 import { Screen } from '../Screen';
 import { h } from '../../util/dom';
-import { correctStrokeCount, practiceAccuracy, practiceCpm, practiceStrokeErrors, TutorialSystem, tutorialSteps } from '../../systems/TutorialSystem';
+import { practiceAccuracy, practiceCpmFromStrokes, practiceInputStats, TutorialSystem, tutorialSteps } from '../../systems/TutorialSystem';
 import { getLanguage } from '../../i18n/Locale';
 import { SaveSystem } from '../../systems/SaveSystem';
 import { AudioManager } from '../../systems/AudioManager';
@@ -19,6 +19,7 @@ export class TutorialScreen extends Screen<TutorialData> {
   private data: TutorialData = {};
   private focusTimer?: number;
   private speedTimer?: number;
+  private paintFrame?: number;
   private speedStartedAt = 0;
   private completedStrokes = 0;
   private wrongStrokes = 0;
@@ -33,6 +34,7 @@ export class TutorialScreen extends Screen<TutorialData> {
   }
   private drawMenu() {
     window.clearTimeout(this.focusTimer);
+    this.stopPaint();
     this.stopSpeed();
     this.el.classList.remove('practice-active');
     const lessons = tutorialSteps(getLanguage());
@@ -67,6 +69,7 @@ export class TutorialScreen extends Screen<TutorialData> {
   }
   private draw() {
     window.clearTimeout(this.focusTimer);
+    this.stopPaint();
     this.el.classList.add('practice-active');
     const m = this.model, s = m.step;
     const partIndex = PRACTICE_PARTS.indexOf(s.part);
@@ -83,7 +86,14 @@ export class TutorialScreen extends Screen<TutorialData> {
       h('div', { class: 'tutorial-metric' }, h('span', {}, copy('정확도', 'ACCURACY')), accuracyValue));
     EventBus.emit(TUTORIAL_STEP, partIndex);
     const title = h('h1', { id: 'tutorial-title' }, s.title);
-    const target = h('div', { class: 'tutorial-target', 'aria-label': copy('입력할 글자', 'Text to type'), 'data-target': m.target }, m.target);
+    const target = h('div', { class: 'tutorial-target', 'aria-label': copy('입력할 글자', 'Text to type'), 'data-target': m.target });
+    let targetNodes: HTMLElement[] = [];
+    const bindTarget = () => {
+      target.dataset.target = m.target;
+      targetNodes = [...m.target].map(ch => h('span', { class: 'todo' }, ch));
+      target.replaceChildren(...targetNodes);
+    };
+    bindTarget();
     const longForm = s.part === 'story' && m.target.length > 200;
     const input = h(longForm ? 'textarea' : 'input', { id: 'tutorial-input', type: longForm ? undefined : 'text', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', 'aria-labelledby': 'tutorial-title', 'aria-describedby': 'tutorial-hint tutorial-feedback', maxlength: longForm ? 1600 : 100, value: s.prefill ?? '', lang: getLanguage(), rows: longForm ? 5 : undefined }) as HTMLInputElement | HTMLTextAreaElement;
     const feedback = h('p', { id: 'tutorial-feedback', class: 'tutorial-feedback', role: 'status', 'aria-live': 'polite' });
@@ -94,14 +104,16 @@ export class TutorialScreen extends Screen<TutorialData> {
       } else if (m.next()) this.draw();
     } }, copy('다음 파트 연습 →', 'Next practice part →'));
     let composing = false;
+    let liveCorrectStrokes = 0;
+    let liveErrorStrokes = 0;
     const updateSpeed = () => {
       const elapsedMs = this.speedStartedAt ? performance.now() - this.speedStartedAt : 0;
       speedValue.textContent = this.speedStartedAt
-        ? String(practiceCpm(this.completedStrokes, m.target, input.value, elapsedMs)) : '0';
+        ? String(practiceCpmFromStrokes(this.completedStrokes + liveCorrectStrokes, elapsedMs)) : '0';
       const elapsedSec = Math.floor(elapsedMs / 1000);
       elapsedValue.textContent = `${String(Math.floor(elapsedSec / 60)).padStart(2, '0')}:${String(elapsedSec % 60).padStart(2, '0')}`;
-      const correct = this.completedStrokes + correctStrokeCount(m.target, input.value);
-      accuracyValue.textContent = `${practiceAccuracy(correct, this.wrongStrokes + this.currentTargetErrors).toFixed(1)}%`;
+      const correct = this.completedStrokes + liveCorrectStrokes;
+      accuracyValue.textContent = `${practiceAccuracy(correct, this.wrongStrokes + Math.max(this.currentTargetErrors, liveErrorStrokes)).toFixed(1)}%`;
     };
     const beginSpeed = () => {
       if (this.speedStartedAt || !input.value.normalize('NFC')) return;
@@ -109,18 +121,33 @@ export class TutorialScreen extends Screen<TutorialData> {
       window.clearInterval(this.speedTimer);
       this.speedTimer = window.setInterval(updateSpeed, 250);
     };
-    input.addEventListener('compositionstart', () => { composing = true; });
-    const captureErrors = () => {
-      if (composing) return;
-      this.currentTargetErrors = Math.max(this.currentTargetErrors, practiceStrokeErrors(m.target, input.value));
-    };
-    input.addEventListener('compositionend', () => { composing = false; beginSpeed(); captureErrors(); paint(); updateSpeed(); });
     const paint = () => {
-      target.replaceChildren(...diffChars(m.target, input.value.normalize('NFC')).map(p => h('span', { class: p.state }, p.ch)));
-      keyboard.update(m.target, input.value);
+      const normalized = input.value.normalize('NFC');
+      if (target.dataset.target !== m.target) bindTarget();
+      const stats = practiceInputStats(m.target, normalized);
+      liveCorrectStrokes = stats.correctStrokes;
+      liveErrorStrokes = stats.errorStrokes;
+      if (!composing) this.currentTargetErrors = Math.max(this.currentTargetErrors, liveErrorStrokes);
+      const parts = diffChars(m.target, normalized);
+      for (let index = 0; index < targetNodes.length; index++) {
+        const state = parts[index]?.state ?? 'todo';
+        if (targetNodes[index].className !== state) targetNodes[index].className = state;
+      }
+      keyboard.update(m.target, normalized);
       progress.textContent = `${m.targetIndex + 1} / ${s.targets.length}`;
     };
-    input.addEventListener('input', () => { beginSpeed(); captureErrors(); paint(); updateSpeed(); });
+    const schedulePaint = () => {
+      if (this.paintFrame) return;
+      this.paintFrame = window.requestAnimationFrame(() => {
+        this.paintFrame = undefined;
+        if (!input.isConnected) return;
+        paint();
+        updateSpeed();
+      });
+    };
+    input.addEventListener('compositionstart', () => { composing = true; });
+    input.addEventListener('compositionend', () => { composing = false; beginSpeed(); schedulePaint(); });
+    input.addEventListener('input', () => { beginSpeed(); schedulePaint(); });
     input.addEventListener('keydown', e => {
       const keyEvent = e as KeyboardEvent;
       keyboard.setPressed(keyEvent.code, true);
@@ -133,7 +160,7 @@ export class TutorialScreen extends Screen<TutorialData> {
     form.addEventListener('submit', e => {
       e.preventDefault(); if (composing) return;
       const submittedTarget = m.target;
-      captureErrors();
+      paint();
       const outcome = m.submit(input.value);
       if (outcome === 'ignored') return;
       if (outcome === 'wrong') {
@@ -193,5 +220,9 @@ export class TutorialScreen extends Screen<TutorialData> {
     this.wrongStrokes = 0;
     this.currentTargetErrors = 0;
   }
-  protected onHide() { window.clearTimeout(this.focusTimer); this.stopSpeed(); }
+  private stopPaint() {
+    if (this.paintFrame) window.cancelAnimationFrame(this.paintFrame);
+    this.paintFrame = undefined;
+  }
+  protected onHide() { window.clearTimeout(this.focusTimer); this.stopPaint(); this.stopSpeed(); }
 }

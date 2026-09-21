@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { practiceAccuracy, practiceCpm, practiceStrokeErrors, TutorialSystem } from '../src/game/systems/TutorialSystem';
+import { practiceAccuracy, practiceCpm, practiceInputStats, practiceStrokeErrors, TutorialSystem } from '../src/game/systems/TutorialSystem';
 import { defaultSave, validateSave } from '../src/game/systems/SaveValidation';
 import { practiceReady, stagePracticeParts, PRACTICE_PARTS } from '../src/game/systems/StagePracticeRules';
-import { nextKeyHint } from '../src/game/util/hangul';
+import { diffChars, nextKeyHint } from '../src/game/util/hangul';
 
 for (const language of ['ko', 'en'] as const) {
   const lesson = new TutorialSystem(language);
@@ -42,6 +42,12 @@ assert.equal(practiceAccuracy(9, 1), 90);
 assert.equal(practiceAccuracy(0, 0), 100);
 assert.deepEqual(nextKeyHint('ㅙ', 'ㅗ'), { type: 'key', stroke: { key: 'ㅐ', shift: false } });
 assert.deepEqual(nextKeyHint('ㄲ', ''), { type: 'key', stroke: { key: 'ㄱ', shift: true } });
+const longTarget = '하늘이와 보라는 빛의 문자를 따라 숲길을 달렸어요. '.repeat(25);
+const longTyped = longTarget.slice(0, 360);
+const longDiff = diffChars(longTarget, longTyped);
+assert.equal(longDiff.length, [...longTarget].length, 'Long-form diff keeps one stable state per target character');
+assert.equal(longDiff.filter(part => part.state === 'now').length, 1, 'Long-form diff has one next character');
+assert.deepEqual(practiceInputStats('학교', '학겨'), { correctStrokes: 4, errorStrokes: 1 });
 for (const [index, part] of PRACTICE_PARTS.entries()) assert.deepEqual(stagePracticeParts(`stage_${index + 1}` as 'stage_1'), [part]);
 assert.deepEqual(stagePracticeParts('stage_5'), PRACTICE_PARTS);
 const prep = defaultSave().progress;

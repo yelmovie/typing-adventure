@@ -24,23 +24,27 @@ export function correctPrefix(target: string, typed: string): string {
 
 /** IME 조합 중인 한글까지 포함해, 목표와 순서가 맞는 실제 키 입력 수를 센다. */
 export function correctStrokeCount(target: string, typed: string): number {
-  const expected = toKeySequence(target);
-  const actual = toKeySequence(typed);
-  let index = 0;
-  while (index < expected.length && index < actual.length
-    && expected[index].key === actual[index].key && expected[index].shift === actual[index].shift) index++;
-  return index;
+  return practiceInputStats(target, typed).correctStrokes;
 }
 
 /** 아직 안 친 글자는 오류가 아니다. 실제로 입력한 키 중 목표와 다른 키만 센다. */
 export function practiceStrokeErrors(target: string, typed: string): number {
+  return practiceInputStats(target, typed).errorStrokes;
+}
+
+/** 긴 글에서도 목표/입력을 각각 한 번만 분해해 정확 타수와 오타를 함께 계산한다. */
+export function practiceInputStats(target: string, typed: string): { correctStrokes: number; errorStrokes: number } {
   const expected = toKeySequence(target);
   const actual = toKeySequence(typed);
+  let correctStrokes = 0;
+  while (correctStrokes < expected.length && correctStrokes < actual.length
+    && expected[correctStrokes].key === actual[correctStrokes].key
+    && expected[correctStrokes].shift === actual[correctStrokes].shift) correctStrokes++;
   let errors = 0;
   for (let index = 0; index < actual.length; index++) {
     if (!expected[index] || expected[index].key !== actual[index].key || expected[index].shift !== actual[index].shift) errors++;
   }
-  return errors;
+  return { correctStrokes, errorStrokes: errors };
 }
 
 export function practiceAccuracy(correctStrokes: number, wrongStrokes: number): number {
@@ -52,8 +56,12 @@ export function practiceAccuracy(correctStrokes: number, wrongStrokes: number): 
 /** 프로젝트 공통 정의와 같이 올바른 두벌식 키 입력 수를 분당 타수로 환산한다. */
 export function practiceCpm(completedStrokes: number, target: string, typed: string, elapsedMs: number): number {
   const strokes = Math.max(0, completedStrokes) + correctStrokeCount(target, typed);
+  return practiceCpmFromStrokes(strokes, elapsedMs);
+}
+
+export function practiceCpmFromStrokes(strokes: number, elapsedMs: number): number {
   const activeSec = Math.max(1, Number.isFinite(elapsedMs) ? elapsedMs / 1000 : 1);
-  return Math.round((strokes * 60) / activeSec);
+  return Math.round((Math.max(0, strokes) * 60) / activeSec);
 }
 
 export function tutorialSteps(language: GameLanguage): TutorialStep[] {

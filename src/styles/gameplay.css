@@ -62,26 +62,28 @@
 .tutorial-keyboard { width: 100%; max-width: 1200px; box-sizing: border-box; margin: 8px auto 0; padding: 14px 20px 18px; border: 1px solid #88b6aa55; border-radius: 16px; background: #0b1b2280; }
 .tutorial-keyboard-legend { margin-bottom: 8px; color: #c3d9d6; font-size: max(20px, calc(13 * var(--ui-unit))); }
 .tutorial-keyboard .kbd-guide { position: static; width: 100%; box-sizing: border-box; padding: 0; border: 0; background: none; box-shadow: none; gap: 6px; }
-.tutorial-keyboard .kbd-finger-guide { width: min(100%, 720px); min-height: 116px; display: flex; align-items: center; justify-content: center; gap: 24px; margin: 0 auto 8px; padding: 6px 18px; box-sizing: border-box; border: 1px solid #71c9ba44; border-radius: 16px; background: radial-gradient(circle at 38% 55%, #2a5a6666, #0d202899 68%); }
-.tutorial-keyboard .kbd-finger-guide.is-empty { visibility: hidden; }
-.tutorial-keyboard .kbd-finger-pictures { min-width: 240px; min-height: 96px; display: flex; align-items: center; justify-content: center; gap: 4px; }
-.tutorial-keyboard .kbd-finger-art { width: 240px; height: 102px; object-fit: contain; filter: drop-shadow(0 8px 10px #0008); }
-.tutorial-keyboard .kbd-finger-art.secondary:not([hidden]) { width: 190px; }
-.tutorial-keyboard .kbd-finger-art.primary:has(+ .secondary:not([hidden])) { width: 190px; }
-.tutorial-keyboard .kbd-finger-copy { display: grid; gap: 4px; min-width: 150px; }
+.tutorial-keyboard .kbd-keyboard-deck { position: relative; display: grid; justify-items: center; gap: 6px; width: 100%; min-height: 162px; overflow: hidden; border-radius: 14px; isolation: isolate; }
+.tutorial-keyboard .kbd-finger-guide { position: absolute; inset: 0; z-index: 3; display: block; pointer-events: none; }
+.tutorial-keyboard .kbd-finger-guide.is-empty { opacity: 0; }
+.tutorial-keyboard .kbd-hands-shadow { position: absolute; z-index: 0; left: 7%; bottom: -58%; width: 86%; height: auto; opacity: 0.34; object-fit: contain; filter: none; user-select: none; }
+.tutorial-keyboard .kbd-finger-copy { position: absolute; z-index: 6; top: 4px; right: 8px; display: grid; justify-items: end; gap: 1px; padding: 4px 10px; border: 1px solid #ffdf8255; border-radius: 9px; background: #0a1c24d9; box-shadow: 0 4px 12px #0006; }
 .tutorial-keyboard .kbd-finger-copy span { color: #9eddd2; font-size: max(16px, calc(12 * var(--ui-unit))); font-weight: 800; letter-spacing: 0.04em; }
-.tutorial-keyboard .kbd-finger-label { color: #ffdf82; font-size: max(29px, calc(20 * var(--ui-unit))); line-height: 1.15; white-space: nowrap; text-shadow: 0 0 16px #ffce5670; }
+.tutorial-keyboard .kbd-finger-label { color: #ffdf82; font-size: max(22px, calc(16 * var(--ui-unit))); line-height: 1.15; white-space: nowrap; text-shadow: 0 0 16px #ffce5670; }
+.tutorial-keyboard .kbd-fingertip-marker { position: absolute; z-index: 8; left: 50%; top: 50%; width: 18px; height: 18px; border: 3px solid #fff7ba; border-radius: 50%; background: #ffd238; box-shadow: 0 0 0 5px #ffd23844, 0 0 22px 10px #ffbf32cc; transform: translate(-50%, -50%); pointer-events: none; animation: practice-fingertip 0.72s ease-in-out infinite alternate; }
+.tutorial-keyboard .kbd-fingertip-marker.secondary { width: 14px; height: 14px; border-color: #ddf5ff; background: #72d7ff; box-shadow: 0 0 0 5px #72d7ff44, 0 0 18px 8px #53caffbb; }
 .tutorial-keyboard .kbd-row { width: 100%; justify-content: center; gap: 6px; }
 .tutorial-keyboard .kbd-row-2 { width: 94%; }
 .tutorial-keyboard .kbd-row-3 { width: 88%; }
 .tutorial-keyboard .kbd-space-row { width: 65%; }
-.tutorial-keyboard .key { flex: 1; width: auto; min-width: 0; height: 36px; font-size: 25px; border-radius: 6px; animation: none; }
+.tutorial-keyboard .key { z-index: 1; flex: 1; width: auto; min-width: 0; height: 36px; font-size: 25px; border-radius: 6px; animation: none; }
+.tutorial-keyboard .key.next, .tutorial-keyboard .key.next-shift, .tutorial-keyboard .key.next-back { z-index: 5; }
 .tutorial-keyboard .key.wide { flex: 1.9; font-size: 21px; }
 .tutorial-keyboard .key.space { flex: 0 1 45%; font-size: 21px; }
 .tutorial-keyboard .key .alt { font-size: 14px; }
 .tutorial-keyboard .key.pressed { background: #8ee8c3; color: #0b3027; box-shadow: inset 0 3px 0 #257b61; transform: translateY(2px); }
 .tutorial-keyboard .kbd-hand-legend { margin: 0 0 4px; font-size: max(20px, calc(13 * var(--ui-unit))); }
 .tutorial-keyboard .kbd-hand-swatch { width: 24px; height: 16px; }
+@keyframes practice-fingertip { from { transform: translate(-50%, -50%) scale(0.82); opacity: 0.82; } to { transform: translate(-50%, -50%) scale(1.12); opacity: 1; } }
 .tutorial-next { margin-top: 12px; }
 .small-display .tutorial-panel { top: 130px; bottom: 32px; padding: 20px 30px; }
 .small-display .tutorial h1 { margin: 8px 0; }

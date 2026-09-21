@@ -50,10 +50,10 @@ export class KeyboardGuide {
   private spaceKey: HTMLElement;
   private enterKey: HTMLElement;
   private backKey: HTMLElement;
-  private fingerGuide: HTMLElement;
-  private fingerPrimary: HTMLImageElement;
-  private fingerSecondary: HTMLImageElement;
-  private fingerLabel: HTMLElement;
+  private fingerGuide?: HTMLElement;
+  private fingerLabel?: HTMLElement;
+  private fingerMarker?: HTMLElement;
+  private fingerSecondaryMarker?: HTMLElement;
   private english = getLanguage() === 'en';
 
   constructor(opts: { onBackdropClick?: () => void; embedded?: boolean } = {}) {
@@ -111,13 +111,19 @@ export class KeyboardGuide {
     );
     // 전투 오버레이는 게임을 멈추지 않는다. 글자를 치면 걷힌다는 걸 알려 "멈춘 것처럼" 보이지 않게 한다.
     const hint = opts.embedded ? null : h('p', { class: 'kbd-hint' }, this.english ? 'Start typing and the guide slides away · Esc' : '글자를 치면 가이드가 사라져요 · Esc');
-    this.fingerPrimary = h('img', { class: 'kbd-finger-art primary', alt: '', draggable: 'false' }) as HTMLImageElement;
-    this.fingerSecondary = h('img', { class: 'kbd-finger-art secondary', alt: '', draggable: 'false', hidden: true }) as HTMLImageElement;
-    this.fingerLabel = h('strong', { class: 'kbd-finger-label' });
-    this.fingerGuide = h('div', { class: 'kbd-finger-guide', 'aria-live': 'polite' },
-      h('div', { class: 'kbd-finger-pictures', 'aria-hidden': 'true' }, this.fingerPrimary, this.fingerSecondary),
-      h('div', { class: 'kbd-finger-copy' }, h('span', {}, this.english ? 'NEXT FINGER' : '다음 손가락'), this.fingerLabel));
-    this.panel = h('div', { class: 'kbd-guide' }, handLegend, this.fingerGuide, rows, h('div', { class: 'kbd-row kbd-space-row' }, punctuation, this.spaceKey), hint);
+    const spaceRow = h('div', { class: 'kbd-row kbd-space-row' }, punctuation, this.spaceKey);
+    if (opts.embedded) {
+      this.fingerLabel = h('strong', { class: 'kbd-finger-label' });
+      this.fingerMarker = h('i', { class: 'kbd-fingertip-marker', 'aria-hidden': 'true' });
+      this.fingerSecondaryMarker = h('i', { class: 'kbd-fingertip-marker secondary', 'aria-hidden': 'true' });
+      this.fingerGuide = h('div', { class: 'kbd-finger-guide', 'aria-live': 'polite' },
+        h('img', { class: 'kbd-hands-shadow', src: './assets/ui/typing-hands-shadow-reference.webp', alt: '', draggable: 'false', 'aria-hidden': 'true' }),
+        h('div', { class: 'kbd-finger-copy' }, h('span', {}, this.english ? 'NEXT FINGER' : '다음 손가락'), this.fingerLabel));
+      this.panel = h('div', { class: 'kbd-guide' }, handLegend,
+        h('div', { class: 'kbd-keyboard-deck' }, rows, spaceRow, this.fingerGuide), hint);
+    } else {
+      this.panel = h('div', { class: 'kbd-guide' }, handLegend, rows, spaceRow, hint);
+    }
     this.el = h('div', {
       class: opts.embedded ? 'kbd-embedded' : 'kbd-overlay',
       onclick: (e: MouseEvent) => { if (e.target === this.el) opts.onBackdropClick?.(); },
@@ -163,30 +169,42 @@ export class KeyboardGuide {
     if (!hint) { this.setFinger(); return; }
     if (hint.type === 'backspace') {
       this.backKey.classList.add('next-back');
-      this.setFinger('right-pinky');
+      this.setFinger('right-pinky', this.backKey);
       return;
     }
     if (hint.type === 'enter') {
       this.enterKey.classList.add('next');
-      this.setFinger('right-pinky');
+      this.setFinger('right-pinky', this.enterKey);
       return;
     }
     const { key, shift } = hint.stroke;
     let nextKey: HTMLElement | undefined;
+    let primary: Finger | undefined;
+    let secondary: Finger | undefined;
+    let secondaryKey: HTMLElement | undefined;
     if (key === ' ') {
+      nextKey = this.spaceKey;
       this.spaceKey.classList.add('next');
-      this.setFinger('left-thumb', 'right-thumb');
+      primary = 'left-thumb';
+      secondary = 'right-thumb';
+      secondaryKey = this.spaceKey;
     }
     else {
       nextKey = this.keys.get(SHIFTED_KEYS[key] ?? (this.english ? key.toLowerCase() : key));
       nextKey?.classList.add('next');
-      this.setFinger(nextKey?.dataset.finger as Finger | undefined);
+      primary = nextKey?.dataset.finger as Finger | undefined;
     }
     // 큰글자·쌍자음은 글자 키와 반대 손의 Shift를 눌러 손가락 자리를 지킨다.
-    if (shift) (nextKey?.dataset.hand === 'left' ? this.rightShiftKey : this.leftShiftKey).classList.add('next-shift');
+    if (shift) {
+      secondaryKey = nextKey?.dataset.hand === 'left' ? this.rightShiftKey : this.leftShiftKey;
+      secondaryKey.classList.add('next-shift');
+      secondary = secondaryKey.dataset.finger as Finger;
+    }
+    this.setFinger(primary, nextKey, secondary, secondaryKey);
   }
 
-  private setFinger(primary?: Finger, secondary?: Finger) {
+  private setFinger(primary?: Finger, primaryKey?: HTMLElement, secondary?: Finger, secondaryKey?: HTMLElement) {
+    if (!this.fingerGuide || !this.fingerLabel || !this.fingerMarker || !this.fingerSecondaryMarker) return;
     const names: Record<Finger, [string, string]> = {
       'left-pinky': ['왼손 새끼', 'Left pinky'], 'left-ring': ['왼손 약지', 'Left ring'],
       'left-middle': ['왼손 중지', 'Left middle'], 'left-index': ['왼손 검지', 'Left index'],
@@ -195,17 +213,18 @@ export class KeyboardGuide {
       'right-ring': ['오른손 약지', 'Right ring'], 'right-pinky': ['오른손 새끼', 'Right pinky'],
     };
     this.fingerGuide.classList.toggle('is-empty', !primary);
+    this.fingerMarker.remove();
+    this.fingerSecondaryMarker.remove();
     if (!primary) {
-      this.fingerPrimary.removeAttribute('src');
-      this.fingerSecondary.hidden = true;
       this.fingerLabel.textContent = '';
       return;
     }
-    this.fingerPrimary.src = `./assets/ui/fingers/${primary}.webp`;
-    this.fingerSecondary.hidden = !secondary;
-    if (secondary) this.fingerSecondary.src = `./assets/ui/fingers/${secondary}.webp`;
+    primaryKey?.append(this.fingerMarker);
+    if (secondary && secondaryKey) secondaryKey.append(this.fingerSecondaryMarker);
+    const isThumbPair = primary.endsWith('thumb') && secondary?.endsWith('thumb');
     this.fingerLabel.textContent = secondary
-      ? (this.english ? 'Either thumb' : '양손 엄지')
+      ? isThumbPair ? (this.english ? 'Either thumb' : '양손 엄지')
+        : `${names[primary][this.english ? 1 : 0]} + ${names[secondary][this.english ? 1 : 0]}`
       : names[primary][this.english ? 1 : 0];
     this.fingerGuide.setAttribute('aria-label', this.fingerLabel.textContent);
   }

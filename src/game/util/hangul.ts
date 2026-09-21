@@ -123,24 +123,30 @@ export function nextKeyHint(target: string, current: string): { type: 'key'; str
 
 /** 목표 대비 입력 상태를 문자 단위로 분류 (표시용) */
 export function diffChars(target: string, current: string): { ch: string; state: 'done' | 'now' | 'todo' | 'bad' }[] {
-  const t = [...target];
-  const c = [...current];
+  const normalizedTarget = target.normalize('NFC');
+  const normalizedCurrent = current.normalize('NFC');
+  const t = [...normalizedTarget];
+  const c = [...normalizedCurrent];
   const out: { ch: string; state: 'done' | 'now' | 'todo' | 'bad' }[] = [];
   // 키 입력 순서 기준으로 아직 목표의 앞부분이면(예: '도전'을 치는 중 '돚') 틀린 것이 아니다
-  if (c.length > 0 && isPrefixInput(target, current)) {
-    const strokesTyped = toKeySequence(current).length;
+  const targetStrokes = toKeySequence(normalizedTarget);
+  const currentStrokes = toKeySequence(normalizedCurrent);
+  let matchingStrokes = 0;
+  while (matchingStrokes < targetStrokes.length && matchingStrokes < currentStrokes.length
+    && targetStrokes[matchingStrokes].key === currentStrokes[matchingStrokes].key
+    && targetStrokes[matchingStrokes].shift === currentStrokes[matchingStrokes].shift) matchingStrokes++;
+  if (c.length > 0 && matchingStrokes === currentStrokes.length && currentStrokes.length <= targetStrokes.length) {
+    const strokesTyped = currentStrokes.length;
     let acc = 0;
+    let hasNow = false;
     for (let i = 0; i < t.length; i++) {
       const n = toKeySequence(t[i]).length;
       if (acc + n <= strokesTyped) out.push({ ch: t[i], state: 'done' });
-      else if (acc < strokesTyped || acc === strokesTyped) out.push({ ch: t[i], state: acc === strokesTyped && out.every((o) => o.state === 'done') && i === out.length ? 'now' : acc < strokesTyped ? 'now' : 'todo' });
-      else out.push({ ch: t[i], state: 'todo' });
+      else if (!hasNow) {
+        out.push({ ch: t[i], state: 'now' });
+        hasNow = true;
+      } else out.push({ ch: t[i], state: 'todo' });
       acc += n;
-    }
-    // 첫 'todo'를 'now'로 승격 (진행 중인 글자가 없을 때 다음 글자를 강조)
-    if (!out.some((o) => o.state === 'now')) {
-      const first = out.find((o) => o.state === 'todo');
-      if (first) first.state = 'now';
     }
     return out;
   }

@@ -48,12 +48,36 @@ try {
       assert.ok(await page.locator('.tutorial-keyboard .key.hand-left').count() >= 5);
       assert.ok(await page.locator('.tutorial-keyboard .key.hand-right').count() >= 5);
       assert.equal(await page.locator('.tutorial-keyboard .key[data-key="Space"]').getAttribute('data-hand'), 'both');
+      assert.equal(await page.locator('.tutorial-keyboard .kbd-hands-shadow').count(), 1, 'Practice alone renders the hand shadow');
+      assert.equal(await page.locator('.tutorial-keyboard .kbd-fingertip-marker').count(), 1, 'Next-key marker sits on the practice keyboard');
       assert.equal(await page.locator('.tutorial-skip').count(), 0, 'Standalone practice has no stage skip control');
       const keyboardFit = await page.locator('.tutorial-keyboard').evaluate(el => ({ x: el.scrollWidth - el.clientWidth, y: el.scrollHeight - el.clientHeight }));
       assert.ok(keyboardFit.x <= 1 && keyboardFit.y <= 1, `Keyboard guide overflows: ${JSON.stringify(keyboardFit)}`);
+      await page.screenshot({ path: `${OUT}/${language}-${width}-practice-hands.png` });
       await page.locator('.tutorial-leave').click();
       await settled();
       assert.equal(await gameCall('currentScreen'), 'home');
+
+      if (language === 'ko' && width === 1280) {
+        await page.locator('.home-tutorial').click();
+        await page.locator('[data-part="story"]').click();
+        const storyInput = page.locator('#tutorial-input');
+        await storyInput.waitFor();
+        const storyTarget = await page.locator('.tutorial-target').getAttribute('data-target');
+        assert.ok(storyTarget?.length > 900, 'Long-form practice keeps the full character story');
+        await page.locator('.tutorial-target span').first().evaluate(node => { node.dataset.stabilityProbe = 'kept'; });
+        await storyInput.evaluate((input, text) => {
+          input.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
+          input.value = text.slice(0, 500);
+          input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertCompositionText', data: text.slice(0, 500) }));
+          input.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, data: text.slice(0, 500) }));
+        }, storyTarget);
+        await page.waitForTimeout(100);
+        assert.equal(await page.locator('.tutorial-target span').first().getAttribute('data-stability-probe'), 'kept', 'Long-form input reuses target nodes');
+        assert.equal(await page.locator('.tutorial-target span').count(), [...storyTarget].length, 'Long-form input keeps every target character');
+        await page.locator('.tutorial-leave').click();
+        await settled();
+      }
 
       const stages = width === 1280 ? ['stage_1', 'stage_2', 'stage_3', 'stage_4', 'stage_5'] : ['stage_2'];
       for (const stageId of stages) {
@@ -66,6 +90,7 @@ try {
       await navigate('battle', { stageId: 'stage_2' });
       await page.locator('.bb-input').waitFor();
       assert.equal(await gameCall('currentScreen'), 'battle', 'Direct battle entry never redirects to practice');
+      assert.equal(await page.locator('.battle .kbd-hands-shadow').count(), 0, 'Battle keyboard never renders practice hand guidance');
       const practicedParts = await page.evaluate(async () => (await import('/src/game/systems/SaveSystem.ts')).SaveSystem.get().progress.practicedParts ?? []);
       assert.deepEqual(practicedParts, [], 'Entering a stage does not forge practice completion');
       assert.deepEqual(errors, []);
