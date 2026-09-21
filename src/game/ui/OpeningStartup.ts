@@ -59,4 +59,7 @@ export function startOpening(startRuntime: RuntimeStarter) {
     else video.addEventListener('timeupdate', beginRuntime, { once: true });
   }, { once: true });
   player.start();
+  // 포스터를 보는 동안 게임 엔진과 홈 필수 에셋을 뒤에서 먼저 준비한다.
+  // 인트로 영상은 사용자가 재생을 고를 때만 내려받는다.
+  beginRuntime();
 }

@@ -34,6 +34,17 @@ for (let i = 0; i < 150; i++) { w.tick(0.1); if (i % 30 === 0 && w.target) w.com
 assert.ok(w.monsters.filter((m) => !m.dead).length <= WAVE.maxOnField);
 assert.ok(w.spawnedCount() >= 3, '15초면 최소한 워밍업 3마리는 등장');
 
+// 3-1. 화면에 떠 있는 낱말은 현재 선택 순서와 무관하게 곧바로 골라 처치한다.
+{
+  const free = new WaveSystem(stage, 'normal', pet, words, () => {});
+  free.start();
+  for (let i = 0; i < 45; i++) free.tick(0.1);
+  const other = free.monsters.find((monster) => !monster.dead && monster.uid !== free.target?.uid);
+  assert.ok(other, '자유 선택을 확인할 두 번째 몬스터가 등장');
+  free.submit(other!.word.text, false);
+  assert.equal(other!.dead, true, '현재 목표가 아니어도 화면의 낱말을 맞히면 처치');
+}
+
 // 4. 접촉: x가 1에 닿으면 HP-10, 밀려남
 // 앞 루프에서 이미 몇 번 닿았을 수 있다. 무적·기운내기를 끄고 이 한 번의 접촉만 본다.
 w.invulnLeft = 0;
@@ -132,24 +143,41 @@ assert.equal(count('STAGE_CLEAR'), 1);
   assert.equal(w3.score, score1 + WAVE.dodgeScore);
 }
 
-// 9. 아이템 6종: 드롭 테이블 구성 + 방패(접촉 1회 무효)·번개(적 이동 절반)
+// 9. 아이템 6종: 코인은 즉시, 나머지는 인벤토리에 모아 선택 사용
 {
   const items = new Set(WAVE.drops.map((d) => d.item));
   assert.deepEqual([...items].sort(), ['bolt', 'coin', 'gem', 'heart', 'shield', 'star'].sort());
 
-  const w4 = new WaveSystem(stage, 'normal', pet, words, () => {});
+  const itemEvents: [string, unknown][] = [];
+  const w4 = new WaveSystem(stage, 'normal', pet, words, (ev, data) => itemEvents.push([ev, data]));
   w4.start();
-  w4.itemShieldCharges = 1;
+  w4.loadItemInventory({ heart: 2, star: 1, shield: 1, bolt: 1 });
+  assert.equal(w4.useItem('heart'), false, 'HP가 가득 찼을 때 하트를 낭비하지 않음');
+  w4.playerHp -= 30;
+  assert.ok(w4.useItem('heart'));
+  assert.equal(w4.playerHp, w4.playerMaxHp - 10, '하트 사용: HP 20 회복');
+  const itemScore = w4.score;
+  assert.ok(w4.useItem('star'));
+  assert.equal(w4.score, itemScore + 150, '별 사용: 점수 150점');
+  assert.ok(w4.useItem('shield'));
+  assert.equal(w4.itemShieldCharges, 1, '방패 사용: 방어 1회 충전');
   const m4 = w4.monsters[0];
   const hp4 = w4.playerHp;
   m4.x = 0.999;
   w4.tick(0.05);
   assert.equal(w4.playerHp, hp4, '방패가 접촉 1회를 무효화');
   assert.equal(w4.itemShieldCharges, 0, '방패 소모');
+  assert.equal(itemEvents.filter(([ev]) => ev === 'ITEM_USED').length, 3, '하트·별·방패 사용 이벤트');
+
+  const restoredItems = new WaveSystem(stage, 'normal', pet, words, () => {});
+  restoredItems.restore(w4.serialize());
+  assert.deepEqual(restoredItems.items, w4.items, '체크포인트에서 사용 아이템 수량 복원');
+  assert.equal(restoredItems.score, w4.score, '별 사용 점수도 체크포인트 복원');
 
   const w5 = new WaveSystem(stage, 'normal', pet, words, () => {});
   w5.start();
-  w5.itemSlowLeft = WAVE.boltSec;
+  w5.loadItemInventory({ bolt: 1 });
+  assert.ok(w5.useItem('bolt'));
   const m5 = w5.monsters[0];
   const x5 = m5.x;
   w5.tick(1);
@@ -162,26 +190,72 @@ assert.equal(count('STAGE_CLEAR'), 1);
   w6.tick(1);
   const normalMoved = m6.x - x6;
   assert.ok(slowMoved < normalMoved * 0.6, '번개: 적 이동 속도 절반');
+  assert.equal(w5.useItem('bolt'), false, '재고가 없거나 감속 중이면 중복 사용 안 됨');
+
+  // 보석 드롭: 동전과 인벤토리에 실제 적립되고, 등급별 시간 동안 적 이동을 완전히 멈춘다.
+  const gemEvents: [string, unknown][] = [];
+  const gemRun = new WaveSystem(stage, 'normal', pet, words, (ev, data) => gemEvents.push([ev, data]));
+  gemRun.start();
+  const originalRandom = Math.random;
+  const rolls = [0, 0.47, 0.99]; // 드롭 성공 → gem 선택 → violet 선택
+  Math.random = () => rolls.shift() ?? 0.99;
+  try { gemRun.submit(gemRun.target!.word.text, false); } finally { Math.random = originalRandom; }
+  assert.equal(gemRun.run.coins, 5, '보석 드롭 동전 5개 적립');
+  assert.equal(gemRun.gems.violet, 1, '보라 보석 인벤토리 적립');
+  while (!gemRun.target) gemRun.tick(0.5);
+  const frozen = gemRun.target!;
+  const frozenX = frozen.x;
+  assert.ok(gemRun.useGem('violet'));
+  assert.equal(gemRun.useGem('violet'), false, '정지 중 보석을 중복 소비하지 않음');
+  gemRun.tick(1);
+  assert.equal(frozen.x, frozenX, '보라 보석 사용 중 적 이동 정지');
+  assert.equal(gemRun.gems.violet, 0, '사용한 보석 차감');
+  assert.ok(gemEvents.some(([event]) => event === 'GEM_COLLECTED'));
+  assert.ok(gemEvents.some(([event]) => event === 'GEM_USED'));
+
+  const pickupEvents: [string, unknown][] = [];
+  const pickupRun = new WaveSystem(stage, 'normal', pet, words, (ev, data) => pickupEvents.push([ev, data]));
+  pickupRun.start();
+  const pickupRandom = Math.random;
+  const pickupRolls = [0, 0.75]; // 드롭 성공 → heart 구간
+  Math.random = () => pickupRolls.shift() ?? 0.75;
+  try { pickupRun.submit(pickupRun.target!.word.text, false); } finally { Math.random = pickupRandom; }
+  assert.equal(pickupRun.items.heart, 1, '하트 드롭은 즉시 쓰지 않고 인벤토리에 적립');
+  assert.ok(pickupEvents.some(([event]) => event === 'ITEM_COLLECTED'));
 }
 
-// 10. S1 마지막 웨이브 대장 슬라임: 마지막(WAVE.total 번째) 몬스터가 큰 슬라임(HP 2배·느림)
+// 10. S1 대왕 슬라임: 마지막 몬스터, 느린 10시 진입, 정확히 5회 완성 후 처치
 {
-  const w7 = new WaveSystem(stage, 'normal', pet, words, () => {});
+  const bossEvents: [string, unknown][] = [];
+  const w7 = new WaveSystem(stage, 'normal', pet, words, (ev, data) => bossEvents.push([ev, data]));
   w7.start();
   let guard3 = 0;
-  while (!w7.finished && guard3++ < 800) {
+  let boss = w7.monsters.find((m) => m.big);
+  while (!boss && !w7.finished && guard3++ < 1200) {
     const t = w7.target;
-    if (!t) { w7.tick(0.5); continue; }
+    if (!t) { w7.tick(0.5); boss = w7.monsters.find((m) => m.big); continue; }
     w7.submit(t.word.text, false);
     w7.tick(0.1);
+    boss = w7.monsters.find((m) => m.big);
   }
-  assert.ok(w7.finished, '클리어됨');
-  const boss = w7.monsters.find((m) => m.big);
   assert.ok(boss, '대장 슬라임이 스폰됨');
   assert.equal(boss!.kind, 'slime');
   assert.equal(boss!.name, '대장 슬라임');
-  assert.equal(boss!.maxHp, 4 * WAVE.bossHpMul, '4음절 대장 낱말 × HP배율');
+  assert.equal(boss!.maxHp, 4, '4음절 낱말의 글자 타격 진행');
   assert.ok(boss!.speed < (1 / WAVE.travelSec.slime), '대장은 일반 슬라임보다 느림');
+  assert.equal(boss!.bossHitsTotal, 5);
+  for (const remaining of [4, 3, 2, 1]) {
+    w7.submit(boss!.word.text, false);
+    assert.equal(boss!.dead, false, `${5 - remaining}번째 완성에는 생존`);
+    assert.equal(boss!.bossHitsRemaining, remaining);
+    assert.equal(boss!.hp, boss!.maxHp, '다음 타격을 위해 낱말 체력 복원');
+  }
+  assert.equal(bossEvents.filter(([ev]) => ev === 'WAVE_BOSS_HIT').length, 4, '중간 4타 피드백');
+  w7.submit(boss!.word.text, false);
+  assert.equal(boss!.dead, true, '5번째 완성에만 처치');
+  assert.equal(boss!.bossHitsRemaining, 0);
+  assert.ok(w7.finished, '대왕 슬라임 처치 뒤 클리어');
+  assert.equal(bossEvents.filter(([ev]) => ev === 'STAGE_CLEAR').length, 1);
 }
 
 // 11. 속도 적응형 스폰: 빨리 치는 아이에겐 촘촘하게, 느린 아이에겐 뜸하게 나온다

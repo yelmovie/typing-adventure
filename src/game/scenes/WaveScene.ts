@@ -37,6 +37,14 @@ function lanePoint(angle: number, progress: number) {
   return { x: PLAYER_POS.x + Math.cos(angle) * rx, y: PLAYER_POS.y + Math.sin(angle) * ry };
 }
 
+/** 대왕 슬라임은 10시 상단에서 얼굴이 먼저 보이도록 전용 직선으로 진입한다. */
+function bossLanePoint(progress: number) {
+  return {
+    x: Phaser.Math.Linear(330, PLAYER_POS.x - 110, progress),
+    y: Phaser.Math.Linear(185, PLAYER_POS.y - 35, progress),
+  };
+}
+
 function approachDirection(angle: number): 'front' | 'back' | 'left' | 'right' {
   const dx = -Math.cos(angle), dy = -Math.sin(angle);
   if (Math.abs(dx) > Math.abs(dy)) return dx < 0 ? 'left' : 'right';
@@ -53,6 +61,7 @@ class Mob {
   targetX: number;
   targetY: number;
   readonly angle: number;
+  readonly big: boolean;
   word: string;
   done = 0;
   dead = false;
@@ -61,8 +70,9 @@ class Mob {
   private restColor = '#ffffff'; // 변화구 색 — 위험 표시가 끝나면 이 색으로 되돌린다
   constructor(private scene: Phaser.Scene, m: WaveMonster) {
     this.word = m.word.text;
-    this.angle = laneAngle(m.uid);
-    const spawn = lanePoint(this.angle, 0);
+    this.big = !!m.big;
+    this.angle = m.big ? -5 * Math.PI / 6 : laneAngle(m.uid);
+    const spawn = m.big ? bossLanePoint(0) : lanePoint(this.angle, 0);
     this.targetX = spawn.x;
     this.targetY = spawn.y;
     // 대장 전용 시트가 없으면 초록 슬라임을 키워 쓰던 예전 방식으로 폴백
@@ -71,7 +81,7 @@ class Mob {
     registerSheetAnims(scene, sheet);
     // 전용 대장 시트는 그림 자체가 크고 왕관이 있으니 덜 키우고 틴트도 안 입힌다
     const baseScale = m.big ? 1.05 * (ownSheet ? 1.25 : 1.8) : m.kind === 'bat' ? 1.0 : 1.05;
-    const scale = baseScale * MONSTER_VISUAL_SCALE;
+    const scale = baseScale * MONSTER_VISUAL_SCALE * (m.big ? 2 : 1);
     this.enemy = new Enemy(scene, spawn.x, spawn.y, sheet, scale);
     if (m.big && !ownSheet) this.enemy.sprite.setTint(0xffcf7a);
     this.enemy.setDepth(8);
@@ -127,9 +137,10 @@ class Mob {
     const scale = Math.min(window.innerWidth / DESIGN_W, window.innerHeight / DESIGN_H);
     const safeTop = window.innerHeight > window.innerWidth ? 120 : Math.max(120, 80 / scale);
     const headOffset = (sprite.frame.y - sprite.displayOriginY) * sprite.scaleY;
-    sprite.y = Math.max(sprite.y, safeTop + labelHeight + 6 - headOffset);
+    const labelGap = this.big ? 34 : 6;
+    sprite.y = Math.max(sprite.y, safeTop + labelHeight + labelGap - headOffset);
     this.enemy.shadow.setPosition(sprite.x, sprite.y + 6);
-    const top = sprite.y + headOffset - 6;
+    const top = sprite.y + headOffset - labelGap;
     const x0 = this.enemy.sprite.x - w / 2;
     this.labelDone.setPosition(x0, top);
     this.labelRest.setPosition(x0 + this.labelDone.width, top);
@@ -137,7 +148,8 @@ class Mob {
     this.drawPath();
   }
   setProgress(progress: number) {
-    const p = lanePoint(this.angle, Phaser.Math.Clamp(progress, 0, 1));
+    const clamped = Phaser.Math.Clamp(progress, 0, 1);
+    const p = this.big ? bossLanePoint(clamped) : lanePoint(this.angle, clamped);
     this.targetX = p.x;
     this.targetY = p.y;
   }
@@ -279,12 +291,14 @@ export class WaveScene extends Phaser.Scene {
     this.bind(Events.WAVE_SPAWN, (d: { monster: WaveMonster; wave: number }) => this.onSpawn(d));
     this.bind(Events.WAVE_TICK, (d: { monsters: WaveMonster[]; targetUid: number }) => this.onTick(d));
     this.bind(Events.WAVE_HIT, (d: { uid: number; hits: number }) => this.onHit(d));
+    this.bind(Events.WAVE_BOSS_HIT, (d: { uid: number; remaining: number; total: number }) => this.onBossHit(d));
     this.bind(Events.WAVE_DEFEAT, (d: { uid: number; aoe: boolean; fled?: boolean }) => this.onDefeat(d));
     this.bind(Events.WAVE_TOUCH, (d: { uid: number; hpLoss: number }) => this.onTouch(d));
     this.bind(Events.WAVE_PUSH, (d: { uid: number }) => this.mobs.get(d.uid)?.flash());
     this.bind(Events.WAVE_GATE, () => this.onGate());
     this.bind(Events.WAVE_SWEEP, (d: { combo: number; count: number }) => this.onSweep(d));
     this.bind(Events.ITEM_DROP, (d: { uid: number; item: string; score: number }) => this.onDrop(d));
+    this.bind(Events.GEM_USED, (d: { seconds: number }) => this.onGemFreeze(d.seconds));
     this.bind(Events.DODGE, (d: { uid: number; kind: string }) => this.onDodge(d));
     this.bind(Events.RALLY, (d: { heal: number }) => this.onRally(d));
     this.bind(Events.PLAYER_MOVE, (d: { dir: 'left' | 'right' | 'up' | 'down'; pressed: boolean }) => this.onPlayerMove(d));
@@ -364,6 +378,29 @@ export class WaveScene extends Phaser.Scene {
     const t = this.add.text(960, 400, tr('기운내기!'), styleText(88, '#8fe0ff')).setOrigin(0.5).setDepth(30).setScale(0.5).setAlpha(0);
     const s = this.add.text(960, 480, tr(`HP +${d.heal} · 잠깐 숨 돌리자`), styleText(44, '#ffffff')).setOrigin(0.5).setDepth(30).setAlpha(0);
     this.tweens.add({ targets: [t, s], alpha: 1, scale: 1, duration: 240, ease: 'Back.easeOut', yoyo: true, hold: 1100, onComplete: () => { t.destroy(); s.destroy(); } });
+  }
+
+  /** 대왕 슬라임은 1~4번째 완성에도 크게 반응하고, 몇 번 더 맞혀야 하는지 즉시 보여 준다. */
+  private onBossHit(d: { uid: number; remaining: number; total: number }) {
+    const mob = this.mobs.get(d.uid);
+    if (!mob) return;
+    mob.flash();
+    mob.pushOut(40);
+    this.hitBurst?.emitParticleAt(mob.x, mob.y, 22);
+    AudioManager.sfx('hit', { rate: 0.72, gain: 0.9 });
+    if (this.shakeOn && !prefersReducedMotion()) this.cameras.main.shake(180, 0.009);
+    this.stillNotice(`대왕 슬라임 · 남은 타격 ${d.remaining}/${d.total}`, '#ffd34d');
+  }
+
+  private onGemFreeze(seconds: number) {
+    AudioManager.sfx('star', { rate: 0.75 });
+    this.cameras.main.flash(220, 125, 220, 255);
+    for (const mob of this.mobs.values()) {
+      if (mob.dead) continue;
+      mob.enemy.sprite.setTint(0xa9eaff);
+      this.time.delayedCall(seconds * 1000, () => { if (!mob.dead) mob.enemy.sprite.clearTint(); });
+    }
+    this.stillNotice(`보석의 시간 정지 · ${seconds}초`, '#bdecff');
   }
 
   /** 아이템 드롭: 몬스터 자리에서 튀어오른 뒤 캐릭터에게 날아가 점수·효과로 */

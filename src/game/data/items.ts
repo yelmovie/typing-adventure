@@ -11,10 +11,10 @@ export interface ItemDef {
 
 // 아이콘은 item-game-icons-v2.png(6×1) 을 잘라 만든 drop_* (게임 화면 fx_items 와 같은 그림)
 export const ITEMS: ItemDef[] = [
-  { id: 'coin', name: '코인', desc: '점수 30점을 더해줘요', img: 'drop_coin' },
-  { id: 'gem', name: '보석', desc: '점수 80점과 코인을 더해줘요', img: 'drop_gem' },
-  { id: 'star', name: '별', desc: '점수 150점을 더해줘요', img: 'drop_star' },
-  { id: 'heart', name: '하트', desc: '체력을 20 채워줘요', img: 'drop_heart' },
-  { id: 'shield', name: '방패', desc: '다음 한 번의 접촉을 막아줘요', img: 'drop_shield' },
-  { id: 'bolt', name: '번개', desc: '3초 동안 적을 느리게 만들어요', img: 'drop_bolt' },
+  { id: 'coin', name: '코인', desc: '점수 30점과 동전 3개를 더해줘요', img: 'drop_coin' },
+  { id: 'gem', name: '보석', desc: '점수 80점·동전 5개와 정지 보석을 줘요', img: 'drop_gem' },
+  { id: 'star', name: '별', desc: '인벤토리에 모아 쓰면 점수 150점을 더해줘요', img: 'drop_star' },
+  { id: 'heart', name: '하트', desc: '인벤토리에 모아 쓰면 체력을 20 채워줘요', img: 'drop_heart' },
+  { id: 'shield', name: '방패', desc: '인벤토리에 모아 쓰면 다음 접촉 한 번을 막아줘요', img: 'drop_shield' },
+  { id: 'bolt', name: '번개', desc: '인벤토리에 모아 쓰면 3초 동안 적이 느려져요', img: 'drop_bolt' },
 ];

@@ -19,7 +19,7 @@ export function defaultSave(): SaveData {
   return {
     version: CURRENT_SAVE_VERSION,
     profile: { name: '', characterId: 'brown_boy', petId: 'cat', difficulty: 'normal' },
-    progress: { tutorialCompleted: false, practicedParts: [], skippedPracticeStages: [], unlockedStage: 1, stageStars: {}, clearedStages: [], coins: 0, fails: {}, assist: {}, challenges: {}, storiesDone: {} },
+    progress: { tutorialCompleted: false, practicedParts: [], skippedPracticeStages: [], unlockedStage: 1, stageStars: {}, clearedStages: [], coins: 0, gems: { green: 0, blue: 0, violet: 0 }, items: { heart: 0, star: 0, shield: 0, bolt: 0 }, fails: {}, assist: {}, challenges: {}, storiesDone: {} },
     records: { bestCpm: 0, bestAccuracy: 0, bestCombo: 0, bestScoreByStage: {}, ghosts: {}, daily: {}, learning: { patterns: {}, recent: [], seen: [] }, streak: { count: 0, best: 0, last: '' } },
     collection: { badges: [], wordsSeen: [], petsUnlocked: ['cat', 'rabbit'], charactersUnlocked: characters.slice(0, 3), enemiesSeen: [] },
     settings: { language: 'ko', bgm: true, sfx: true, screenShake: true, showKeyboardGuide: false, bgmVolume: 0.7, sfxVolume: 0.9, prologueSeen: false },
@@ -82,6 +82,17 @@ export function validateSave(value: unknown, includeArchives = true): SaveData {
     unlockedStage: 1,
     stageStars: Object.fromEntries(entries(progress.stageStars).filter(([id]) => stages.includes(id)).map(([id, n]) => [id, Math.floor(num(n, 0, 3))])),
     clearedStages: strings(progress.clearedStages).filter((id) => stages.includes(id)), coins: num(progress.coins),
+    gems: {
+      green: Math.floor(num(obj(progress.gems).green, 0, 999)),
+      blue: Math.floor(num(obj(progress.gems).blue, 0, 999)),
+      violet: Math.floor(num(obj(progress.gems).violet, 0, 999)),
+    },
+    items: {
+      heart: Math.floor(num(obj(progress.items).heart, 0, 999)),
+      star: Math.floor(num(obj(progress.items).star, 0, 999)),
+      shield: Math.floor(num(obj(progress.items).shield, 0, 999)),
+      bolt: Math.floor(num(obj(progress.items).bolt, 0, 999)),
+    },
     fails: Object.fromEntries(entries(progress.fails).filter(([id]) => stages.includes(id)).map(([id, n]) => [id, Math.floor(num(n))])),
     assist: Object.fromEntries(entries(progress.assist).filter(([id]) => stages.includes(id)).map(([id, flag]) => [id, bool(flag, false)])),
     // 도전 카드 id 는 `${stage}_xxx` 꼴만, 이야기 번호는 0~4 정수만 남긴다(지역별 최대 5개).
@@ -152,4 +163,3 @@ export function hasInvalidStructure(value: unknown, includeArchives = true): boo
   }
   return false;
 }
-

@@ -7,6 +7,10 @@ export type ContentType = 'word' | 'sentence';
 /** 변화구 단어: 보물(코인·점수) / 하트(HP·시간 회복) / 폭탄(5초 제한, 실패 시 콤보만 초기화) */
 export type WordVariant = 'treasure' | 'heart' | 'bomb';
 export type StageMode = 'wave' | 'race' | 'letter' | 'telegram' | 'boss' | 'daily';
+export type GemKind = 'green' | 'blue' | 'violet';
+export type GemInventory = Record<GemKind, number>;
+export type WaveItemKind = 'heart' | 'star' | 'shield' | 'bolt';
+export type WaveItemInventory = Record<WaveItemKind, number>;
 
 export interface ContentUnit {
   id: string;
@@ -103,6 +107,10 @@ export interface SaveProgress {
   stageStars: Record<string, number>;
   clearedStages: string[];
   coins: number;
+  /** 숲에서 모은 정지 보석. 초록 2초, 파랑 4초, 보라 6초. */
+  gems?: GemInventory;
+  /** 숲에서 주운 사용형 아이템. 전투 중 선택하고 F1로 사용한다. */
+  items?: WaveItemInventory;
   /** 스테이지별 실패 횟수 → 3회면 도움 모드 제안 */
   fails: Record<string, number>;
   /** 도움 모드 켠 스테이지 (기초 난이도 규칙 적용) */

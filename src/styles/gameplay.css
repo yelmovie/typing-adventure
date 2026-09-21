@@ -38,7 +38,8 @@
 #tutorial-input[aria-invalid=true] { border-color: #c63c54; }
 .tutorial-longform .tutorial-target { max-height: 205px; overflow-y: auto; padding-right: 24px; font-size: max(25px, calc(18 * var(--ui-unit))); line-height: 1.65; letter-spacing: 0; word-break: keep-all; overflow-wrap: break-word; }
 .tutorial-longform #tutorial-input { min-height: 150px; resize: vertical; line-height: 1.55; font-size: max(23px, calc(17 * var(--ui-unit))); }
-.tutorial-form kbd { margin-left: 12px; font-size: 0.75em; }
+.tutorial-form > .btn { display: flex; align-items: center; justify-content: center; gap: 8px; padding-inline: 12px; white-space: nowrap; }
+.tutorial-form kbd { margin-left: 0; font-size: 0.75em; }
 .tutorial-feedback { min-height: 2.8em; font-size: max(23px, calc(17 * var(--ui-unit))); line-height: 1.45; margin: 16px 0 10px; color: #b8efd8; }
 .tutorial-next { width: 100%; }
 .tutorial [hidden] { display: none !important; }
@@ -59,29 +60,29 @@
 .tutorial-hint { margin: 10px 0; }
 .tutorial-feedback { min-height: 1.45em; margin: 10px 0; }
 .tutorial-feedback:empty { min-height: 0; margin: 4px 0; }
-.tutorial-keyboard { width: 100%; max-width: 1200px; box-sizing: border-box; margin: 8px auto 0; padding: 14px 20px 18px; border: 1px solid #88b6aa55; border-radius: 16px; background: #0b1b2280; }
+.tutorial-keyboard { width: 100%; max-width: 1320px; box-sizing: border-box; margin: 8px auto 0; padding: 12px 12px 14px; border: 1px solid #88b6aa55; border-radius: 16px; background: #0b1b2280; }
 .tutorial-keyboard-legend { margin-bottom: 8px; color: #c3d9d6; font-size: max(20px, calc(13 * var(--ui-unit))); }
 .tutorial-keyboard .kbd-guide { position: static; width: 100%; box-sizing: border-box; padding: 0; border: 0; background: none; box-shadow: none; gap: 6px; }
-.tutorial-keyboard .kbd-keyboard-deck { position: relative; display: grid; justify-items: center; gap: 6px; width: 100%; min-height: 162px; overflow: hidden; border-radius: 14px; isolation: isolate; }
+.tutorial-keyboard .kbd-keyboard-deck { position: relative; display: grid; justify-items: center; gap: 8px; width: 100%; min-height: 216px; overflow: hidden; border-radius: 14px; isolation: isolate; }
 .tutorial-keyboard .kbd-finger-guide { position: absolute; inset: 0; z-index: 3; display: block; pointer-events: none; }
 .tutorial-keyboard .kbd-finger-guide.is-empty { opacity: 0; }
-.tutorial-keyboard .kbd-hands-shadow { position: absolute; z-index: 0; left: 7%; bottom: -58%; width: 86%; height: auto; opacity: 0.34; object-fit: contain; filter: none; user-select: none; }
-.tutorial-keyboard .kbd-finger-copy { position: absolute; z-index: 6; top: 4px; right: 8px; display: grid; justify-items: end; gap: 1px; padding: 4px 10px; border: 1px solid #ffdf8255; border-radius: 9px; background: #0a1c24d9; box-shadow: 0 4px 12px #0006; }
+.tutorial-keyboard .kbd-finger-copy { display: flex; align-items: baseline; gap: 8px; margin-left: auto; padding: 3px 9px; border: 1px solid #ffdf8255; border-radius: 9px; background: #0a1c24d9; box-shadow: 0 4px 12px #0006; }
+.tutorial-keyboard .kbd-finger-copy.is-empty { visibility: hidden; }
 .tutorial-keyboard .kbd-finger-copy span { color: #9eddd2; font-size: max(16px, calc(12 * var(--ui-unit))); font-weight: 800; letter-spacing: 0.04em; }
 .tutorial-keyboard .kbd-finger-label { color: #ffdf82; font-size: max(22px, calc(16 * var(--ui-unit))); line-height: 1.15; white-space: nowrap; text-shadow: 0 0 16px #ffce5670; }
 .tutorial-keyboard .kbd-fingertip-marker { position: absolute; z-index: 8; left: 50%; top: 50%; width: 18px; height: 18px; border: 3px solid #fff7ba; border-radius: 50%; background: #ffd238; box-shadow: 0 0 0 5px #ffd23844, 0 0 22px 10px #ffbf32cc; transform: translate(-50%, -50%); pointer-events: none; animation: practice-fingertip 0.72s ease-in-out infinite alternate; }
 .tutorial-keyboard .kbd-fingertip-marker.secondary { width: 14px; height: 14px; border-color: #ddf5ff; background: #72d7ff; box-shadow: 0 0 0 5px #72d7ff44, 0 0 18px 8px #53caffbb; }
-.tutorial-keyboard .kbd-row { width: 100%; justify-content: center; gap: 6px; }
+.tutorial-keyboard .kbd-row { width: 100%; justify-content: center; gap: 8px; }
 .tutorial-keyboard .kbd-row-2 { width: 94%; }
 .tutorial-keyboard .kbd-row-3 { width: 88%; }
 .tutorial-keyboard .kbd-space-row { width: 65%; }
-.tutorial-keyboard .key { z-index: 1; flex: 1; width: auto; min-width: 0; height: 36px; font-size: 25px; border-radius: 6px; animation: none; }
+.tutorial-keyboard .key { z-index: 1; flex: 1; width: auto; min-width: 0; height: 48px; font-size: 28px; border-radius: 8px; animation: none; }
 .tutorial-keyboard .key.next, .tutorial-keyboard .key.next-shift, .tutorial-keyboard .key.next-back { z-index: 5; }
-.tutorial-keyboard .key.wide { flex: 1.9; font-size: 21px; }
-.tutorial-keyboard .key.space { flex: 0 1 45%; font-size: 21px; }
+.tutorial-keyboard .key.wide { flex: 1.8; font-size: 22px; }
+.tutorial-keyboard .key.space { flex: 0 1 48%; font-size: 22px; }
 .tutorial-keyboard .key .alt { font-size: 14px; }
 .tutorial-keyboard .key.pressed { background: #8ee8c3; color: #0b3027; box-shadow: inset 0 3px 0 #257b61; transform: translateY(2px); }
-.tutorial-keyboard .kbd-hand-legend { margin: 0 0 4px; font-size: max(20px, calc(13 * var(--ui-unit))); }
+.tutorial-keyboard .kbd-hand-legend { width: 100%; margin: 0 0 5px; align-items: center; font-size: max(20px, calc(13 * var(--ui-unit))); }
 .tutorial-keyboard .kbd-hand-swatch { width: 24px; height: 16px; }
 @keyframes practice-fingertip { from { transform: translate(-50%, -50%) scale(0.82); opacity: 0.82; } to { transform: translate(-50%, -50%) scale(1.12); opacity: 1; } }
 .tutorial-next { margin-top: 12px; }
@@ -133,3 +134,23 @@
 #ui-stage .mode-wave .bb-input-wrap { grid-column: 2; grid-row: 2; align-self: center; width: 100%; min-width: 0; margin: 0; }
 #ui-stage .mode-wave .bb-input { min-height: var(--touch-size); padding-right: 230px; }
 #ui-stage .mode-wave .judge-pop { --judge-bottom: 300px; }
+.wave-inventory { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(70px, auto) auto; align-items: center; justify-content: stretch; gap: 10px; min-width: 0; padding: 5px 8px; border: 1px solid #8fe0ff55; border-radius: 12px; background: #07162ac7; }
+.wave-item-bank { display: flex; align-items: center; justify-content: flex-start; gap: 6px; min-width: 0; }
+.wave-inventory-title { flex: 0 0 auto; color: #8fe0ff; font-size: 15px; letter-spacing: .04em; }
+.wave-item-slot { position: relative; display: inline-grid; place-items: center; flex: 0 0 46px; width: 46px; height: 46px; padding: 2px; border: 2px solid #ffffff45; border-radius: 10px; color: white; background: #20304f; box-shadow: inset 0 -3px 0 #0005; cursor: pointer; }
+.wave-item-slot img { width: 28px; height: 28px; object-fit: contain; image-rendering: auto; pointer-events: none; }
+.wave-item-slot strong { position: absolute; right: -4px; bottom: -5px; min-width: 22px; padding: 1px 4px; border-radius: 8px; color: #fff; background: #080f20e8; font-size: 13px; line-height: 1.25; }
+.wave-item-slot:hover:not(:disabled), .wave-item-slot:focus-visible { transform: translateY(-2px); filter: brightness(1.15); }
+.wave-item-slot.selected { border-color: #ffd34d; box-shadow: 0 0 0 2px #ffd34d55, inset 0 -3px 0 #0005; }
+.wave-item-slot:disabled { opacity: .38; cursor: default; }
+.wave-item-slot.green .wave-gem-stone { color: #69ef94; }
+.wave-item-slot.blue .wave-gem-stone { color: #79dfff; }
+.wave-item-slot.violet .wave-gem-stone { color: #c797ff; }
+.wave-use-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.wave-use-item kbd { padding: 1px 5px; border: 1px solid #fff8; border-radius: 5px; background: #111a35; font: inherit; }
+.wave-economy { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.wave-coin, .wave-score { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; font-weight: 800; }
+.wave-score { color: #fff3d0; }
+.wave-coin { color: #ffe18a; }
+.wave-gem-stone { font-size: 24px; text-shadow: 0 0 12px currentColor; }
+.wave-freeze { min-width: 72px; color: #bdecff; font-weight: 900; font-variant-numeric: tabular-nums; }

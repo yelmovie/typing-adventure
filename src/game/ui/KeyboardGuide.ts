@@ -51,6 +51,7 @@ export class KeyboardGuide {
   private enterKey: HTMLElement;
   private backKey: HTMLElement;
   private fingerGuide?: HTMLElement;
+  private fingerCopy?: HTMLElement;
   private fingerLabel?: HTMLElement;
   private fingerMarker?: HTMLElement;
   private fingerSecondaryMarker?: HTMLElement;
@@ -114,11 +115,12 @@ export class KeyboardGuide {
     const spaceRow = h('div', { class: 'kbd-row kbd-space-row' }, punctuation, this.spaceKey);
     if (opts.embedded) {
       this.fingerLabel = h('strong', { class: 'kbd-finger-label' });
+      this.fingerCopy = h('div', { class: 'kbd-finger-copy', 'aria-live': 'polite' },
+        h('span', {}, this.english ? 'NEXT FINGER' : '다음 손가락'), this.fingerLabel);
+      handLegend.append(this.fingerCopy);
       this.fingerMarker = h('i', { class: 'kbd-fingertip-marker', 'aria-hidden': 'true' });
       this.fingerSecondaryMarker = h('i', { class: 'kbd-fingertip-marker secondary', 'aria-hidden': 'true' });
-      this.fingerGuide = h('div', { class: 'kbd-finger-guide', 'aria-live': 'polite' },
-        h('img', { class: 'kbd-hands-shadow', src: './assets/ui/typing-hands-shadow-reference.webp', alt: '', draggable: 'false', 'aria-hidden': 'true' }),
-        h('div', { class: 'kbd-finger-copy' }, h('span', {}, this.english ? 'NEXT FINGER' : '다음 손가락'), this.fingerLabel));
+      this.fingerGuide = h('div', { class: 'kbd-finger-guide', 'aria-hidden': 'true' });
       this.panel = h('div', { class: 'kbd-guide' }, handLegend,
         h('div', { class: 'kbd-keyboard-deck' }, rows, spaceRow, this.fingerGuide), hint);
     } else {
@@ -204,7 +206,7 @@ export class KeyboardGuide {
   }
 
   private setFinger(primary?: Finger, primaryKey?: HTMLElement, secondary?: Finger, secondaryKey?: HTMLElement) {
-    if (!this.fingerGuide || !this.fingerLabel || !this.fingerMarker || !this.fingerSecondaryMarker) return;
+    if (!this.fingerGuide || !this.fingerCopy || !this.fingerLabel || !this.fingerMarker || !this.fingerSecondaryMarker) return;
     const names: Record<Finger, [string, string]> = {
       'left-pinky': ['왼손 새끼', 'Left pinky'], 'left-ring': ['왼손 약지', 'Left ring'],
       'left-middle': ['왼손 중지', 'Left middle'], 'left-index': ['왼손 검지', 'Left index'],
@@ -213,6 +215,7 @@ export class KeyboardGuide {
       'right-ring': ['오른손 약지', 'Right ring'], 'right-pinky': ['오른손 새끼', 'Right pinky'],
     };
     this.fingerGuide.classList.toggle('is-empty', !primary);
+    this.fingerCopy.classList.toggle('is-empty', !primary);
     this.fingerMarker.remove();
     this.fingerSecondaryMarker.remove();
     if (!primary) {

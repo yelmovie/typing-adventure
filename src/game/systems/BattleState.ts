@@ -1,4 +1,4 @@
-import type { ContentUnit, StageDef } from '../types';
+import type { ContentUnit, GemInventory, StageDef, WaveItemInventory } from '../types';
 import type { FeverLevel, TypingRun } from './TypingRun';
 import type { CheckpointState } from './Checkpoint';
 export type { CheckpointState } from './Checkpoint';
@@ -39,6 +39,9 @@ export interface BattleSnapshot {
   shielded: boolean;
   coins: number;
   nextHint: string | null;
+  gems?: GemInventory;
+  items?: WaveItemInventory;
+  freezeLeft?: number;
   /** 모드별 부가 정보 (HUD가 있으면 쓰고 없으면 무시) */
   enemyLabel?: string;
   race?: import('./RaceSystem').RaceInfo;

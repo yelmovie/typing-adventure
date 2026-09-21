@@ -50,6 +50,8 @@ assert.equal(hasInvalidStructure({ ...defaultSave(), languageArchives: { en: def
 // 도전 카드·이야기 진행: 지역 밖 키, 다른 지역 카드 id, 범위 밖 번호는 버린다. 옛 저장은 빈 값으로 읽는다.
 assert.deepEqual(validateSave({ progress: { challenges: { stage_2: ['stage_2_ghost', 'stage_1_swift', ''], stage_7: ['stage_7_x'] }, storiesDone: { stage_3: [4, 0, 9, 'two', 2.5], stage_1: [0] } } }).progress.challenges, { stage_2: ['stage_2_ghost'] });
 assert.deepEqual(validateSave({ progress: { storiesDone: { stage_3: [4, 0, 9, 'two', 2.5, 4], stage_1: [0] } } }).progress.storiesDone, { stage_3: [4, 0], stage_1: [0] });
+assert.deepEqual(validateSave({ progress: { gems: { green: 3, blue: 2.8, violet: -4 } } }).progress.gems, { green: 3, blue: 2, violet: 0 }, '보석 인벤토리는 안전한 정수 범위로 복원');
+assert.deepEqual(validateSave({ progress: { items: { heart: 3, star: 2.8, shield: -4, bolt: 1001 } } }).progress.items, { heart: 3, star: 2, shield: 0, bolt: 999 }, '사용 아이템 인벤토리는 안전한 정수 범위로 복원');
 assert.deepEqual(validateSave({ progress: { challenges: null, storiesDone: 'x' } }).progress.challenges, {});
 assert.deepEqual(validateSave({ progress: { challenges: null, storiesDone: 'x' } }).progress.storiesDone, {});
 assert.deepEqual(legacy.progress.challenges, {});

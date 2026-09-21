@@ -197,6 +197,11 @@ export class TypingRun {
   /** 다음 목표로 이동 */
   advance(): ContentUnit | null {
     const u = this.o.next(this.adaptiveOffset);
+    return this.focus(u);
+  }
+
+  /** 화면에 여러 목표가 있을 때 입력 접두어로 목표를 바꾼다. 진행 중 입력은 호출자가 유지한다. */
+  focus(u: ContentUnit | null): ContentUnit | null {
     this.current = u;
     if (u) this.seen.add(u.id);
     this.hitChars = 0;

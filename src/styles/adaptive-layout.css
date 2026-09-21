@@ -8,8 +8,11 @@
 #ui-stage .bb-target-lbl { min-width: 0; gap: var(--layout-gap); }
 #ui-stage .bb-target-row { min-width: 0; }
 #ui-stage .bb-target { max-width: 100%; overflow-wrap: anywhere; }
-#ui-stage .mode-wave .bb-main { grid-template-columns: minmax(220px, auto) minmax(0, 1fr); grid-template-rows: auto auto; gap: var(--layout-gap); }
+#ui-stage .mode-wave .bb-main { grid-template-columns: minmax(220px, auto) minmax(0, 1fr); grid-template-rows: auto auto auto; gap: 8px var(--layout-gap); }
 #ui-stage .mode-wave .battle-bottom { min-height: 0; padding: 14px 24px; }
+#ui-stage .mode-wave .wave-inventory { grid-column: 1 / -1; grid-row: 2; }
+#ui-stage .mode-wave .bb-target-row { grid-row: 3; }
+#ui-stage .mode-wave .bb-input-wrap { grid-row: 3; }
 #ui-stage .mode-wave .bb-target { font-size: max(52px, calc(30 * var(--ui-unit))); line-height: 1.2; white-space: normal; }
 #ui-stage .mode-wave .bb-input { padding: 8px 20px; }
 #ui-stage .mode-wave .battle-top { height: auto; min-height: max(88px, calc(60 * var(--ui-unit))); grid-template-columns: auto minmax(180px, 1fr) auto auto; }
@@ -24,8 +27,15 @@
 #ui-stage.short-display .mode-wave .bt-stats .stat-box:nth-child(4) { display: none; }
 #ui-stage.short-display .mode-wave .bb-target-lbl { grid-column: 1 / -1; grid-row: 1; }
 #ui-stage.short-display .mode-wave .bb-target-lbl .bb-kbd-toggle { margin: 0; }
-#ui-stage.short-display .mode-wave .bb-target-row { grid-column: 1; grid-row: 2; }
-#ui-stage.short-display .mode-wave .bb-input-wrap { grid-column: 2; grid-row: 2; }
+#ui-stage.short-display .mode-wave .bb-target-row { grid-column: 1; grid-row: 3; }
+#ui-stage.short-display .mode-wave .bb-input-wrap { grid-column: 2; grid-row: 3; }
+#ui-stage.short-display .mode-wave .wave-inventory { grid-column: 1 / -1; grid-row: 2; }
+#ui-stage.short-display .wave-inventory { grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; }
+#ui-stage.short-display .wave-economy { display: none; }
+#ui-stage.short-display .wave-item-bank { gap: 4px; }
+#ui-stage.short-display .wave-inventory-title { display: none; }
+#ui-stage.short-display .wave-item-slot { flex-basis: 44px; width: 44px; height: 44px; }
+#ui-stage.short-display .wave-item-slot img { width: 24px; height: 24px; }
 
 /* Every long panel retains its header and primary actions while its body scrolls. */
 #ui-stage .setup-panel.setup-fit { max-height: calc(100% - 160px); }

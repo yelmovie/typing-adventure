@@ -8,7 +8,7 @@
  *  - 30마리 처치(6웨이브 × 5) → 숲의 문(WAVE_GATE) → STAGE_CLEAR. 시간 0 / HP 0 → STAGE_FAILED.
  * 순수 로직(DOM/Phaser 없음). emit 은 주입.
  */
-import type { ContentUnit, Difficulty, StageDef, PetDef } from '../types';
+import type { ContentUnit, Difficulty, GemInventory, GemKind, StageDef, PetDef, WaveItemInventory, WaveItemKind } from '../types';
 import { DIFFICULTY_RULES } from '../data/stages';
 import { calcWordScore } from './TypingStats';
 import { TypingRun, RULES, type Emit } from './TypingRun';
@@ -18,6 +18,10 @@ import type { BattleSnapshot, EnemyState, CheckpointState } from './BattleState'
 import { obj, readBool, readInt, readNum } from './Checkpoint';
 
 export type MobKind = 'slime' | 'bat';
+export type WaveInventoryKind = GemKind | WaveItemKind;
+export const GEM_FREEZE_SECONDS: Record<GemKind, number> = { green: 2, blue: 4, violet: 6 };
+export const WAVE_ITEM_ORDER: WaveInventoryKind[] = ['heart', 'star', 'shield', 'bolt', 'green', 'blue', 'violet'];
+const GEM_ROLL: GemKind[] = ['green', 'green', 'green', 'green', 'green', 'blue', 'blue', 'blue', 'violet'];
 export interface WaveMonster {
   uid: number;
   kind: MobKind;
@@ -31,6 +35,8 @@ export interface WaveMonster {
   pushed: number; // 밀려난 뒤 멈춰 있는 시간(초)
   dead: boolean;
   big?: boolean; // 마지막 웨이브 대장 슬라임
+  bossHitsRemaining?: number;
+  bossHitsTotal?: number;
   danger?: boolean; // 곧 닿는다 — 씬이 낱말을 빨갛게 키워 예고한다
 }
 
@@ -82,13 +88,13 @@ export const WAVE = {
   dropChance: 0.35, // 처치 시 아이템 드롭 확률
   // 아이템 6종: coin·gem·star(점수) / heart(HP) / shield(다음 접촉 무효) / bolt(3초 적 이동 절반)
   drops: [
-    { item: 'coin', score: 30, w: 6 },
-    { item: 'gem', score: 80, w: 3 },
+    { item: 'coin', score: 30, coins: 3, w: 6 },
+    { item: 'gem', score: 80, coins: 5, w: 3 },
     { item: 'star', score: 150, w: 1 },
     { item: 'heart', score: 0, w: 2 },
     { item: 'shield', score: 0, w: 1 },
     { item: 'bolt', score: 0, w: 1 },
-  ] as { item: string; score: number; w: number }[],
+  ] as { item: string; score: number; coins?: number; w: number }[],
   boltSec: 3,
   dodgeScore: 30, // 점프/앉기 회피 성공 보너스
   jumpSec: 0.42, // Player.jump 의 착지 시간과 같게 — 키를 눌러도 이 시간이 지나면 회피 판정이 끝난다
@@ -96,6 +102,7 @@ export const WAVE = {
   // 웨이브별 구성 [슬라임, 박쥐]. 마지막 웨이브의 마지막 한 마리는 대장 슬라임으로 교체된다
   mix: [[5, 0], [4, 1], [3, 2], [2, 3], [2, 3], [1, 4]] as [number, number][], // 6웨이브 × 5마리 = total. 웨이브가 갈수록 빠른 박쥐 비중 ↑
   bossHpMul: 2,
+  bossWordHits: 5,
   bossScaleMul: 1.8,
   bossSpeedMul: 0.55,
 };
@@ -134,6 +141,9 @@ export class WaveSystem {
   /** 아이템: 방패(다음 접촉 무효) 남은 횟수, 번개(적 이동 절반) 남은 시간(초) */
   itemShieldCharges = 0;
   itemSlowLeft = 0;
+  freezeLeft = 0;
+  gems: GemInventory = { green: 0, blue: 0, violet: 0 };
+  items: WaveItemInventory = { heart: 0, star: 0, shield: 0, bolt: 0 };
   /** 접촉 피해 뒤 무적 남은 시간(초) · 기운내기를 이미 썼는지 */
   invulnLeft = 0;
   rallyUsed = false;
@@ -173,6 +183,24 @@ export class WaveSystem {
   get target(): WaveMonster | undefined {
     return this.monsters.find((m) => m.uid === this.targetUid && !m.dead);
   }
+
+  /** 입력한 접두어와 맞는 화면 속 몬스터를 선택한다. 순서와 무관하게 어떤 낱말이든 공격할 수 있다. */
+  selectByInput(value: string): ContentUnit | null {
+    const typed = value.normalize('NFC').trim();
+    if (!typed) return this.target?.word ?? null;
+    const candidates = this.monsters
+      .filter((m) => !m.dead && m.word.text.normalize('NFC').startsWith(typed))
+      .sort((a, b) => b.x - a.x);
+    const selected = candidates.find((m) => m.word.text.normalize('NFC') === typed)
+      ?? candidates.find((m) => m.uid === this.targetUid)
+      ?? candidates[0];
+    if (!selected) return this.target?.word ?? null;
+    if (selected.uid !== this.targetUid) {
+      this.targetUid = selected.uid;
+      this.run.focus(selected.word);
+    }
+    return selected.word;
+  }
   get wave(): number {
     return Math.min(WAVE.mix.length, Math.floor(Math.max(0, this.spawned - 1) / WAVE.perWave) + 1);
   }
@@ -191,8 +219,60 @@ export class WaveSystem {
     if (!this.finished) this.running = true;
   }
 
+  loadGemInventory(gems?: Partial<GemInventory>) {
+    this.gems = {
+      green: Math.max(0, Math.floor(gems?.green ?? 0)),
+      blue: Math.max(0, Math.floor(gems?.blue ?? 0)),
+      violet: Math.max(0, Math.floor(gems?.violet ?? 0)),
+    };
+  }
+
+  loadItemInventory(items?: Partial<WaveItemInventory>) {
+    this.items = {
+      heart: Math.max(0, Math.floor(items?.heart ?? 0)),
+      star: Math.max(0, Math.floor(items?.star ?? 0)),
+      shield: Math.max(0, Math.floor(items?.shield ?? 0)),
+      bolt: Math.max(0, Math.floor(items?.bolt ?? 0)),
+    };
+  }
+
+  useGem(kind: GemKind): boolean {
+    if (!this.running || this.finished || this.gems[kind] <= 0 || this.freezeLeft > 0) return false;
+    this.gems[kind]--;
+    const seconds = GEM_FREEZE_SECONDS[kind];
+    this.freezeLeft = Math.max(this.freezeLeft, seconds);
+    this.emit('GEM_USED', { kind, seconds, inventory: { ...this.gems } });
+    this.emit('HUD_TICK', this.snapshot());
+    return true;
+  }
+
+  /** 인벤토리에서 선택한 아이템을 사용한다. 보석은 강도별 시간 정지로 위임한다. */
+  useItem(kind: WaveInventoryKind): boolean {
+    if (kind === 'green' || kind === 'blue' || kind === 'violet') return this.useGem(kind);
+    if (!this.running || this.finished || this.items[kind] <= 0) return false;
+    if (kind === 'heart' && this.playerHp >= this.playerMaxHp) return false;
+    if (kind === 'shield' && this.itemShieldCharges >= 9) return false;
+    if (kind === 'bolt' && this.itemSlowLeft > 0) return false;
+    this.items[kind]--;
+    if (kind === 'heart') this.applyHp(RULES.itemHeartHp);
+    else if (kind === 'star') this.score += 150;
+    else if (kind === 'shield') this.itemShieldCharges++;
+    else if (kind === 'bolt') this.itemSlowLeft = Math.max(this.itemSlowLeft, WAVE.boltSec);
+    this.emit('ITEM_APPLIED', { item: kind });
+    this.emit('ITEM_USED', { item: kind, inventory: { ...this.items } });
+    this.emit('HUD_TICK', this.snapshot());
+    return true;
+  }
+
+  inventoryCount(kind: WaveInventoryKind): number {
+    return kind === 'green' || kind === 'blue' || kind === 'violet' ? this.gems[kind] : this.items[kind];
+  }
+
   private nextWord(kind: MobKind): ContentUnit {
-    const pool = this.words[kind];
+    // 대장 전용 낱말은 일반 박쥐에게 미리 배정하지 않는다. 같은 낱말이 겹치면
+    // 자유 선택 입력이 아직 화면 밖/다른 순서의 대장을 먼저 때릴 수 있다.
+    const regular = this.words[kind].filter((u) => !u.tags.includes('대장'));
+    const pool = regular.length ? regular : this.words[kind];
     let u = pool[this.wordCursor[kind]++ % pool.length];
     // 풀이 작아 모든 낱말이 등장한 경우에도 재귀가 끝없이 반복되지 않는다.
     for (let attempt = 1; attempt < pool.length && this.monsters.some((m) => !m.dead && m.word.text === u.text); attempt++) {
@@ -216,7 +296,7 @@ export class WaveSystem {
     const effKind: MobKind = isBoss ? 'slime' : kind;
     const word = isBoss ? this.bossWord() : this.nextWord(effKind);
     const syl = [...word.text].filter((c) => c.trim()).length;
-    const hp = syl * (isBoss ? WAVE.bossHpMul : 1);
+    const hp = syl;
     const m: WaveMonster = {
       uid: ++this.uidSeq,
       kind: effKind,
@@ -230,6 +310,8 @@ export class WaveSystem {
       pushed: 0,
       dead: false,
       big: isBoss,
+      bossHitsRemaining: isBoss ? WAVE.bossWordHits : undefined,
+      bossHitsTotal: isBoss ? WAVE.bossWordHits : undefined,
     };
     this.monsters.push(m);
     this.spawnTimer = this.nextSpawnDelay();
@@ -285,7 +367,8 @@ export class WaveSystem {
     }
     // 이동·접촉
     if (this.itemSlowLeft > 0) this.itemSlowLeft = Math.max(0, this.itemSlowLeft - dt);
-    const slowMul = this.itemSlowLeft > 0 ? 0.5 : 1;
+    if (this.freezeLeft > 0) this.freezeLeft = Math.max(0, this.freezeLeft - dt);
+    const slowMul = this.freezeLeft > 0 ? 0 : this.itemSlowLeft > 0 ? 0.5 : 1;
     for (const m of this.monsters) {
       if (m.dead) continue;
       if (m.pushed > 0) {
@@ -406,6 +489,7 @@ export class WaveSystem {
   /** 확정 문자열 변화 → 목표 몬스터 음절 타격 */
   commit(value: string) {
     if (!this.running || this.finished) return;
+    this.selectByInput(value);
     const t = this.target;
     if (!t) return;
     const { newHits } = this.run.onCommit(value);
@@ -432,6 +516,7 @@ export class WaveSystem {
 
   submit(value: string, usedBackspace: boolean) {
     if (!this.running || this.finished) return;
+    this.selectByInput(value);
     const t = this.target;
     if (!t) return;
     const r = this.run.submit(value, usedBackspace);
@@ -457,12 +542,20 @@ export class WaveSystem {
       this.timeLeft += RULES.heartTime;
     }
     if (r.petActive === 'time_plus') this.timeLeft += RULES.petTimePlus;
+    if (t.big) t.bossHitsRemaining = Math.max(0, (t.bossHitsRemaining ?? WAVE.bossWordHits) - 1);
     this.emit('INPUT_CORRECT', { target: t.word, perfect: r.perfect, corrected: r.corrected, damage: t.maxHp, gained: 0, combo, mult: r.mult, variant: r.variant, snapshot: this.snapshot() });
+    if (t.big && (t.bossHitsRemaining ?? 0) > 0) {
+      t.hp = t.maxHp;
+      this.emit('WAVE_BOSS_HIT', { uid: t.uid, remaining: t.bossHitsRemaining, total: t.bossHitsTotal });
+      this.run.focus(t.word);
+      this.emit('TARGET_CHANGED', this.snapshot());
+      return;
+    }
     this.kill(t, false);
     const sweep = combo > 0 && combo % WAVE.sweepEvery === 0;
     if (r.feverEntered || r.petActive === 'fire_aoe' || sweep) {
       let count = 0;
-      for (const m of this.monsters) if (!m.dead) { this.kill(m, true); count++; }
+      for (const m of this.monsters) if (!m.dead && !m.big) { this.kill(m, true); count++; }
       if (sweep) this.emit('WAVE_SWEEP', { combo, count });
     }
     if (this.finished) return;
@@ -481,12 +574,22 @@ export class WaveSystem {
       const total = WAVE.drops.reduce((a, d) => a + d.w, 0);
       let r = Math.random() * total;
       const d = WAVE.drops.find((x) => (r -= x.w) < 0) ?? WAVE.drops[0];
-      this.score += d.score;
-      if (d.item === 'heart') this.playerHp = Math.min(this.playerMaxHp, this.playerHp + RULES.itemHeartHp);
-      else if (d.item === 'shield') this.itemShieldCharges++;
-      else if (d.item === 'bolt') this.itemSlowLeft = WAVE.boltSec;
-      this.emit('ITEM_DROP', { uid: m.uid, item: d.item, score: d.score });
-      if (d.item === 'heart' || d.item === 'shield' || d.item === 'bolt') this.emit('ITEM_APPLIED', { item: d.item });
+      // 별은 주운 순간이 아니라 인벤토리에서 사용할 때 점수로 바뀐다.
+      const pickupScore = d.item === 'star' ? 0 : d.score;
+      this.score += pickupScore;
+      if (d.coins) this.run.coins += d.coins;
+      let gemKind: GemKind | undefined;
+      if (d.item === 'gem') {
+        gemKind = GEM_ROLL[Math.floor(Math.random() * GEM_ROLL.length)];
+        this.gems[gemKind]++;
+        this.emit('GEM_COLLECTED', { kind: gemKind, seconds: GEM_FREEZE_SECONDS[gemKind], inventory: { ...this.gems } });
+      }
+      if (d.item === 'heart' || d.item === 'star' || d.item === 'shield' || d.item === 'bolt') {
+        const item = d.item as WaveItemKind;
+        this.items[item]++;
+        this.emit('ITEM_COLLECTED', { item, inventory: { ...this.items } });
+      }
+      this.emit('ITEM_DROP', { uid: m.uid, item: d.item, score: pickupScore, coins: d.coins ?? 0, gemKind });
     }
     if (this.defeated >= WAVE.total) this.clear();
   }
@@ -518,7 +621,8 @@ export class WaveSystem {
   serialize(): CheckpointState {
     return {
       defeated: this.defeated, spawned: this.spawned, playerHp: this.playerHp, timeLeft: this.timeLeft, score: this.score,
-      rallyUsed: this.rallyUsed, itemShieldCharges: this.itemShieldCharges, elapsed: this.elapsed, paceSec: this.paceSec,
+      rallyUsed: this.rallyUsed, itemShieldCharges: this.itemShieldCharges, itemSlowLeft: this.itemSlowLeft, freezeLeft: this.freezeLeft,
+      gems: { ...this.gems }, items: { ...this.items }, elapsed: this.elapsed, paceSec: this.paceSec,
       run: this.run.serializeCounters(),
     };
   }
@@ -542,6 +646,21 @@ export class WaveSystem {
     this.score = readInt(s.score, 0, 0, 1e7);
     this.rallyUsed = readBool(s.rallyUsed, false);
     this.itemShieldCharges = readInt(s.itemShieldCharges, 0, 0, 9);
+    this.itemSlowLeft = readNum(s.itemSlowLeft, 0, 0, WAVE.boltSec);
+    this.freezeLeft = readNum(s.freezeLeft, 0, 0, GEM_FREEZE_SECONDS.violet);
+    const gems = obj(s.gems);
+    this.loadGemInventory({
+      green: readInt(gems.green, this.gems.green, 0, 999),
+      blue: readInt(gems.blue, this.gems.blue, 0, 999),
+      violet: readInt(gems.violet, this.gems.violet, 0, 999),
+    });
+    const items = obj(s.items);
+    this.loadItemInventory({
+      heart: readInt(items.heart, this.items.heart, 0, 999),
+      star: readInt(items.star, this.items.star, 0, 999),
+      shield: readInt(items.shield, this.items.shield, 0, 999),
+      bolt: readInt(items.bolt, this.items.bolt, 0, 999),
+    });
     this.elapsed = readNum(s.elapsed, 0, 0, 86400);
     this.lastResolveAt = this.elapsed;
     this.paceSec = readNum(s.paceSec, WAVE.warmupInterval, WAVE.paceMin, WAVE.paceMax);
@@ -578,6 +697,9 @@ export class WaveSystem {
       bombLeft: r.bombLeft(),
       shielded: r.isShielded(),
       coins: r.coins,
+      gems: { ...this.gems },
+      items: { ...this.items },
+      freezeLeft: this.freezeLeft,
       nextHint: null,
       wave: this.wave,
       monsters: this.monsters,

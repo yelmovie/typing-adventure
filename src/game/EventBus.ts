@@ -29,6 +29,8 @@ export const Events = {
   SKIP: 'SKIP', // 점프로 낱말 건너뜀 { left, target }
   WAVE_SWEEP: 'WAVE_SWEEP', // 5콤보마다 화면의 적 전부 소탕 { combo, count }
   ITEM_DROP: 'ITEM_DROP', // 처치한 몬스터가 떨어뜨린 아이템 { uid, item, score }
+  ITEM_COLLECTED: 'ITEM_COLLECTED', // 인벤토리에 쌓인 사용형 아이템 { item, inventory }
+  ITEM_USED: 'ITEM_USED', // F1/버튼으로 사용한 아이템 { item, inventory }
   ITEM_APPLIED: 'ITEM_APPLIED', // 아이템 효과 발동(방패·번개 등) { item }
   BOMB_EXPLODE: 'BOMB_EXPLODE', // 폭탄 단어 시간 초과
   VARIANT_BONUS: 'VARIANT_BONUS', // 보물/하트 획득 { variant, ... }
@@ -43,10 +45,13 @@ export const Events = {
   WAVE_SPAWN: 'WAVE_SPAWN',
   WAVE_TICK: 'WAVE_TICK',
   WAVE_HIT: 'WAVE_HIT',
+  WAVE_BOSS_HIT: 'WAVE_BOSS_HIT',
   WAVE_DEFEAT: 'WAVE_DEFEAT',
   WAVE_TOUCH: 'WAVE_TOUCH',
   WAVE_PUSH: 'WAVE_PUSH',
   WAVE_GATE: 'WAVE_GATE',
+  GEM_COLLECTED: 'GEM_COLLECTED',
+  GEM_USED: 'GEM_USED',
   // 스테이지 2 레이스
   RACE_TICK: 'RACE_TICK',
   RACE_CAUGHT: 'RACE_CAUGHT',

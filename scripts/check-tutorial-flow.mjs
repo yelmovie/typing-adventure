@@ -48,7 +48,7 @@ try {
       assert.ok(await page.locator('.tutorial-keyboard .key.hand-left').count() >= 5);
       assert.ok(await page.locator('.tutorial-keyboard .key.hand-right').count() >= 5);
       assert.equal(await page.locator('.tutorial-keyboard .key[data-key="Space"]').getAttribute('data-hand'), 'both');
-      assert.equal(await page.locator('.tutorial-keyboard .kbd-hands-shadow').count(), 1, 'Practice alone renders the hand shadow');
+      assert.equal(await page.locator('.tutorial-keyboard .kbd-hands-shadow').count(), 0, 'Practice does not render a hand shadow image');
       assert.equal(await page.locator('.tutorial-keyboard .kbd-fingertip-marker').count(), 1, 'Next-key marker sits on the practice keyboard');
       assert.equal(await page.locator('.tutorial-skip').count(), 0, 'Standalone practice has no stage skip control');
       const keyboardFit = await page.locator('.tutorial-keyboard').evaluate(el => ({ x: el.scrollWidth - el.clientWidth, y: el.scrollHeight - el.clientHeight }));
@@ -75,6 +75,7 @@ try {
         await page.waitForTimeout(100);
         assert.equal(await page.locator('.tutorial-target span').first().getAttribute('data-stability-probe'), 'kept', 'Long-form input reuses target nodes');
         assert.equal(await page.locator('.tutorial-target span').count(), [...storyTarget].length, 'Long-form input keeps every target character');
+        await page.screenshot({ path: `${OUT}/${language}-${width}-story-follow.png` });
         await page.locator('.tutorial-leave').click();
         await settled();
       }

@@ -143,6 +143,12 @@ export class TypingSystem {
     this.cb.onChange?.('', false);
   }
 
+  /** 입력값을 지우지 않고 허용 목표만 바꾼다(화면에 여러 낱말이 있는 웨이브용). */
+  retarget(target: string, mode: 'word' | 'sentence' = this.mode) {
+    this.target = target.normalize('NFC');
+    this.mode = mode;
+  }
+
   setEnabled(v: boolean) {
     this.enabled = v;
     this.input.disabled = !v;

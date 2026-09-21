@@ -25,7 +25,7 @@ export function createOpeningPlayer(onFinished: () => void) {
   video.muted = true;
   video.defaultMuted = true;
   video.playsInline = true;
-  const status = h('p', { class: 'opening-status', role: 'status' }, text('8초 인트로 · 소리 없이 재생돼요.', '8-second intro · plays without sound.'));
+  const status = h('p', { class: 'opening-status', role: 'status' }, text('영상은 원할 때만 재생돼요. 홈은 뒤에서 준비 중이에요.', 'The intro only loads if you play it. Home is preparing in the background.'));
   const playback = h('button', { class: 'btn btn-sky btn-md opening-playback', type: 'button' }, text('영상 재생', 'Play intro'));
   const skip = h('button', { class: 'btn btn-gold btn-lg opening-skip', type: 'button' }, text('건너뛰기', 'Skip intro'));
   const panel = h('section', {
@@ -119,9 +119,7 @@ export function createOpeningPlayer(onFinished: () => void) {
       previousInert = background?.inert ?? false;
       if (background) background.inert = true;
       skip.focus();
-      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || document.hidden) {
-        status.textContent = text('원하면 영상을 재생하거나 바로 건너뛸 수 있어요.', 'Play the intro if you like, or skip straight to home.');
-      } else void play();
+      status.textContent = text('원하면 영상을 재생하거나 바로 건너뛸 수 있어요.', 'Play the intro if you like, or skip straight to home.');
     },
     dispose() {
       if (disposed) return;

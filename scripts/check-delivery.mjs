@@ -180,6 +180,7 @@ try {
   await home(page);
   await revealHomeOption(page, page.locator('.home-intro'));
   await page.locator('.home-intro').click();
+  await page.locator('.opening-playback').click();
   await page.waitForFunction(() => { const video = document.querySelector('.opening-video'); return video && video.currentTime > 0 && !video.paused && video.muted; });
   await page.screenshot({ path: `${OUT}/offline-opening-replay.png` });
   await page.locator('.opening-skip').click();
@@ -188,7 +189,8 @@ try {
   // Existing adventure fixtures do not enter the new setup-only automatic tutorial.
   // Verify the added rehearsal scene is also available after classroom preparation.
   await home(page);
-  await page.getByRole('button', { name: '연습 튜토리얼', exact: true }).click();
+  await revealHomeOption(page, page.locator('.home-tutorial'));
+  await page.locator('.home-tutorial').click();
   await page.waitForSelector('.screen.tutorial:not(.hidden)');
   await page.waitForFunction(() => !document.querySelector('#fade.on') && !document.getElementById('ui-stage')?.inert);
   await page.locator('.tutorial-part-card[data-part="consonants"]').click();

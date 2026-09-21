@@ -38,10 +38,6 @@ const start = () => {
   if (!runtime) {
     runtime = import('./runtime')
       .then(module => module.startRuntime(activated))
-      .then(() => {
-        // Finish offline preparation quietly once the home screen is idle. Never blocks the game.
-        void import('./game/systems/BackgroundPrecache').then(module => module.scheduleBackgroundPrecache()).catch(() => {});
-      })
       .catch((error) => { runtime = undefined; throw error; });
   }
   return runtime;

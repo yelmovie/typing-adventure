@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="316" height="82" viewBox="0 0 316 82">
+  <defs>
+    <filter id="shadow" x="-20%" y="-30%" width="140%" height="170%">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#07142d" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+  <g filter="url(#shadow)">
+    <rect x="4" y="4" width="145" height="70" rx="24" fill="#164b9b" stroke="#e6f5ff" stroke-width="4"/>
+    <rect x="167" y="4" width="145" height="70" rx="24" fill="#18806f" stroke="#e9fff3" stroke-width="4"/>
+  </g>
+  <text x="76.5" y="51" text-anchor="middle" fill="#ffffff" font-family="Malgun Gothic, Noto Sans KR, sans-serif" font-size="34" font-weight="800">실과</text>
+  <text x="239.5" y="51" text-anchor="middle" fill="#ffffff" font-family="Malgun Gothic, Noto Sans KR, sans-serif" font-size="34" font-weight="800">국어</text>
+</svg>

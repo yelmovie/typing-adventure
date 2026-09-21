@@ -30,27 +30,21 @@ const playing = page => page.waitForFunction(() => { const video = document.quer
 const enter = async page => { await page.goto(BASE, {waitUntil:'domcontentloaded',timeout:60000}); await page.waitForSelector('.opening-player'); const boxes = await page.locator('.opening-video').evaluate(video => { const a=video.getBoundingClientRect(), b=video.parentElement.getBoundingClientRect(); return {width:a.width, height:a.height, parentWidth:b.width, parentHeight:b.height, fit:getComputedStyle(video).objectFit}; }); assert.ok(Math.abs(boxes.width-boxes.parentWidth)<1 && Math.abs(boxes.height-boxes.parentHeight)<1, 'Opening video keeps the full player area'); assert.equal(boxes.fit,'contain'); };
 const closed = page => page.locator('.opening-player').waitFor({ state: 'detached' });
 try {
-  await run('opening first frame gates the heavy game runtime', async (page, _context, requests) => {
-    await page.addInitScript(() => {
-      const original = HTMLVideoElement.prototype.requestVideoFrameCallback;
-      HTMLVideoElement.prototype.requestVideoFrameCallback = function(callback) {
-        window.__releaseOpeningFrame = () => original.call(this, callback);
-        return 1;
-      };
-    });
+  await run('poster preloads the game runtime without fetching the optional video', async (page, _context, requests) => {
     await enter(page);
-    await page.waitForFunction(() => typeof window.__releaseOpeningFrame === 'function');
     // Production serves the phaser chunk as /assets/phaser-<hash>.js; the dev server pre-bundles it as /node_modules/.vite/deps/phaser.js?v=…
     const phaserRequested = () => requests.some(url => /\/phaser-[^/]+\.js(?:\?|$)/.test(url) || /\/node_modules\/\.vite\/deps\/phaser\.js(?:\?|$)/.test(url));
-    assert.equal(phaserRequested(), false, 'Phaser is not requested before the first video frame');
-    await page.evaluate(() => window.__releaseOpeningFrame());
     await page.waitForFunction(() => document.querySelector('#game-root canvas'));
-    assert.equal(phaserRequested(), true, 'The game runtime starts after the first video frame');
+    assert.equal(phaserRequested(), true, 'The game runtime prepares behind the poster');
+    assert.equal(requests.some(url => url.endsWith('/intro-v1.mp4')), false, 'The optional intro video is not fetched automatically');
     await page.locator('.opening-skip').click(); await closed(page);
     await page.locator('.home-menu').waitFor();
   });
-  await run('automatic muted playback, pause, resume, skip, tutorial return, replay', async page => {
-    await enter(page); await playing(page);
+  await run('opt-in muted playback, pause, resume, skip, tutorial return, replay', async page => {
+    await enter(page);
+    const initial = await page.locator('.opening-video').evaluate(v => ({ paused: v.paused, src: v.getAttribute('src') }));
+    assert.equal(initial.paused, true); assert.equal(initial.src, null);
+    await page.locator('.opening-playback').click(); await playing(page);
     const video = await page.locator('.opening-video').evaluate(v => ({ muted: v.muted, duration: v.duration, width: v.videoWidth, height: v.videoHeight, src: v.currentSrc }));
     assert.equal(video.muted, true); assert.ok(Math.abs(video.duration - 8) < 0.1); assert.equal(video.width, 1920); assert.equal(video.height, 1080); assert.ok(video.src.endsWith('/intro-v1.mp4'));
     await page.locator('.opening-playback').click(); assert.equal(await page.locator('.opening-video').evaluate(v => v.paused), true);
@@ -63,11 +57,13 @@ try {
     await page.locator('.tutorial-leave').click(); await page.waitForSelector('.home-menu');
     await page.locator('#ui-stage[aria-busy="true"]').waitFor({ state: 'detached' });
     assert.equal(await page.locator('.opening-player').count(), 0, 'Returning home does not force the intro again');
-    if (!await page.locator('.home-intro').isVisible()) await page.locator('.home-more > summary').click(); await page.locator('.home-intro').click(); await playing(page);
+    if (!await page.locator('.home-intro').isVisible()) await page.locator('.home-more > summary').click();
+    await page.locator('.home-intro').click();
+    await page.locator('.opening-playback').click(); await playing(page);
     await page.keyboard.press('Escape'); await closed(page);
   });
   await run('actual eight-second ending returns to home', async page => {
-    await enter(page); await playing(page); await closed(page);
+    await enter(page); await page.locator('.opening-playback').click(); await playing(page); await closed(page);
     assert.equal(await page.locator('.home-tutorial').isEnabled(), true);
     assert.equal(await page.locator('#ui-root').evaluate(el => el.inert), false);
   });
@@ -86,13 +82,15 @@ try {
   }, { viewport: { width: 915, height: 412 }, reducedMotion: 'reduce' });
   await run('autoplay rejection keeps manual control and skip', async page => {
     await enter(page);
-    await page.waitForFunction(() => document.querySelector('.opening-video')?.paused && !document.querySelector('.opening-skip')?.disabled);
+    await page.locator('.opening-playback').click();
+    await page.waitForFunction(() => document.querySelector('.opening-status')?.textContent.includes('영상 재생을 누르거나'));
     await page.locator('.opening-skip').click(); await closed(page);
     assert.equal(await page.locator('#ui-root').evaluate(el => el.inert), false);
   }, {}, () => { HTMLMediaElement.prototype.play = () => Promise.reject(new DOMException('Test autoplay denial', 'NotAllowedError')); });
   await run('video missing offers retry and a working exit to home', async (page, context) => {
     await context.route('**/intro-v1.mp4', route => route.abort());
     await enter(page);
+    await page.locator('.opening-playback').click();
     await page.waitForFunction(() => document.querySelector('.opening-status')?.textContent.includes('불러오지 못했어요'));
     assert.equal(await page.locator('.opening-playback').isEnabled(), true);
     await page.locator('.opening-skip').click(); await closed(page);
@@ -126,7 +124,5 @@ try {
   fs.writeFileSync(`${OUT}/results.json`, JSON.stringify(results, null, 2));
   await browser.close();
 }
-
-
 
 

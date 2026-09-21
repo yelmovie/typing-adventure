@@ -8,7 +8,6 @@ import { SaveSystem } from './SaveSystem';
 
 type SfxName = 'hit' | 'miss' | 'perfect' | 'click' | 'clear' | 'combo' | 'defeat' | 'hurt' | 'countdown' | 'go' | 'star' | 'tap' | 'fever' | 'coin' | 'bomb';
 
-const SFX_NAMES: SfxName[] = ['hit', 'miss', 'perfect', 'click', 'clear', 'combo', 'defeat', 'hurt', 'countdown', 'go', 'star', 'tap', 'fever', 'coin', 'bomb'];
 const sfxUrl = (n: SfxName) => `./assets/audio/sfx_${n}.ogg`;
 /** 기본 음량 (파일별 보정) */
 const SFX_GAIN: Partial<Record<SfxName, number>> = { tap: 0.55, click: 0.6, hit: 0.9, fever: 1, bomb: 1 };
@@ -32,7 +31,6 @@ class AudioManagerImpl {
   private ctx: AudioContext | null = null;
   private buffers = new Map<SfxName, AudioBuffer | null>(); // null = 로딩 중/없음
   private sfxBus: GainNode | null = null;
-  private preloaded = false;
   private bgmEl: HTMLAudioElement | null = null;
   private bgmName = '';
   private rate = 1;
@@ -59,10 +57,6 @@ class AudioManagerImpl {
     const c = this.ensureCtx();
     if (c && c.state === 'suspended') void c.resume();
     if (this.bgmOn && this.bgmPending && this.bgmEl) this.playBgmEl(this.bgmEl);
-    if (c && !this.preloaded) {
-      this.preloaded = true;
-      for (const n of SFX_NAMES) void this.loadSfx(n);
-    }
   }
 
   private bus(c: AudioContext): GainNode {

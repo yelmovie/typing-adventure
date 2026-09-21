@@ -4,9 +4,10 @@ import { SaveSystem } from '../../systems/SaveSystem';
 import { navigate } from '../../Game';
 import { getStage } from '../../data/stages';
 import { getCharacter, getPet, portraitUrl, profileDisplayName } from '../../data/characters';
-import type { StageId, ContentUnit } from '../../types';
+import type { StageId, ContentUnit, GemInventory, GemKind, WaveItemInventory, WaveItemKind } from '../../types';
 import type { BattleSnapshot, TypingMode } from '../../systems/BattleState';
 import { RaceSystem } from '../../systems/RaceSystem';
+import { GEM_FREEZE_SECONDS, WAVE_ITEM_ORDER, WaveSystem, type WaveInventoryKind } from '../../systems/WaveSystem';
 import { DailySystem, todayKey, type DailyKind } from '../../systems/DailySystem';
 import { allContent } from '../../data/content';
 import { currentTitle } from '../../data/titles';
@@ -31,6 +32,8 @@ import { applyDarkModifier, darkDifficulty, recordDarkClear } from '../../data/d
 import { type SpeedrunRun, startSpeedrun, nextStage as speedrunStep, stageNumber, totalSec, isComplete, finishSpeedrun, formatSpeedrunTime, readSpeedrunRun, SPEEDRUN_STAGES } from '../../systems/SpeedrunSystem';
 import { journeyFor } from '../../data/worldJourney';
 
+const copyText = (ko: string, en: string) => getLanguage() === 'en' ? en : ko;
+
 /** 전투 진입 옵션. speedrun 은 5지역 연속 타임어택(진행은 speedrunRun 으로 다음 지역에 넘긴다), dark 는 어둠 모드(뉴게임+). */
 export interface BattleData { stageId: StageId; dailyKind?: DailyKind; remix?: boolean; resume?: boolean; speedrun?: boolean; dark?: boolean; speedrunRun?: SpeedrunRun }
 
@@ -46,6 +49,10 @@ export class BattleScreen extends Screen<BattleData> {
   private kbdToggle?: HTMLElement;
   private bottom?: HTMLElement;
   private inputEl?: HTMLInputElement;
+  private gemBar?: HTMLElement;
+  private waveCoinValue?: HTMLElement;
+  private waveScoreValue?: HTMLElement;
+  private selectedItem: WaveInventoryKind = 'heart';
   private tickTimer = 0;
   private lastTick = 0;
   private handlers: [string, (...a: never[]) => void][] = [];
@@ -72,6 +79,11 @@ export class BattleScreen extends Screen<BattleData> {
   };
   private shortcutHandler = (event: KeyboardEvent) => {
     if (event.defaultPrevented) return;
+    if (event.key === 'F1' && this.battle instanceof WaveSystem) {
+      event.preventDefault();
+      if (!event.isComposing && !event.repeat && !this.paused && this.started) this.useSelectedItem();
+      return;
+    }
     const guideOpen = !!this.kbd?.el.classList.contains('show');
     if (event.key === 'Escape') {
       if (event.isComposing) return;
@@ -128,9 +140,20 @@ export class BattleScreen extends Screen<BattleData> {
       emit: (event, payload) => EventBus.emit(event, payload),
     });
     this.battle = build();
+    if (this.battle instanceof WaveSystem) {
+      this.battle.loadGemInventory(save.progress.gems);
+      this.battle.loadItemInventory(save.progress.items);
+    }
     if (resuming && checkpoint) {
       try { this.battle.restore?.(checkpoint.state); }
-      catch { this.battle = build(); SaveSystem.clearCheckpoint(); } // 손상된 저장은 버리고 새로 시작한다
+      catch {
+        this.battle = build();
+        if (this.battle instanceof WaveSystem) {
+          this.battle.loadGemInventory(save.progress.gems);
+          this.battle.loadItemInventory(save.progress.items);
+        }
+        SaveSystem.clearCheckpoint();
+      } // 손상된 저장은 버리고 새로 시작한다
     }
     if (import.meta.env.DEV) Object.assign(window as unknown as Record<string, unknown>, { __battle: this.battle, __speedrun: this.speedrun ?? null, __dark: this.dark }); // 개발용 콘솔 접근
     this.hud = new HudController({
@@ -172,6 +195,9 @@ export class BattleScreen extends Screen<BattleData> {
     }) as HTMLInputElement;
 
     this.kbdToggle = h('button', { class: 'btn btn-sm btn-gray bb-kbd-toggle', onclick: () => this.setKbdVisible(!this.kbd?.el.classList.contains('show')) }, save.settings.showKeyboardGuide ? this.copy.hideGuide : this.copy.showGuide);
+    this.waveCoinValue = undefined;
+    this.waveScoreValue = undefined;
+    this.gemBar = this.battle instanceof WaveSystem ? this.createGemBar(this.battle) : undefined;
 
     this.bottom = h(
       'div',
@@ -189,6 +215,7 @@ export class BattleScreen extends Screen<BattleData> {
         ),
         h('div', { class: 'bb-target-row' }, this.hud.targetEl, this.hud.variantEl),
         this.hud.hintEl,
+        this.gemBar,
         h('div', { class: 'bb-input-wrap' }, this.inputEl, h('span', { class: 'bb-input-hint' }, icon('key_enter')), this.hud.skipBtn),
       ),
     );
@@ -247,6 +274,34 @@ export class BattleScreen extends Screen<BattleData> {
     this.bind(Events.RACE_CAUGHT, (d: { catches: number; max: number }) => { this.feedback?.flash('wrong'); this.feedback?.judge(this.copy.caught(d.catches, d.max), 'miss'); });
     this.bind(Events.RACE_FINISH, (d: { beatGhost: boolean }) => this.feedback?.judge(d.beatGhost ? this.copy.beatGhost : this.copy.raceFinished, 'fever'));
     this.bind(Events.WAVE_TOUCH, (d: { hpLoss: number }) => { if (d.hpLoss > 0) this.feedback?.flash('wrong'); });
+    this.bind(Events.WAVE_BOSS_HIT, (d: { remaining: number; total: number }) => {
+      this.feedback?.judge(copyText(`대왕 슬라임 · 남은 타격 ${d.remaining}/${d.total}`, `King Slime · ${d.remaining}/${d.total} hits left`), 'fever');
+    });
+    this.bind(Events.ITEM_DROP, (d: { coins?: number }) => {
+      if ((d.coins ?? 0) > 0 && this.waveCoinValue) {
+        this.feedback?.judge(copyText(`동전 +${d.coins} · 결과에 저장돼요`, `Coins +${d.coins} · saved in results`), 'bonus');
+        this.feedback?.reward('coin', d.coins!, this.waveCoinValue);
+      }
+      this.refreshGemBar();
+    });
+    this.bind(Events.GEM_COLLECTED, (d: { kind: GemKind; seconds: number; inventory: GemInventory }) => {
+      this.persistGems(d.inventory);
+      this.feedback?.judge(copyText(`${this.gemName(d.kind)} 획득 · 적 ${d.seconds}초 정지`, `${this.gemName(d.kind)} gained · freezes for ${d.seconds}s`), 'bonus');
+    });
+    this.bind(Events.GEM_USED, (d: { kind: GemKind; seconds: number; inventory: GemInventory }) => {
+      this.persistGems(d.inventory);
+      this.scheduleCheckpoint();
+      this.feedback?.judge(copyText(`${this.gemName(d.kind)} 사용 · ${d.seconds}초 정지!`, `${this.gemName(d.kind)} used · frozen for ${d.seconds}s!`), 'fever');
+    });
+    this.bind(Events.ITEM_COLLECTED, (d: { item: WaveItemKind; inventory: WaveItemInventory }) => {
+      this.persistItems(d.inventory);
+      this.feedback?.judge(copyText(`${this.itemName(d.item)} 획득 · 인벤토리에 보관`, `${this.itemName(d.item)} collected · stored in inventory`), 'bonus');
+    });
+    this.bind(Events.ITEM_USED, (d: { item: WaveItemKind; inventory: WaveItemInventory }) => {
+      this.persistItems(d.inventory);
+      this.scheduleCheckpoint();
+      this.feedback?.judge(this.itemUsedCopy(d.item), d.item === 'star' ? 'bonus' : 'good');
+    });
     this.bind(Events.HP_HEAL, (d: { amount: number }) => {
       if (d.amount > 0 && this.hud) this.feedback?.reward('heart', d.amount, this.hud.rewardTarget('heart'));
     });
@@ -393,6 +448,13 @@ export class BattleScreen extends Screen<BattleData> {
 
   private onInputChange(value: string, composing: boolean) {
     if (!this.currentTarget) return;
+    if (this.battle instanceof WaveSystem && value.trim()) {
+      const selected = this.battle.selectByInput(value);
+      if (selected && selected !== this.currentTarget) {
+        this.currentTarget = selected;
+        this.typing?.retarget(selected.text, 'word');
+      }
+    }
     this.hud?.renderTarget(this.currentTarget.text, value);
     this.kbd?.update(this.currentTarget.text, value);
     // 조합 중이어도 '틀림' 판정은 하지 않는다. 색상 힌트만 접두어 기준으로 표시.
@@ -417,8 +479,110 @@ export class BattleScreen extends Screen<BattleData> {
 
   private updateHud(snapshot: BattleSnapshot) {
     this.hud?.update(snapshot);
+    this.refreshGemBar(snapshot);
     const hpPct = snapshot.playerHp / Math.max(1, snapshot.playerMaxHp);
     this.el.classList.toggle('low-health', hpPct <= 0.3 && !this.battle?.finished);
+  }
+
+  private createGemBar(wave: WaveSystem) {
+    this.waveCoinValue = h('strong', { class: 'wave-coin-value' }, '0');
+    this.waveScoreValue = h('strong', { class: 'wave-score-value' }, '0');
+    const en = getLanguage() === 'en';
+    const slots = h('div', { class: 'wave-item-bank', role: 'group', 'aria-label': en ? 'Collected items' : '모은 아이템' },
+      h('b', { class: 'wave-inventory-title' }, en ? 'ITEMS' : '아이템'),
+      WAVE_ITEM_ORDER.map(kind => h('button', {
+        type: 'button', class: `wave-item-slot ${kind}`, 'data-item': kind, 'aria-pressed': 'false',
+        title: this.itemEffect(kind),
+        onclick: () => { this.selectedItem = kind; this.refreshGemBar(); this.typing?.focus(); },
+      }, kind === 'green' || kind === 'blue' || kind === 'violet'
+        ? h('span', { class: 'wave-gem-stone', 'aria-hidden': 'true' }, '◆')
+        : h('img', { src: `./assets/ui/drop_${kind}.webp`, alt: '', draggable: 'false' }),
+      h('strong', { 'data-item-count': kind }, `×${wave.inventoryCount(kind)}`))));
+    return h('div', { class: 'wave-inventory', 'aria-label': en ? 'Item inventory' : '아이템 인벤토리' },
+      slots,
+      h('button', { type: 'button', class: 'wave-use-item btn btn-sm btn-gold', onclick: () => this.useSelectedItem() }, h('kbd', {}, 'F1'), en ? ' Use' : ' 사용'),
+      h('span', { class: 'wave-freeze', 'aria-live': 'polite' }),
+      h('div', { class: 'wave-economy' },
+        h('span', { class: 'wave-score' }, icon('trophy'), en ? ' Score ' : ' 점수 ', this.waveScoreValue),
+        h('span', { class: 'wave-coin' }, icon('coin'), en ? ' Coins ' : ' 동전 ', this.waveCoinValue)));
+  }
+
+  private gemName(kind: GemKind) {
+    const names = getLanguage() === 'en'
+      ? { green: 'Green', blue: 'Blue', violet: 'Violet' }
+      : { green: '초록', blue: '파랑', violet: '보라' };
+    return names[kind];
+  }
+
+  private persistGems(inventory: GemInventory) {
+    SaveSystem.get().progress.gems = { ...inventory };
+    SaveSystem.save();
+    this.refreshGemBar();
+  }
+
+  private persistItems(inventory: WaveItemInventory) {
+    SaveSystem.get().progress.items = { ...inventory };
+    SaveSystem.save();
+    this.refreshGemBar();
+  }
+
+  private useSelectedItem() {
+    if (!(this.battle instanceof WaveSystem) || !this.gemBar) return;
+    const button = this.gemBar.querySelector<HTMLElement>(`[data-item="${this.selectedItem}"]`);
+    if (!this.battle.useItem(this.selectedItem)) {
+      if (button) this.feedback?.reject(button);
+      this.feedback?.judge(copyText('지금은 이 아이템을 쓸 수 없어', 'This item cannot be used right now'), 'miss');
+    }
+    this.refreshGemBar();
+    this.typing?.focus();
+  }
+
+  private itemName(kind: WaveInventoryKind) {
+    const ko: Record<WaveInventoryKind, string> = { heart: '하트', star: '별', shield: '방패', bolt: '번개', green: '초록 보석', blue: '파랑 보석', violet: '보라 보석' };
+    const en: Record<WaveInventoryKind, string> = { heart: 'Heart', star: 'Star', shield: 'Shield', bolt: 'Lightning', green: 'Green gem', blue: 'Blue gem', violet: 'Violet gem' };
+    return (getLanguage() === 'en' ? en : ko)[kind];
+  }
+
+  private itemEffect(kind: WaveInventoryKind) {
+    if (kind === 'green' || kind === 'blue' || kind === 'violet') return copyText(`${this.itemName(kind)} · 적 ${GEM_FREEZE_SECONDS[kind]}초 정지`, `${this.itemName(kind)} · freeze ${GEM_FREEZE_SECONDS[kind]}s`);
+    const ko: Record<WaveItemKind, string> = { heart: '하트 · 체력 20 회복', star: '별 · 점수 150점', shield: '방패 · 다음 접촉 1회 방어', bolt: '번개 · 적 3초 감속' };
+    const en: Record<WaveItemKind, string> = { heart: 'Heart · restore 20 HP', star: 'Star · add 150 score', shield: 'Shield · block one hit', bolt: 'Lightning · slow enemies for 3s' };
+    return (getLanguage() === 'en' ? en : ko)[kind];
+  }
+
+  private itemUsedCopy(kind: WaveItemKind) {
+    const ko: Record<WaveItemKind, string> = { heart: '하트 사용 · 체력 +20', star: '별 사용 · 점수 +150', shield: '방패 사용 · 다음 공격 방어!', bolt: '번개 사용 · 적 3초 감속!' };
+    const en: Record<WaveItemKind, string> = { heart: 'Heart used · HP +20', star: 'Star used · score +150', shield: 'Shield used · next hit blocked!', bolt: 'Lightning used · enemies slowed for 3s!' };
+    return (getLanguage() === 'en' ? en : ko)[kind];
+  }
+
+  private refreshGemBar(snapshot?: BattleSnapshot) {
+    if (!(this.battle instanceof WaveSystem) || !this.gemBar) return;
+    const wave = this.battle;
+    if (wave.inventoryCount(this.selectedItem) <= 0) {
+      this.selectedItem = WAVE_ITEM_ORDER.find(kind => wave.inventoryCount(kind) > 0) ?? this.selectedItem;
+    }
+    for (const kind of WAVE_ITEM_ORDER) {
+      const button = this.gemBar.querySelector<HTMLButtonElement>(`[data-item="${kind}"]`);
+      const count = this.gemBar.querySelector<HTMLElement>(`[data-item-count="${kind}"]`);
+      const amount = wave.inventoryCount(kind);
+      if (count) count.textContent = `×${amount}`;
+      if (button) {
+        button.disabled = amount <= 0 || !this.started || this.paused;
+        button.classList.toggle('selected', kind === this.selectedItem);
+        button.setAttribute('aria-pressed', String(kind === this.selectedItem));
+        button.setAttribute('aria-label', `${this.itemName(kind)} · ${this.itemEffect(kind)} · ${amount}${getLanguage() === 'en' ? ' owned' : '개 보유'}`);
+      }
+    }
+    const use = this.gemBar.querySelector<HTMLButtonElement>('.wave-use-item');
+    if (use) use.disabled = wave.inventoryCount(this.selectedItem) <= 0 || !this.started || this.paused;
+    if (this.waveCoinValue) this.waveCoinValue.textContent = String(wave.run.coins);
+    if (this.waveScoreValue) this.waveScoreValue.textContent = fmt.int(snapshot?.score ?? wave.score);
+    const freeze = this.gemBar.querySelector<HTMLElement>('.wave-freeze');
+    const left = snapshot?.freezeLeft ?? wave.freezeLeft;
+    if (freeze) freeze.textContent = left > 0
+      ? copyText(`❄ ${left.toFixed(1)}초`, `❄ ${left.toFixed(1)}s`)
+      : copyText(`선택: ${this.itemName(this.selectedItem)}`, `Selected: ${this.itemName(this.selectedItem)}`);
   }
 
   /** FEVER 단계 변화: 배경 밝아짐 + BGM 템포업 + 판정 문구 */

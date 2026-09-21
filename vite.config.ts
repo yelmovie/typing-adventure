@@ -115,21 +115,16 @@ export default defineConfig({
         // Keep the first screen and its short opening usable after the local preview
         // server is restarted. Later stages remain opt-in through classroom preparation.
         globPatterns: [
-          '**/*.{js,css,html,webmanifest}',
+          'index.html',
+          'manifest.webmanifest',
+          'assets/index-*.js',
+          'assets/index-*.css',
           'classroom-manifest.json',
           'icons/*.png',
           'assets/ui/logo.webp',
-          // Fonts and home icons are requested before the service worker controls the
-          // page, so the first offline reload needs them precached rather than runtime-cached.
-          'fonts/*.woff2',
-          'assets/ui/icon_*.webp',
-          'assets/portraits/char_*.webp',
-          'assets/backgrounds/bg_main_gate.webp',
-          'assets/backgrounds/bg_main_gate_blur.webp',
-          'assets/video/intro-v1.mp4',
+          // Unicode-range fonts are runtime-cached per glyph subset. Precaching every
+          // Korean subset would add more than 4 MB and 200 requests to first install.
           'assets/video/intro-poster-v1.webp',
-          'assets/sprites/*_home.{webp,json}',
-          'assets/audio/sfx_*.ogg',
         ],
         globIgnores: ['**/assets/og/**'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
