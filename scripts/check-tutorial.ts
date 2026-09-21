@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { TutorialSystem } from '../src/game/systems/TutorialSystem';
+import { practiceAccuracy, practiceCpm, practiceStrokeErrors, TutorialSystem } from '../src/game/systems/TutorialSystem';
 import { defaultSave, validateSave } from '../src/game/systems/SaveValidation';
 import { practiceReady, stagePracticeParts, PRACTICE_PARTS } from '../src/game/systems/StagePracticeRules';
 import { nextKeyHint } from '../src/game/util/hangul';
@@ -34,7 +34,12 @@ for (const language of ['ko', 'en'] as const) {
     assert.equal(single.next(), false);
   }
 }
-assert.deepEqual(new TutorialSystem('ko').steps.map(s => s.targets.length), [19, 21, 5, 4]);
+assert.deepEqual(new TutorialSystem('ko').steps.map(s => s.targets.length), [19, 21, 50, 3]);
+assert.equal(new Set(new TutorialSystem('ko', ['sentences']).step.targets).size, 50, 'World practice sentences stay unique');
+assert.equal(practiceCpm(0, '학교', '학', 30_000), 6, 'CPM counts actual 2-beolsik strokes during IME composition');
+assert.equal(practiceStrokeErrors('학교', '학겨'), 1, 'Only entered mismatched strokes count as errors');
+assert.equal(practiceAccuracy(9, 1), 90);
+assert.equal(practiceAccuracy(0, 0), 100);
 assert.deepEqual(nextKeyHint('ㅙ', 'ㅗ'), { type: 'key', stroke: { key: 'ㅐ', shift: false } });
 assert.deepEqual(nextKeyHint('ㄲ', ''), { type: 'key', stroke: { key: 'ㄱ', shift: true } });
 for (const [index, part] of PRACTICE_PARTS.entries()) assert.deepEqual(stagePracticeParts(`stage_${index + 1}` as 'stage_1'), [part]);

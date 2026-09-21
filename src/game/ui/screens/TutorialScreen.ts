@@ -1,13 +1,13 @@
 import { Screen } from '../Screen';
 import { h } from '../../util/dom';
-import { TutorialSystem, tutorialSteps } from '../../systems/TutorialSystem';
+import { correctStrokeCount, practiceAccuracy, practiceCpm, practiceStrokeErrors, TutorialSystem, tutorialSteps } from '../../systems/TutorialSystem';
 import { getLanguage } from '../../i18n/Locale';
 import { SaveSystem } from '../../systems/SaveSystem';
 import { AudioManager } from '../../systems/AudioManager';
 import { navigate } from '../../Game';
 import { EventBus } from '../../EventBus';
 import { TUTORIAL_FEEDBACK, TUTORIAL_STEP } from '../../scenes/TutorialScene';
-import { diffChars } from '../../util/hangul';
+import { countStrokes, diffChars } from '../../util/hangul';
 import { KeyboardGuide } from '../KeyboardGuide';
 import { StagePractice, practicedParts, PRACTICE_PARTS, PART_LABELS, type PracticePart } from '../../systems/StagePractice';
 
@@ -18,6 +18,11 @@ export class TutorialScreen extends Screen<TutorialData> {
   private model!: TutorialSystem;
   private data: TutorialData = {};
   private focusTimer?: number;
+  private speedTimer?: number;
+  private speedStartedAt = 0;
+  private completedStrokes = 0;
+  private wrongStrokes = 0;
+  private currentTargetErrors = 0;
   private completedParts = new Set<PracticePart>();
   constructor() { super('tutorial'); }
   protected render(data: TutorialData) {
@@ -28,18 +33,26 @@ export class TutorialScreen extends Screen<TutorialData> {
   }
   private drawMenu() {
     window.clearTimeout(this.focusTimer);
+    this.stopSpeed();
+    this.el.classList.remove('practice-active');
     const lessons = tutorialSteps(getLanguage());
     this.el.replaceChildren(
       this.header(),
       h('section', { class: 'tutorial-panel tutorial-menu' },
         h('h1', {}, copy('타이핑 연습 선택', 'Choose typing practice')),
-        h('p', { class: 'tutorial-instruction' }, copy('모험 입장과 관계없이 원하는 연습만 골라요. 틀려도 천천히 고치면 돼요.', 'Choose any practice you want. Practice is optional and never blocks the adventure.')),
+        h('p', { class: 'tutorial-instruction' }, copy('모험 입장과 관계없이 원하는 연습만 골라요.', 'Choose any practice you want. Practice is optional and never blocks the adventure.')),
         h('div', { class: 'tutorial-part-grid' }, lessons.map((lesson, i) => h('button', {
           class: 'btn btn-sky tutorial-part-card', 'data-part': lesson.part, onclick: () => {
+            this.speedStartedAt = 0;
+            this.completedStrokes = 0;
+            this.wrongStrokes = 0;
+            this.currentTargetErrors = 0;
             this.model = new TutorialSystem(getLanguage(), [lesson.part]); this.draw();
           },
         }, h('strong', {}, `${i + 1}. ${PART_LABELS[lesson.part][getLanguage() === 'en' ? 1 : 0]}`),
-        h('span', {}, lesson.part === 'story' ? copy('짧은 글 1편 · 4문장', '1 story · 4 sentences') : `${lesson.targets.length}${copy('개', ' targets')}`),
+        h('span', {}, lesson.part === 'story'
+          ? getLanguage() === 'ko' ? '긴 글 3편 · 각 1,000자 내외' : '1 story · 4 sentences'
+          : `${lesson.targets.length}${copy('개', ' targets')}`),
         h('small', {}, this.completedParts.has(lesson.part) ? copy('연습 완료 · 다시 연습', 'Complete · Practice again') : lesson.part === 'vowels' ? copy('이중모음 포함', 'All vowels') : lesson.part === 'consonants' ? copy('쌍자음 포함', 'All consonants') : copy('띄어쓰기와 문장부호까지', 'Spaces and punctuation'))))),
         h('p', { class: 'tutorial-hint' }, copy('연습 기록은 저장되지만, 모험 스테이지는 언제든 바로 시작할 수 있어요.', 'Practice progress is saved, but every available adventure stage starts right away.'))));
   }
@@ -54,15 +67,26 @@ export class TutorialScreen extends Screen<TutorialData> {
   }
   private draw() {
     window.clearTimeout(this.focusTimer);
+    this.el.classList.add('practice-active');
     const m = this.model, s = m.step;
     const partIndex = PRACTICE_PARTS.indexOf(s.part);
     const keyboard = new KeyboardGuide({ embedded: true });
     const progress = h('span', { class: 'tutorial-item-progress' });
+    const speedValue = h('strong', { class: 'tutorial-speed-value', 'aria-live': 'polite' }, '0');
+    const elapsedValue = h('strong', { class: 'tutorial-metric-value' }, '00:00');
+    const accuracyValue = h('strong', { class: 'tutorial-metric-value' }, '100%');
+    const speed = h('div', { class: 'tutorial-metrics', role: 'status', 'aria-label': copy('나의 타자 통계', 'My typing statistics') },
+      h('div', { class: 'tutorial-speed' },
+        h('span', { class: 'tutorial-speed-label' }, copy('나의 타수', 'MY SPEED')),
+        h('span', { class: 'tutorial-speed-number' }, speedValue, h('small', {}, copy('타/분', 'keys/min')))),
+      h('div', { class: 'tutorial-metric' }, h('span', {}, copy('진행 시간', 'TIME')), elapsedValue),
+      h('div', { class: 'tutorial-metric' }, h('span', {}, copy('정확도', 'ACCURACY')), accuracyValue));
     EventBus.emit(TUTORIAL_STEP, partIndex);
     const title = h('h1', { id: 'tutorial-title' }, s.title);
     const target = h('div', { class: 'tutorial-target', 'aria-label': copy('입력할 글자', 'Text to type'), 'data-target': m.target }, m.target);
-    const input = h('input', { id: 'tutorial-input', type: 'text', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', 'aria-labelledby': 'tutorial-title', 'aria-describedby': 'tutorial-hint tutorial-feedback', maxlength: 80, value: s.prefill ?? '', lang: getLanguage() }) as HTMLInputElement;
-    const feedback = h('p', { id: 'tutorial-feedback', class: 'tutorial-feedback', role: 'status', 'aria-live': 'polite' }, copy('천천히 해도 괜찮아요. 시간제한은 없어요.', 'Take your time. There is no timer.'));
+    const longForm = s.part === 'story' && m.target.length > 200;
+    const input = h(longForm ? 'textarea' : 'input', { id: 'tutorial-input', type: longForm ? undefined : 'text', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', 'aria-labelledby': 'tutorial-title', 'aria-describedby': 'tutorial-hint tutorial-feedback', maxlength: longForm ? 1600 : 100, value: s.prefill ?? '', lang: getLanguage(), rows: longForm ? 5 : undefined }) as HTMLInputElement | HTMLTextAreaElement;
+    const feedback = h('p', { id: 'tutorial-feedback', class: 'tutorial-feedback', role: 'status', 'aria-live': 'polite' });
     const send = h('button', { class: 'btn btn-primary', type: 'submit' }, copy('보내기', 'Send'), h('kbd', {}, 'Enter'));
     const next = h('button', { class: 'btn btn-primary tutorial-next', type: 'button', hidden: true, onclick: () => {
       if (m.complete) {
@@ -70,26 +94,50 @@ export class TutorialScreen extends Screen<TutorialData> {
       } else if (m.next()) this.draw();
     } }, copy('다음 파트 연습 →', 'Next practice part →'));
     let composing = false;
+    const updateSpeed = () => {
+      const elapsedMs = this.speedStartedAt ? performance.now() - this.speedStartedAt : 0;
+      speedValue.textContent = this.speedStartedAt
+        ? String(practiceCpm(this.completedStrokes, m.target, input.value, elapsedMs)) : '0';
+      const elapsedSec = Math.floor(elapsedMs / 1000);
+      elapsedValue.textContent = `${String(Math.floor(elapsedSec / 60)).padStart(2, '0')}:${String(elapsedSec % 60).padStart(2, '0')}`;
+      const correct = this.completedStrokes + correctStrokeCount(m.target, input.value);
+      accuracyValue.textContent = `${practiceAccuracy(correct, this.wrongStrokes + this.currentTargetErrors).toFixed(1)}%`;
+    };
+    const beginSpeed = () => {
+      if (this.speedStartedAt || !input.value.normalize('NFC')) return;
+      this.speedStartedAt = performance.now();
+      window.clearInterval(this.speedTimer);
+      this.speedTimer = window.setInterval(updateSpeed, 250);
+    };
     input.addEventListener('compositionstart', () => { composing = true; });
-    input.addEventListener('compositionend', () => { composing = false; paint(); });
+    const captureErrors = () => {
+      if (composing) return;
+      this.currentTargetErrors = Math.max(this.currentTargetErrors, practiceStrokeErrors(m.target, input.value));
+    };
+    input.addEventListener('compositionend', () => { composing = false; beginSpeed(); captureErrors(); paint(); updateSpeed(); });
     const paint = () => {
       target.replaceChildren(...diffChars(m.target, input.value.normalize('NFC')).map(p => h('span', { class: p.state }, p.ch)));
       keyboard.update(m.target, input.value);
       progress.textContent = `${m.targetIndex + 1} / ${s.targets.length}`;
     };
-    input.addEventListener('input', paint);
+    input.addEventListener('input', () => { beginSpeed(); captureErrors(); paint(); updateSpeed(); });
     input.addEventListener('keydown', e => {
-      keyboard.setPressed(e.code, true);
-      if (e.key === 'Enter' && (e.isComposing || composing || e.keyCode === 229)) e.preventDefault();
+      const keyEvent = e as KeyboardEvent;
+      keyboard.setPressed(keyEvent.code, true);
+      if (keyEvent.key === 'Enter' && (keyEvent.isComposing || composing || keyEvent.keyCode === 229)) keyEvent.preventDefault();
+      else if (longForm && keyEvent.key === 'Enter') { keyEvent.preventDefault(); form.requestSubmit(); }
     });
-    input.addEventListener('keyup', e => keyboard.setPressed(e.code, false));
+    input.addEventListener('keyup', e => keyboard.setPressed((e as KeyboardEvent).code, false));
     input.addEventListener('blur', () => keyboard.clearPressed());
     const form = h('form', { class: 'tutorial-form' }, h('label', { for: 'tutorial-input' }, copy('여기에 입력해요', 'Type here')), input, send);
     form.addEventListener('submit', e => {
       e.preventDefault(); if (composing) return;
+      const submittedTarget = m.target;
+      captureErrors();
       const outcome = m.submit(input.value);
       if (outcome === 'ignored') return;
       if (outcome === 'wrong') {
+        this.currentTargetErrors = Math.max(1, this.currentTargetErrors);
         target.dataset.target = m.target; paint();
         feedback.textContent = s.resetOnMistake
           ? copy('괜찮아요! 첫 낱말부터 다시 두 번 이어서 성공해 봐요.', 'That is okay! Start with the first word and try two correct words in a row.')
@@ -97,13 +145,20 @@ export class TutorialScreen extends Screen<TutorialData> {
         input.setAttribute('aria-invalid', 'true'); input.focus(); return;
       }
       input.removeAttribute('aria-invalid');
+      this.completedStrokes += countStrokes(submittedTarget);
+      this.wrongStrokes += this.currentTargetErrors;
+      this.currentTargetErrors = 0;
       AudioManager.sfx('perfect');
       EventBus.emit(TUTORIAL_FEEDBACK, { step: partIndex, completed: m.stepComplete });
       if (outcome === 'correct') {
         input.value = ''; target.dataset.target = m.target; paint(); input.focus();
         feedback.textContent = copy(`좋아요! ${m.targetIndex}개 성공. 다음도 써 볼까요?`, 'One down! Send the next word.');
       } else {
+        input.value = '';
         input.disabled = true; send.disabled = true; next.hidden = false;
+        updateSpeed();
+        window.clearInterval(this.speedTimer);
+        this.speedTimer = undefined;
         feedback.textContent = s.success;
         this.el.querySelector(`[data-step="${m.stepIndex}"]`)?.classList.add('done');
         this.completedParts.add(s.part);
@@ -115,9 +170,10 @@ export class TutorialScreen extends Screen<TutorialData> {
         next.focus();
       }
     });
-    const panel = h('section', { class: 'tutorial-panel', 'aria-labelledby': 'tutorial-title' },
-      h('div', { class: 'tutorial-eyebrow' }, copy('자유 연습', 'FREE PRACTICE'), h('span', {}, `${m.stepIndex + 1} / ${m.steps.length}`)),
-      h('ol', { class: 'tutorial-steps', 'aria-label': copy('연습 파트', 'Practice parts') }, m.steps.map((step, i) => h('li', { class: i < m.stepIndex ? 'done' : i === m.stepIndex ? 'active' : '', 'data-step': i, 'aria-current': i === m.stepIndex ? 'step' : 'false', title: step.title }, String(PRACTICE_PARTS.indexOf(step.part) + 1)))),
+    const panel = h('section', { class: `tutorial-panel tutorial-practice${longForm ? ' tutorial-longform' : ''}`, 'aria-labelledby': 'tutorial-title' },
+      h('div', { class: 'tutorial-status-row' },
+        h('div', { class: 'tutorial-eyebrow' }, copy('자유 연습', 'FREE PRACTICE'), h('span', {}, `${m.stepIndex + 1} / ${m.steps.length}`)), speed),
+      m.steps.length > 1 ? h('ol', { class: 'tutorial-steps', 'aria-label': copy('연습 파트', 'Practice parts') }, m.steps.map((step, i) => h('li', { class: i < m.stepIndex ? 'done' : i === m.stepIndex ? 'active' : '', 'data-step': i, 'aria-current': i === m.stepIndex ? 'step' : 'false', title: step.title }, String(PRACTICE_PARTS.indexOf(step.part) + 1)))) : null,
       title, h('p', { class: 'tutorial-instruction' }, s.instruction),
       h('div', { class: `tutorial-target-wrap${partIndex >= 2 ? ' tutorial-prose' : ''}` }, target, progress),
       h('p', { id: 'tutorial-hint', class: 'tutorial-hint' }, s.hint), form, feedback,
@@ -125,9 +181,17 @@ export class TutorialScreen extends Screen<TutorialData> {
         h('div', { class: 'tutorial-keyboard-legend' }, copy('노랑: 다음 키 · 민트: 누른 키', 'Yellow: next key · Mint: pressed key')), keyboard.el), next);
     this.el.replaceChildren(
       this.header(),
-      h('div', { class: 'tutorial-scene-caption' }, h('strong', {}, copy('한 글자씩, 차근차근!', 'One letter at a time!')), h('span', {}, copy('틀려도 괜찮아. 같이 해보자!', 'We can try again, together.'))), panel);
+      h('div', { class: 'tutorial-scene-caption' }, h('strong', {}, copy('한 글자씩, 차근차근!', 'One letter at a time!')), h('span', {}, copy('빛의 문자를 함께 되찾아 보자!', 'Let us recover the letters of light!'))), panel);
     paint();
     this.focusTimer = window.setTimeout(() => { if (input.isConnected && !input.disabled) input.focus(); }, 750);
   }
-  protected onHide() { window.clearTimeout(this.focusTimer); }
+  private stopSpeed() {
+    window.clearInterval(this.speedTimer);
+    this.speedTimer = undefined;
+    this.speedStartedAt = 0;
+    this.completedStrokes = 0;
+    this.wrongStrokes = 0;
+    this.currentTargetErrors = 0;
+  }
+  protected onHide() { window.clearTimeout(this.focusTimer); this.stopSpeed(); }
 }

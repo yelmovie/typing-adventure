@@ -443,6 +443,7 @@
   line-height: 1.2;
 }
 .kbd-hand-item { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+.kbd-finger-guide { display: none; }
 .kbd-hand-swatch { width: 28px; height: 18px; border: 2px solid; border-radius: 5px; }
 .kbd-hand-swatch.hand-left { border-color: #315f86; background: #9fcdf4; box-shadow: inset 5px 0 #3f91cf; }
 .kbd-hand-swatch.hand-right { border-color: #87415c; background: #f3aec6; box-shadow: inset -5px 0 #d96891; }

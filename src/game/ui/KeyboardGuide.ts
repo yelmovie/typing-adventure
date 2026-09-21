@@ -4,9 +4,25 @@ import { getLanguage } from '../i18n/Locale';
 
 /** 두벌식 키보드 가이드 (CSS) — 다음에 눌러야 할 키와 사용할 손을 강조 */
 type Hand = 'left' | 'right' | 'both';
-type GuideKey = { key: string; shift?: string; hand: Exclude<Hand, 'both'> };
-const assignHands = (rows: { key: string; shift?: string }[][]): GuideKey[][] => rows.map(row =>
-  row.map((key, index) => ({ ...key, hand: index < 5 ? 'left' : 'right' })),
+type Finger = 'left-pinky' | 'left-ring' | 'left-middle' | 'left-index' | 'left-thumb'
+  | 'right-thumb' | 'right-index' | 'right-middle' | 'right-ring' | 'right-pinky';
+type GuideKey = { key: string; shift?: string; hand: Exclude<Hand, 'both'>; finger: Finger };
+const KO_FINGER_ROWS: Finger[][] = [
+  ['left-pinky', 'left-ring', 'left-middle', 'left-index', 'left-index', 'right-index', 'right-index', 'right-middle', 'right-ring', 'right-pinky'],
+  ['left-pinky', 'left-ring', 'left-middle', 'left-index', 'left-index', 'right-index', 'right-index', 'right-middle', 'right-ring'],
+  ['left-pinky', 'left-ring', 'left-middle', 'left-index', 'left-index', 'right-index', 'right-index'],
+];
+const EN_FINGER_ROWS: Finger[][] = [
+  KO_FINGER_ROWS[0],
+  ['left-pinky', 'left-ring', 'left-middle', 'left-index', 'left-index', 'right-index', 'right-index', 'right-middle', 'right-ring', 'right-pinky', 'right-pinky'],
+  ['left-pinky', 'left-ring', 'left-middle', 'left-index', 'left-index', 'right-index', 'right-index', 'right-middle', 'right-ring', 'right-pinky'],
+  ['left-pinky', 'left-ring', 'left-middle', 'left-index', 'left-index', 'right-index', 'right-index', 'right-middle', 'right-ring', 'right-pinky'],
+];
+const assignHands = (rows: { key: string; shift?: string }[][], fingers: Finger[][]): GuideKey[][] => rows.map((row, rowIndex) =>
+  row.map((key, index) => {
+    const finger = fingers[rowIndex][index];
+    return { ...key, finger, hand: finger.startsWith('left') ? 'left' : 'right' };
+  }),
 );
 const ROWS = assignHands([
   [
@@ -15,13 +31,13 @@ const ROWS = assignHands([
   ],
   [{ key: 'ㅁ' }, { key: 'ㄴ' }, { key: 'ㅇ' }, { key: 'ㄹ' }, { key: 'ㅎ' }, { key: 'ㅗ' }, { key: 'ㅓ' }, { key: 'ㅏ' }, { key: 'ㅣ' }],
   [{ key: 'ㅋ' }, { key: 'ㅌ' }, { key: 'ㅊ' }, { key: 'ㅍ' }, { key: 'ㅠ' }, { key: 'ㅜ' }, { key: 'ㅡ' }],
-]);
+], KO_FINGER_ROWS);
 const EN_ROWS = assignHands([
   'qwertyuiop'.split('').map((key) => ({ key })),
   "asdfghjkl;'".split('').map((key) => ({ key })),
   'zxcvbnm,./'.split('').map((key) => ({ key })),
   '1234567890'.split('').map((key) => ({ key })),
-]);
+], EN_FINGER_ROWS);
 const SHIFTED_KEYS: Record<string, string> = { '!': '1', '@': '2', '#': '3', '$': '4', '%': '5', '^': '6', '&': '7', '*': '8', '(': '9', ')': '0', '?': '/', '<': ',', '>': '.', ':': ';', '"': "'" };
 
 export class KeyboardGuide {
@@ -34,23 +50,28 @@ export class KeyboardGuide {
   private spaceKey: HTMLElement;
   private enterKey: HTMLElement;
   private backKey: HTMLElement;
+  private fingerGuide: HTMLElement;
+  private fingerPrimary: HTMLImageElement;
+  private fingerSecondary: HTMLImageElement;
+  private fingerLabel: HTMLElement;
   private english = getLanguage() === 'en';
 
   constructor(opts: { onBackdropClick?: () => void; embedded?: boolean } = {}) {
     const handName = (hand: Hand) => hand === 'left'
       ? (this.english ? 'left hand' : '왼손')
       : hand === 'right' ? (this.english ? 'right hand' : '오른손') : (this.english ? 'either thumb' : '양손 엄지');
-    const specialKey = (label: string, kind: string, hand: Hand, key: string) => h('div', {
+    const specialKey = (label: string, kind: string, hand: Hand, key: string, finger: Finger) => h('div', {
       class: `key ${kind} hand-${hand}`,
       'data-key': key,
       'data-hand': hand,
+      'data-finger': finger,
       'aria-label': `${label}, ${handName(hand)}`,
     }, label);
-    this.backKey = specialKey(this.english ? '← Delete' : '← 지움', 'wide', 'right', 'Backspace');
-    this.leftShiftKey = specialKey('⇧ Shift', 'wide shift-left', 'left', 'ShiftLeft');
-    this.rightShiftKey = specialKey('Shift ⇧', 'wide shift-right hand-split', 'right', 'ShiftRight');
-    this.spaceKey = specialKey('Space', 'space', 'both', 'Space');
-    this.enterKey = specialKey('⏎ Enter', 'wide', 'right', 'Enter');
+    this.backKey = specialKey(this.english ? '← Delete' : '← 지움', 'wide', 'right', 'Backspace', 'right-pinky');
+    this.leftShiftKey = specialKey('⇧ Shift', 'wide shift-left', 'left', 'ShiftLeft', 'left-pinky');
+    this.rightShiftKey = specialKey('Shift ⇧', 'wide shift-right hand-split', 'right', 'ShiftRight', 'right-pinky');
+    this.spaceKey = specialKey('Space', 'space', 'both', 'Space', 'left-thumb');
+    this.enterKey = specialKey('⏎ Enter', 'wide', 'right', 'Enter', 'right-pinky');
     const rows = (this.english ? EN_ROWS : ROWS).map((r, i) =>
       h(
         'div',
@@ -60,6 +81,7 @@ export class KeyboardGuide {
             class: `key hand-${k.hand}${index === 5 ? ' hand-split' : ''}`,
             'data-key': k.key,
             'data-hand': k.hand,
+            'data-finger': k.finger,
             'aria-label': `${k.shift ? `${k.key}, ${k.shift}` : k.key}, ${handName(k.hand)}`,
           }, k.shift ? h('span', { class: 'alt' }, k.shift) : null, k.key);
           this.keys.set(k.key, el);
@@ -72,10 +94,12 @@ export class KeyboardGuide {
     rows[2].append(this.rightShiftKey);
     const punctuation = opts.embedded && !this.english ? ['1', '.'].map(key => {
       const hand: Exclude<Hand, 'both'> = key === '1' ? 'left' : 'right';
+      const finger: Finger = key === '1' ? 'left-pinky' : 'right-ring';
       const el = h('div', {
         class: `key hand-${hand}${hand === 'right' ? ' hand-split' : ''}`,
         'data-key': key,
         'data-hand': hand,
+        'data-finger': finger,
         'aria-label': `${key === '1' ? '1, !' : key}, ${handName(hand)}`,
       }, key === '1' ? h('span', { class: 'alt' }, '!') : null, key);
       this.keys.set(key, el); return el;
@@ -87,7 +111,13 @@ export class KeyboardGuide {
     );
     // 전투 오버레이는 게임을 멈추지 않는다. 글자를 치면 걷힌다는 걸 알려 "멈춘 것처럼" 보이지 않게 한다.
     const hint = opts.embedded ? null : h('p', { class: 'kbd-hint' }, this.english ? 'Start typing and the guide slides away · Esc' : '글자를 치면 가이드가 사라져요 · Esc');
-    this.panel = h('div', { class: 'kbd-guide' }, handLegend, rows, h('div', { class: 'kbd-row kbd-space-row' }, punctuation, this.spaceKey), hint);
+    this.fingerPrimary = h('img', { class: 'kbd-finger-art primary', alt: '', draggable: 'false' }) as HTMLImageElement;
+    this.fingerSecondary = h('img', { class: 'kbd-finger-art secondary', alt: '', draggable: 'false', hidden: true }) as HTMLImageElement;
+    this.fingerLabel = h('strong', { class: 'kbd-finger-label' });
+    this.fingerGuide = h('div', { class: 'kbd-finger-guide', 'aria-live': 'polite' },
+      h('div', { class: 'kbd-finger-pictures', 'aria-hidden': 'true' }, this.fingerPrimary, this.fingerSecondary),
+      h('div', { class: 'kbd-finger-copy' }, h('span', {}, this.english ? 'NEXT FINGER' : '다음 손가락'), this.fingerLabel));
+    this.panel = h('div', { class: 'kbd-guide' }, handLegend, this.fingerGuide, rows, h('div', { class: 'kbd-row kbd-space-row' }, punctuation, this.spaceKey), hint);
     this.el = h('div', {
       class: opts.embedded ? 'kbd-embedded' : 'kbd-overlay',
       onclick: (e: MouseEvent) => { if (e.target === this.el) opts.onBackdropClick?.(); },
@@ -130,23 +160,53 @@ export class KeyboardGuide {
     this.enterKey.classList.remove('next');
     this.backKey.classList.remove('next-back');
     const hint = nextKeyHint(target, current);
-    if (!hint) return;
+    if (!hint) { this.setFinger(); return; }
     if (hint.type === 'backspace') {
       this.backKey.classList.add('next-back');
+      this.setFinger('right-pinky');
       return;
     }
     if (hint.type === 'enter') {
       this.enterKey.classList.add('next');
+      this.setFinger('right-pinky');
       return;
     }
     const { key, shift } = hint.stroke;
     let nextKey: HTMLElement | undefined;
-    if (key === ' ') this.spaceKey.classList.add('next');
+    if (key === ' ') {
+      this.spaceKey.classList.add('next');
+      this.setFinger('left-thumb', 'right-thumb');
+    }
     else {
       nextKey = this.keys.get(SHIFTED_KEYS[key] ?? (this.english ? key.toLowerCase() : key));
       nextKey?.classList.add('next');
+      this.setFinger(nextKey?.dataset.finger as Finger | undefined);
     }
     // 큰글자·쌍자음은 글자 키와 반대 손의 Shift를 눌러 손가락 자리를 지킨다.
     if (shift) (nextKey?.dataset.hand === 'left' ? this.rightShiftKey : this.leftShiftKey).classList.add('next-shift');
+  }
+
+  private setFinger(primary?: Finger, secondary?: Finger) {
+    const names: Record<Finger, [string, string]> = {
+      'left-pinky': ['왼손 새끼', 'Left pinky'], 'left-ring': ['왼손 약지', 'Left ring'],
+      'left-middle': ['왼손 중지', 'Left middle'], 'left-index': ['왼손 검지', 'Left index'],
+      'left-thumb': ['왼손 엄지', 'Left thumb'], 'right-thumb': ['오른손 엄지', 'Right thumb'],
+      'right-index': ['오른손 검지', 'Right index'], 'right-middle': ['오른손 중지', 'Right middle'],
+      'right-ring': ['오른손 약지', 'Right ring'], 'right-pinky': ['오른손 새끼', 'Right pinky'],
+    };
+    this.fingerGuide.classList.toggle('is-empty', !primary);
+    if (!primary) {
+      this.fingerPrimary.removeAttribute('src');
+      this.fingerSecondary.hidden = true;
+      this.fingerLabel.textContent = '';
+      return;
+    }
+    this.fingerPrimary.src = `./assets/ui/fingers/${primary}.webp`;
+    this.fingerSecondary.hidden = !secondary;
+    if (secondary) this.fingerSecondary.src = `./assets/ui/fingers/${secondary}.webp`;
+    this.fingerLabel.textContent = secondary
+      ? (this.english ? 'Either thumb' : '양손 엄지')
+      : names[primary][this.english ? 1 : 0];
+    this.fingerGuide.setAttribute('aria-label', this.fingerLabel.textContent);
   }
 }
