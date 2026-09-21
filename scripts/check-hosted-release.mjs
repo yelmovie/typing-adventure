@@ -21,7 +21,7 @@ try {
  await page.waitForFunction(()=>{const v=document.querySelector('.opening-video');return v&&v.currentTime>0&&v.videoWidth>0;});
  await page.locator('.opening-skip').click();await page.locator('.home-menu').waitFor({state:'visible'});
  const meta=await page.evaluate(()=>({og:document.querySelector('meta[property="og:image"]')?.content,url:document.querySelector('meta[property="og:url"]')?.content,canonical:document.querySelector('link[rel="canonical"]')?.href}));
- assert.equal(meta.og,new URL('/icons/social-preview-v3.jpg',BASE).href);assert.equal(meta.url,BASE);assert.equal(meta.canonical,BASE);proof.meta=meta;
+ assert.equal(meta.og,new URL('/icons/social-preview-v4.jpg',BASE).href);assert.equal(meta.url,BASE);assert.equal(meta.canonical,BASE);proof.meta=meta;
  assert.equal(await page.evaluate(()=>typeof window.__game),'undefined');
  assert.equal(await page.evaluate(()=>typeof window.__battle),'undefined');
  await page.getByRole('button',{name:'소리 설정',exact:true}).click();
@@ -35,7 +35,7 @@ try {
  assert.equal(await page.evaluate(key=>localStorage.getItem(key),key),before,'Browser Back preserves saved records');
  proof.checks.push('Actual opening frames and home controls','Browser Back restores app and storage','No production debug hook');
  const request=context.request;
- const og=await request.get(meta.og);assert.equal(og.status(),200);const jpg=await og.body();assert.ok(jpg.equals(fs.readFileSync(`${DIST}/icons/social-preview-v3.jpg`)));proof.ogBytes=jpg.length;
+ const og=await request.get(meta.og);assert.equal(og.status(),200);const jpg=await og.body();assert.ok(jpg.equals(fs.readFileSync(`${DIST}/icons/social-preview-v4.jpg`)));proof.ogBytes=jpg.length;
  const manifestResponse=await request.get(new URL('/classroom-manifest.json',BASE).href);assert.equal(manifestResponse.status(),200);const manifest=await manifestResponse.json();proof.manifest=manifest.version;
  assert.equal(manifest.version,expectedManifest.version,'Published version must match the reviewed production build');
  assert.deepEqual(manifest.assets,expectedManifest.assets,'Published assets must match the reviewed production build');
