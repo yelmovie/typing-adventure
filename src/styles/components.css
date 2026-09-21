@@ -166,6 +166,16 @@
   box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.4);
   transition: width 0.25s ease-out, background 0.3s;
 }
+.gauge-layered .gauge-fill { position: absolute; inset: 0 auto 0 0; }
+.gauge-layered .gauge-value { z-index: 2; }
+.gauge-layered .gauge-trail {
+  z-index: 1;
+  background: linear-gradient(180deg, #fff4b0, #f2b526);
+  box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.5), 0 0 10px rgba(255, 204, 70, 0.65);
+  transition: width 0.34s cubic-bezier(.2,.75,.2,1);
+}
+.gauge-layered .enemy-trail { background: linear-gradient(180deg, #fff2a8, #ee9e25); }
+.gauge-layered .gauge-label { z-index: 3; }
 .gauge-fill.hp-mid { background: linear-gradient(180deg, #ffe27a, #e6a020); }
 .gauge-fill.hp-low { background: linear-gradient(180deg, #ff8c8c, #d43535); animation: ta-hp-flash 0.7s infinite; }
 .gauge-fill.sky { background: linear-gradient(180deg, #9fe6ff, #2f9cf0); }

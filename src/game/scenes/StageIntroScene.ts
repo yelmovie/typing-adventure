@@ -27,7 +27,7 @@ const CLASS_FX: Record<string, string> = { brown_boy: 'fx_warrior', pink_girl: '
 const MODE_ATLAS: Record<string, string[]> = {
   wave: ['fx_gate', 'mon_boss_slime', 'fx_items', 'fx_pickup'],
   telegram: ['fx_train_props'],
-  boss: ['fx_crystals'],
+  boss: ['fx_crystals', 'mon_keyboard_golem_defeat'],
   race: ['mon_shadow_chaser'],
 };
 const MODE_BG: Record<string, string[]> = { boss: ['bg_bright_castle'] };

@@ -74,7 +74,6 @@
 .tutorial-part-card span { color: #ffdf82; }
 .tutorial-part-card small { font-size: var(--read-copy); line-height: 1.4; color: #d8e7ec; }
 .short-display .tutorial-panel.tutorial-menu { display: block; }
-.intro-practice-status { padding: 16px; border: 1px solid #bce7d655; border-radius: 12px; color: #bce7d6; font-size: var(--read-copy); line-height: 1.4; }
 .race-track .tk-gap { font-size: max(23px, calc(16 * var(--ui-unit))); color: #dbedff; margin-top: 9px; }
 .race-track .tk-bar { margin-bottom: 26px; }
 .race-track .tk-mark.chaser { top: 100%; transform: translate(-50%, 2px); }

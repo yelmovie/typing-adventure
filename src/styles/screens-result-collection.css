@@ -74,6 +74,10 @@
 }
 .result-stat .lbl { font-family: var(--font-title); font-size: 18px; color: var(--sky-300); letter-spacing: 1px; }
 .result-stat .val { font-family: var(--font-title); font-size: 46px; color: #fff; text-shadow: 0 3px 0 var(--outline); line-height: 1.1; margin-top: 4px; }
+.result-stat:nth-child(1) { animation: ta-result-rise .36s .12s ease-out both; }
+.result-stat:nth-child(2) { animation: ta-result-rise .36s .2s ease-out both; }
+.result-stat:nth-child(3) { animation: ta-result-rise .36s .28s ease-out both; }
+.result-stat .val.count-settled, .result-reward-count.count-settled, .result-reward-total.count-settled { animation: ta-reward-land .3s ease-out; }
 .result-stat .val small { font-size: 20px; opacity: 0.85; }
 .result-stat .new {
   position: absolute;
@@ -107,7 +111,26 @@
 }
 /* 다음에 할 일이 하나뿐일 때는 그 버튼만 크게 */
 .result-actions .result-main { min-height: 78px; font-size: 32px; padding: 0 44px; }
+.result-pane.pane-reveal .result-detail-card,
+.result-pane.pane-reveal .result-highlight-row,
+.result-pane.pane-reveal .result-grid { animation: ta-result-rise .3s ease-out both; }
+.result-pane.pane-reveal .result-detail-card:nth-child(2) { animation-delay: .05s; }
+.result-pane.pane-reveal .result-detail-card:nth-child(3) { animation-delay: .1s; }
+.result-reward-heading { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.result-reward-count { color: var(--gold-300); font-size: 1.2em; }
+.result-reward-total { color: #fff7c4; }
 .result-star-hint { font-size: 18px; opacity: 0.75; margin-top: 8px; }
+
+@keyframes ta-result-rise {
+  from { opacity: 0; transform: translateY(18px) scale(.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .result-stat, .result-pane.pane-reveal .result-detail-card,
+  .result-pane.pane-reveal .result-highlight-row, .result-pane.pane-reveal .result-grid,
+  .result-stat .val.count-settled, .result-reward-count.count-settled, .result-reward-total.count-settled { animation: none !important; }
+}
 
 /* ================= COLLECTION / CERT ================= */
 .coll-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }

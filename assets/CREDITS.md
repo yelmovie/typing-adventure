@@ -14,6 +14,7 @@
 
 | assets/character/character-attack-ko-v1.png, character-walk-v1.png, pet-walk-v1.png 및 public/assets/sprites/ 대응 아틀라스 | 사용자 요청으로 Codex 내장 image_gen에서 기존 자체 제작 초상화를 참조해 생성. docs/media/motion-v2.md | 프로젝트 자체 제작 (생성형 AI) | 2026-09-10 |
 | public/icons/social-preview-v2.jpg | 새 생성 없이 보유 에셋 합성: 바탕 public/assets/og/og-sample-05-citadel-victory.png(2026-09-09 시안 5번) + 홈 아틀라스 펫 cheer 프레임 4개. 합성 기록 `docs/media/social-preview-20260918.md` | 프로젝트 자체 제작 (기존 생성 이미지 재구성) | 2026-09-18 |
+| assets/character/keyboard-golem-defeat-v1.png 및 public/assets/sprites/mon_keyboard_golem_defeat.* | Codex 내장 image_gen으로 기존 `mon_keyboard_golem` 아틀라스를 참조해 생성한 최종 보스 붕괴 6프레임. 생성 기록 `docs/media/boss-defeat-v1.md` | 프로젝트 자체 제작 (생성형 AI) | 2026-09-21 |
 
 ## 캐릭터 보행 시트 v2
 

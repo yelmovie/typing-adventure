@@ -32,8 +32,8 @@ export class ResultScreen extends Screen<{ result: BattleResult }> {
     const language = getLanguage(), en = language === 'en', chapter = journeyFor(st.id, language);
     const copy = (ko: string, english: string) => en ? english : ko;
     const card = (...children: (HTMLElement | string | null)[]) => h('section', { class: 'result-detail-card' }, ...children);
-    const stat = (label: string, value: string, isNew: boolean) => h('div', { class: 'result-stat' },
-      h('span', { class: 'lbl' }, label), h('strong', { class: 'val' }, value),
+    const stat = (label: string, value: string, isNew: boolean, countTo?: number, suffix = '') => h('div', { class: 'result-stat' },
+      h('span', { class: 'lbl' }, label), h('strong', { class: 'val', ...(countTo == null ? {} : { dataset: { countTo: String(countTo), countSuffix: suffix } }) }, value),
       isNew ? h('span', { class: 'new' }, copy('최고!', 'BEST')) : null);
     // 타수는 결과의 주인공: 크게 보여 주고, 지난 판과 비교해 "점점 빨라진다"는 성취감을 준다.
     // 기록은 모든 지역의 실제 플레이(입력 1개 이상)를 시간순으로 본다. 이번 판은 finalizeAndSave 가 이미 recent 에 넣었다.
@@ -88,9 +88,9 @@ export class ResultScreen extends Screen<{ result: BattleResult }> {
           h('div', {}, h('b', {}, r.cleared ? chapter ? copy(`${chapter.relic} 되찾기 성공!`, `${chapter.relic} restored!`) : copy('오늘도 한 걸음 해냈어!', 'One more step today!') : r.attemptedCount === 0 ? copy('첫 글자부터 천천히 해 보자.', 'Start slowly, one letter at a time.') : copy('해낸 만큼, 다음엔 더 멀리!', 'Build on what you completed!')),
             h('p', { class: 'result-completed' }, copy(`정확히 완성 ${r.wordsDone}개 · 고쳐서 성공 ${r.correctedCount ?? 0}개`, `${r.wordsDone} completed · ${r.correctedCount ?? 0} corrected`))))),
       h('div', { class: 'result-grid' },
-        stat(copy('정확도', 'Accuracy'), r.attemptedCount === 0 ? '—' : `${fmt.pct(r.accuracy)}%`, r.isNewAccuracy),
-        stat(copy('최대 콤보', 'Best combo'), String(r.maxCombo), r.isNewCombo),
-        stat(copy('점수', 'Score'), fmt.int(r.score), r.isNewScore)),
+        stat(copy('정확도', 'Accuracy'), r.attemptedCount === 0 ? '—' : `${fmt.pct(r.accuracy)}%`, r.isNewAccuracy, r.attemptedCount === 0 ? undefined : r.accuracy, '%'),
+        stat(copy('최대 콤보', 'Best combo'), String(r.maxCombo), r.isNewCombo, r.maxCombo),
+        stat(copy('점수', 'Score'), fmt.int(r.score), r.isNewScore, r.score)),
       h('p', { class: 'result-star-hint' }, r.cleared ? r.stars >= 3 ? copy('정확한 입력으로 별 3개를 모았어!', 'Three stars for accurate typing!') : copy('별을 더 모으는 방법은 성장 기록에서 볼 수 있어.', 'Find your next star goal in Growth.') : r.attemptedCount === 0 ? copy('아직 입력한 기록이 없어. 다시 도전해 보자!', 'No typing yet. Ready for another try?') : copy('어려웠던 부분은 성장 기록에서 함께 연습하자.', 'Practice the tricky parts in Growth.')),
       h('p', { class: 'journey-result-next' }, r.cleared ? chapter?.next ?? copy('새 낱말로 한 번 더 도전해 보자.', 'Try again with new words.') : copy('틀려도 괜찮아. 한 글자씩 완성하면 돼.', 'Mistakes are OK. Finish one letter at a time.')));
 
@@ -132,7 +132,16 @@ export class ResultScreen extends Screen<{ result: BattleResult }> {
         h('span', { class: 'card-slots', 'aria-hidden': 'true' }, stageCards.map((c) => h('i', { class: `card-slot ${doneIds.includes(c.id) ? 'on' : ''}` }))),
         earned.length ? copy(` 도전 카드 +${earned.length} · 남은 도전 ${remaining.length}개`, ` Challenge cards +${earned.length} · ${remaining.length} left`) : remaining.length ? copy(` 도전 카드 ${doneIds.length}/${stageCards.length} · 다음 목표: ${challengeName(remaining[0], language)}`, ` Challenge cards ${doneIds.length}/${stageCards.length} · Next goal: ${challengeName(remaining[0], language)}`) : copy(' 도전 카드 모두 달성!', ' All challenge cards filled!')));
     }
-    if (r.coins > 0) rewards.push(card(h('h3', {}, icon('coin'), copy(` 코인 +${r.coins}`, ` +${r.coins} coins`)), h('p', { class: 'result-coins' }, copy(`모두 ${fmt.int(save.progress.coins)}코인`, `${fmt.int(save.progress.coins)} coins in total`))));
+    let earnedCoinValue: HTMLElement | undefined;
+    let totalCoinValue: HTMLElement | undefined;
+    if (r.coins > 0) {
+      earnedCoinValue = h('strong', { class: 'result-reward-count' }, '+0');
+      totalCoinValue = h('strong', { class: 'result-reward-total' }, fmt.int(Math.max(0, save.progress.coins - r.coins)));
+      rewards.push(card(
+        h('h3', { class: 'result-reward-heading' }, icon('coin'), copy(' 코인 ', ' Coins '), earnedCoinValue),
+        h('p', { class: 'result-coins' }, copy('보유 코인 ', 'Total coins '), totalCoinValue),
+      ));
+    }
     for (const name of r.newUnlocks ?? []) rewards.push(card(h('h3', {}, icon('unlock'), copy(' 새 친구!', ' New friend!')), h('p', {}, t(name))));
     if (r.newUnlocks?.length) rewards.push(card(h('button', { class: 'btn btn-sky', onclick: () => void navigate('setup', { step: 'pet' }) }, copy('새 친구와 함께하기', 'Meet your new friend'))));
     for (const title of r.newTitles ?? []) rewards.push(card(h('h3', {}, copy('새 칭호', 'New title')), h('p', {}, t(title))));
@@ -147,6 +156,10 @@ export class ResultScreen extends Screen<{ result: BattleResult }> {
     const buttons: HTMLButtonElement[] = [];
     const select = (index: number) => {
       panes.forEach((pane, i) => { pane.hidden = i !== index; buttons[i].setAttribute('aria-selected', String(i === index)); buttons[i].tabIndex = i === index ? 0 : -1; });
+      const pane = panes[index];
+      pane.classList.remove('pane-reveal');
+      void pane.offsetWidth;
+      pane.classList.add('pane-reveal');
       [learningPages, rewardPages].forEach(page => page.refresh());
     };
     [copy('이번 결과', 'Results'), copy('성장 기록', 'Growth'), copy('받은 선물', 'Rewards')].forEach((label, i) => {
@@ -178,10 +191,40 @@ export class ResultScreen extends Screen<{ result: BattleResult }> {
       raf = requestAnimationFrame(step);
       this.cleanups.push(() => cancelAnimationFrame(raf));
     }
+    for (const value of this.el.querySelectorAll<HTMLElement>('[data-count-to]')) {
+      const target = Number(value.dataset.countTo ?? 0), suffix = value.dataset.countSuffix ?? '';
+      this.countUp(value, 0, target, suffix === '%' ? (n) => `${fmt.pct(n)}%` : (n) => `${fmt.int(n)}${suffix}`, 620, 180);
+    }
+    if (earnedCoinValue && totalCoinValue) {
+      this.countUp(earnedCoinValue, 0, r.coins, (n) => `+${fmt.int(n)}`, 680, 260, true);
+      this.countUp(totalCoinValue, Math.max(0, save.progress.coins - r.coins), save.progress.coins, fmt.int, 760, 380);
+    }
     const starEls = stars.querySelectorAll<HTMLElement>('.star');
     for (let i = 0; i < r.stars; i++) {
       const timer = window.setTimeout(() => { starEls[i]?.classList.add('on'); AudioManager.sfx('star'); }, 400 + i * 380);
       this.cleanups.push(() => window.clearTimeout(timer));
     }
+  }
+
+  private countUp(el: HTMLElement, from: number, to: number, format: (value: number) => string, duration: number, delay: number, coinSound = false) {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches || from === to) { el.textContent = format(to); return; }
+    el.textContent = format(from);
+    let raf = 0;
+    const timer = window.setTimeout(() => {
+      const started = performance.now();
+      const step = (now: number) => {
+        const p = Math.min(1, (now - started) / duration);
+        const eased = 1 - Math.pow(1 - p, 3);
+        el.textContent = format(from + (to - from) * eased);
+        if (p < 1) raf = requestAnimationFrame(step);
+        else {
+          el.textContent = format(to);
+          el.classList.add('count-settled');
+          if (coinSound) AudioManager.sfx('coin', { gain: 0.65 });
+        }
+      };
+      raf = requestAnimationFrame(step);
+    }, delay);
+    this.cleanups.push(() => { window.clearTimeout(timer); cancelAnimationFrame(raf); });
   }
 }

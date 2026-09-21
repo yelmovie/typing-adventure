@@ -9,10 +9,9 @@ import { EventBus } from '../../EventBus';
 import { TUTORIAL_FEEDBACK, TUTORIAL_STEP } from '../../scenes/TutorialScene';
 import { diffChars } from '../../util/hangul';
 import { KeyboardGuide } from '../KeyboardGuide';
-import type { StageId } from '../../types';
-import { StagePractice, stagePracticeParts, practicedParts, PRACTICE_PARTS, PART_LABELS, type PracticePart } from '../../systems/StagePractice';
+import { StagePractice, practicedParts, PRACTICE_PARTS, PART_LABELS, type PracticePart } from '../../systems/StagePractice';
 
-interface TutorialData { stageId?: StageId; next?: 'home' | 'worldmap'; remix?: boolean; full?: boolean }
+interface TutorialData { next?: 'home' | 'worldmap' }
 const copy = (ko: string, en: string) => getLanguage() === 'en' ? en : ko;
 
 export class TutorialScreen extends Screen<TutorialData> {
@@ -25,11 +24,7 @@ export class TutorialScreen extends Screen<TutorialData> {
     this.data = data;
     this.completedParts = new Set(practicedParts(SaveSystem.get().progress));
     this.el.setAttribute('data-no-translate', 'true');
-    if (data.stageId && data.stageId !== 'daily') {
-      const parts = stagePracticeParts(data.stageId).filter(part => data.full || !this.completedParts.has(part));
-      this.model = new TutorialSystem(getLanguage(), parts.length ? parts : stagePracticeParts(data.stageId), !data.full);
-      this.draw();
-    } else this.drawMenu();
+    this.drawMenu();
   }
   private drawMenu() {
     window.clearTimeout(this.focusTimer);
@@ -37,8 +32,8 @@ export class TutorialScreen extends Screen<TutorialData> {
     this.el.replaceChildren(
       this.header(),
       h('section', { class: 'tutorial-panel tutorial-menu' },
-        h('h1', {}, copy('네 가지 타자 연습', 'Four typing practice parts')),
-        h('p', { class: 'tutorial-instruction' }, copy('연습할 파트를 골라요. 틀려도 천천히 고치면 돼요.', 'Choose a part. Take your time and fix any mistakes.')),
+        h('h1', {}, copy('타이핑 연습 선택', 'Choose typing practice')),
+        h('p', { class: 'tutorial-instruction' }, copy('모험 입장과 관계없이 원하는 연습만 골라요. 틀려도 천천히 고치면 돼요.', 'Choose any practice you want. Practice is optional and never blocks the adventure.')),
         h('div', { class: 'tutorial-part-grid' }, lessons.map((lesson, i) => h('button', {
           class: 'btn btn-sky tutorial-part-card', 'data-part': lesson.part, onclick: () => {
             this.model = new TutorialSystem(getLanguage(), [lesson.part]); this.draw();
@@ -46,25 +41,15 @@ export class TutorialScreen extends Screen<TutorialData> {
         }, h('strong', {}, `${i + 1}. ${PART_LABELS[lesson.part][getLanguage() === 'en' ? 1 : 0]}`),
         h('span', {}, lesson.part === 'story' ? copy('짧은 글 1편 · 4문장', '1 story · 4 sentences') : `${lesson.targets.length}${copy('개', ' targets')}`),
         h('small', {}, this.completedParts.has(lesson.part) ? copy('연습 완료 · 다시 연습', 'Complete · Practice again') : lesson.part === 'vowels' ? copy('이중모음 포함', 'All vowels') : lesson.part === 'consonants' ? copy('쌍자음 포함', 'All consonants') : copy('띄어쓰기와 문장부호까지', 'Spaces and punctuation'))))),
-        h('p', { class: 'tutorial-hint' }, copy('연습한 내용은 기억해 둬요. 다음 도전은 바로 시작할 수 있어요.', 'We remember completed practice. Your next attempt can start right away.'))));
+        h('p', { class: 'tutorial-hint' }, copy('연습 기록은 저장되지만, 모험 스테이지는 언제든 바로 시작할 수 있어요.', 'Practice progress is saved, but every available adventure stage starts right away.'))));
   }
   private leave() {
-    if (this.data.stageId) void navigate('intro', { stageId: this.data.stageId, remix: this.data.remix });
-    else void navigate(this.data.next ?? 'home');
-  }
-  private skipWarmup() {
-    const stageId = this.data.stageId;
-    if (!stageId || stageId === 'daily') return;
-    StagePractice.skip(stageId, getLanguage(), !!this.data.remix);
-    AudioManager.sfx('go');
-    void navigate('battle', { stageId, remix: this.data.remix });
+    void navigate(this.data.next ?? 'home');
   }
   private header() {
-    const canSkip = !!this.data.stageId && this.data.stageId !== 'daily' && !this.data.full;
     return h('header', { class: 'tutorial-header' },
-      h('span', {}, copy('연습 튜토리얼', 'Practice tutorial')),
+      h('span', {}, copy('타이핑 연습', 'Typing practice')),
       h('div', { class: 'tutorial-header-actions' },
-        canSkip ? h('button', { type: 'button', class: 'btn btn-sky tutorial-skip', onclick: () => this.skipWarmup() }, copy('건너뛰고 시작', 'Skip & start')) : null,
         h('button', { type: 'button', class: 'btn btn-gray tutorial-leave', onclick: () => this.leave() }, copy('나가기', 'Leave'))));
   }
   private draw() {
@@ -81,8 +66,7 @@ export class TutorialScreen extends Screen<TutorialData> {
     const send = h('button', { class: 'btn btn-primary', type: 'submit' }, copy('보내기', 'Send'), h('kbd', {}, 'Enter'));
     const next = h('button', { class: 'btn btn-primary tutorial-next', type: 'button', hidden: true, onclick: () => {
       if (m.complete) {
-        if (this.data.stageId) void navigate('battle', { stageId: this.data.stageId, remix: this.data.remix });
-        else this.drawMenu();
+        this.drawMenu();
       } else if (m.next()) this.draw();
     } }, copy('다음 파트 연습 →', 'Next practice part →'));
     let composing = false;
@@ -125,16 +109,14 @@ export class TutorialScreen extends Screen<TutorialData> {
         this.completedParts.add(s.part);
         StagePractice.completePart(s.part, getLanguage());
         if (m.complete) {
-          if (this.data.stageId && this.data.stageId !== 'daily') StagePractice.complete(this.data.stageId, getLanguage(), !!this.data.remix);
-          (this.el.querySelector('.tutorial-skip') as HTMLButtonElement | null)?.setAttribute('hidden', '');
-          next.textContent = this.data.stageId ? copy('준비 끝! 모험 시작 →', 'Ready! Start adventure →') : copy('다른 파트 고르기 →', 'Choose another part →');
-          feedback.textContent += copy(' 모험 중에는 Esc로 잠깐 쉴 수 있어요.', ' In the adventure, press Esc to take a break.');
+          next.textContent = copy('다른 파트 고르기 →', 'Choose another part →');
+          feedback.textContent += copy(' 원하는 연습을 더 고르거나 홈으로 돌아갈 수 있어요.', ' Choose another practice or return home.');
         }
         next.focus();
       }
     });
     const panel = h('section', { class: 'tutorial-panel', 'aria-labelledby': 'tutorial-title' },
-      h('div', { class: 'tutorial-eyebrow' }, this.data.stageId ? this.data.full ? copy('다시 익혀 보기', 'PRACTICE AGAIN') : copy('처음 한 번, 짧게 준비', 'FIRST-TIME WARM-UP') : copy('자유 연습', 'FREE PRACTICE'), h('span', {}, `${m.stepIndex + 1} / ${m.steps.length}`)),
+      h('div', { class: 'tutorial-eyebrow' }, copy('자유 연습', 'FREE PRACTICE'), h('span', {}, `${m.stepIndex + 1} / ${m.steps.length}`)),
       h('ol', { class: 'tutorial-steps', 'aria-label': copy('연습 파트', 'Practice parts') }, m.steps.map((step, i) => h('li', { class: i < m.stepIndex ? 'done' : i === m.stepIndex ? 'active' : '', 'data-step': i, 'aria-current': i === m.stepIndex ? 'step' : 'false', title: step.title }, String(PRACTICE_PARTS.indexOf(step.part) + 1)))),
       title, h('p', { class: 'tutorial-instruction' }, s.instruction),
       h('div', { class: `tutorial-target-wrap${partIndex >= 2 ? ' tutorial-prose' : ''}` }, target, progress),

@@ -63,6 +63,34 @@ html, body {
   z-index: 100;
 }
 #fade.on { opacity: 1; pointer-events: auto; }
+#fade::after {
+  content: attr(data-label);
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(.94);
+  opacity: 0;
+  color: #fff3c2;
+  font-family: var(--font-title);
+  font-size: clamp(24px, 3.2vw, 54px);
+  letter-spacing: .12em;
+  text-shadow: 0 4px 0 #291b13, 0 0 24px rgba(255, 211, 83, .5);
+  transition: opacity .16s ease, transform .28s ease;
+  white-space: nowrap;
+}
+#fade.on::after { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+#fade[data-transition='stage'] { background: radial-gradient(circle at center, #293668 0%, #0a0d24 72%); }
+#fade[data-transition='boss'] {
+  background: radial-gradient(circle at center, #5b2634 0%, #160b1d 66%, #05040c 100%);
+  box-shadow: inset 0 0 120px rgba(212, 65, 58, .28);
+}
+#fade[data-transition='boss']::after { color: #ffd0a8; text-shadow: 0 4px 0 #491919, 0 0 30px rgba(255, 92, 64, .65); }
+#fade[data-transition='result'] { background: radial-gradient(circle at center, #29305e 0%, #070a1e 74%); }
+#fade[data-transition='result']::after { color: #a9e8ff; text-shadow: 0 4px 0 #17234c, 0 0 28px rgba(79, 195, 247, .55); }
+
+@media (prefers-reduced-motion: reduce) {
+  #fade, #fade::after { transition-duration: .01ms !important; }
+}
 
 /* 로딩 */
 #loading {

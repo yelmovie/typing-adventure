@@ -174,7 +174,7 @@ export class HomeScreen extends Screen {
       resumeChoice,
       has ? this.btn(icon('pin'), '모험 이어하기', 'btn-primary btn-lg', () => void navigate('worldmap')) : newAdventure,
       h('div', { class: 'home-secondary' },
-        this.btn(icon('book'), '연습 튜토리얼', 'btn-sky btn-md home-tutorial', () => void navigate('tutorial')),
+        this.btn(icon('book'), language === 'en' ? 'Choose typing practice' : '타이핑 연습 선택', 'btn-sky btn-lg home-tutorial', () => void navigate('tutorial')),
         has && save.progress.clearedStages.includes('stage_1') ? this.btn(icon('flag'), '모험 플러스 · 새 낱말 도전', 'btn-sky btn-md home-replay', () => replayModal()) : null),
       more,
     );

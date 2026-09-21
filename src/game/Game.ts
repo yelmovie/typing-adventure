@@ -18,7 +18,6 @@ import type { StageId, StageMode } from './types';
 import { UIRoot } from './ui/UIRoot';
 import { AudioManager } from './systems/AudioManager';
 import { toast } from './ui/ModalController';
-import { StagePractice } from './systems/StagePractice';
 import { getLanguage } from './i18n/Locale';
 import { assetFailureMessage } from './ui/assetFailureMessage';
 
@@ -80,21 +79,41 @@ export function currentScreen() {
 
 const fadeEl = () => document.getElementById('fade')!;
 
-function fade(on: boolean): Promise<void> {
+type TransitionKind = 'default' | 'stage' | 'boss' | 'result';
+
+function transitionKind(to: ScreenName, data: Record<string, unknown>): TransitionKind {
+  if (to === 'result') return 'result';
+  if ((to === 'intro' || to === 'battle') && typeof data.stageId === 'string') {
+    return getStage(data.stageId as StageId).mode === 'boss' ? 'boss' : 'stage';
+  }
+  return 'default';
+}
+
+function transitionLabel(kind: TransitionKind) {
+  const en = getLanguage() === 'en';
+  if (kind === 'boss') return en ? 'FINAL GATE' : '최종 관문';
+  if (kind === 'result') return en ? 'BATTLE RECORD' : '모험 기록';
+  if (kind === 'stage') return en ? 'NEXT REGION' : '다음 지역';
+  return '';
+}
+
+function fade(on: boolean, kind: TransitionKind): Promise<void> {
   return new Promise((resolve) => {
     const el = fadeEl();
+    el.dataset.transition = kind;
+    el.dataset.label = transitionLabel(kind);
     el.classList.toggle('on', on);
-    window.setTimeout(resolve, 300);
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const duration = reduced ? 20 : kind === 'boss' ? 420 : kind === 'result' ? 360 : 300;
+    window.setTimeout(resolve, duration);
   });
 }
 
 /** 화면 전환: Phaser 씬 + DOM 스크린 동시 교체 */
 export async function navigate(to: ScreenName, data: Record<string, unknown> = {}) {
   if (navigating) return;
-  if (to === 'battle' && typeof data.stageId === 'string' && !StagePractice.ready(data.stageId as StageId, getLanguage(), !!data.remix)) {
-    to = 'tutorial';
-  }
   navigating = true;
+  const transition = transitionKind(to, data);
   const firstScreen = current === null;
   // 새 화면이 보이기 시작해도 전환이 끝나기 전의 클릭은 받지 않는다.
   // 지도에서 이미 서 있는 지역을 누르면 이동 콜백이 동기 실행되기 때문이다.
@@ -110,7 +129,7 @@ export async function navigate(to: ScreenName, data: Record<string, unknown> = {
       toast(assetFailureMessage());
       return;
     }
-    if (!firstScreen) await fade(true);
+    if (!firstScreen) await fade(true, transition);
     if (current) {
       ui.hide(current);
       const prev = game.scene.getScene(currentKey);
@@ -127,7 +146,7 @@ export async function navigate(to: ScreenName, data: Record<string, unknown> = {
     game.scene.start(key, data);
     ui.show(to, data);
     await new Promise((r) => window.setTimeout(r, 60));
-    if (!firstScreen) await fade(false);
+    if (!firstScreen) await fade(false, transition);
   } finally {
     navigating = false;
     stage.inert = false;

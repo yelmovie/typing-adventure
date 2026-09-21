@@ -18,7 +18,6 @@ import { LETTER } from '../../systems/LetterSystem';
 import { TELE } from '../../systems/TelegramSystem';
 import { getLanguage } from '../../i18n/Locale';
 import { journeyFor, journeyGoal } from '../../data/worldJourney';
-import { StagePractice, stagePracticeParts, PART_LABELS } from '../../systems/StagePractice';
 import { infoPagesModal, closeModal } from '../ModalController';
 
 export class IntroScreen extends Screen<{ stageId: StageId; remix?: boolean; dark?: boolean }> {
@@ -41,9 +40,6 @@ export class IntroScreen extends Screen<{ stageId: StageId; remix?: boolean; dar
     const assist = !!save.progress.assist?.[st.id];
     const stars = save.progress.stageStars[st.id] ?? 0;
     const language = getLanguage(), en = language === 'en';
-    const practiceReady = StagePractice.ready(st.id, language, !!data.remix);
-    const practiceSkipped = st.id !== 'daily' && save.progress.skippedPracticeStages?.includes(st.id) === true;
-    const practiceLabel = stagePracticeParts(st.id).map(part => PART_LABELS[part][en ? 1 : 0]).join(' · ');
     const chapter = journeyFor(st.id, language);
     const restored = save.progress.clearedStages.includes(st.id);
 
@@ -53,11 +49,6 @@ export class IntroScreen extends Screen<{ stageId: StageId; remix?: boolean; dar
       { class: 'intro-body journey-intro-body' },
       h('div', { class: 'intro-stage-num' }, st.subtitle),
       h('div', { class: 'intro-name' }, st.name),
-      st.id !== 'daily' ? h('p', { class: 'intro-practice-status', 'data-no-translate': 'true' }, practiceReady
-        ? practiceSkipped
-          ? (en ? 'You skipped the warm-up. Start now, or practice again whenever you want.' : '연습은 건너뛰었어요. 바로 시작하거나, 원할 때 다시 연습할 수 있어요.')
-          : (en ? 'You are ready. Jump straight into the adventure!' : '준비는 이미 끝났어요. 바로 모험을 시작해요!')
-        : (en ? `First, a short warm-up: ${practiceLabel}` : `처음 한 번, 짧게 준비해요: ${practiceLabel}`)) : null,
       h('div', { class: 'journey-mechanic', 'data-no-translate': 'true' }, chapter?.mechanic ?? (en ? 'Accurate typing → your daily record' : st.goal)),
       h('div', { class: 'intro-block journey-mission', 'data-no-translate': 'true' }, h('h4', {}, icon('flag'), en ? 'Your mission' : '오늘의 미션'), h('div', { class: 'intro-mission' }, chapter ? data.remix ? chapter.replay : chapter.mission : en ? 'Complete today’s words carefully and build your record.' : st.mission)),
       chapter ? h('div', { class: 'journey-relic', 'data-no-translate': 'true', style: `--journey-color: ${chapter.color}` },
@@ -131,8 +122,7 @@ export class IntroScreen extends Screen<{ stageId: StageId; remix?: boolean; dar
         'div',
         { class: 'intro-actions' },
         h('button', { class: 'btn btn-gray btn-md', onclick: () => { AudioManager.sfx('click'); void navigate('worldmap', { focusIndex: st.index }); } }, '← 지도로'),
-        !practiceReady ? h('button', { class: 'btn btn-primary btn-lg intro-practice', 'data-no-translate': 'true', onclick: () => void navigate('tutorial', { stageId: st.id, remix: data.remix }) }, en ? 'Practice, then start' : '연습하고 시작하기') : null,
-        practiceReady ? h('button', { class: 'btn btn-primary btn-lg intro-battle', disabled: !st.playable, 'data-no-translate': 'true', onclick: () => { AudioManager.sfx('go'); void navigate('battle', { stageId: st.id, remix: data.remix, dark: data.dark }); } }, en ? 'Start battle!' : '전투 시작!') : null,
+        h('button', { class: 'btn btn-primary btn-lg intro-battle', disabled: !st.playable, 'data-no-translate': 'true', onclick: () => { AudioManager.sfx('go'); void navigate('battle', { stageId: st.id, remix: data.remix, dark: data.dark }); } }, en ? 'Start battle!' : '전투 시작!'),
       ),
     );
     this.el.append(panel);
@@ -154,12 +144,6 @@ export class IntroScreen extends Screen<{ stageId: StageId; remix?: boolean; dar
     if (details) {
       const pages = [...details.children].filter(child => child.tagName !== 'SUMMARY').map(child =>
         h('div', { class: 'intro-help-pages' }, child));
-      if (practiceReady && st.id !== 'daily') pages.unshift(h('div', { class: 'intro-help-pages', 'data-no-translate': 'true' },
-        h('h3', {}, en ? 'Practice at your own pace' : '필요할 때 천천히 연습해요'),
-        h('p', {}, practiceSkipped
-          ? (en ? 'Skipping does not count as completing the lesson. You can still learn it here whenever you like.' : '건너뛰기는 연습 완료로 기록되지 않아요. 원할 때 여기서 다시 배울 수 있어요.')
-          : (en ? 'Your warm-up stays complete. You can revisit the full lesson whenever you like.' : '준비 기록은 그대로예요. 헷갈리는 내용은 전체 연습으로 다시 익힐 수 있어요.')),
-        h('button', { class: 'btn btn-sky', onclick: () => { closeModal(); void navigate('tutorial', { stageId: st.id, remix: data.remix, full: true }); } }, en ? 'Open full practice' : '전체 연습 열기')));
       const help = body.querySelector<HTMLElement>('.intro-assist');
       if (help) {
         help.querySelector('button')?.addEventListener('click', closeModal);

@@ -7,8 +7,8 @@ const BASE = process.env.MOTION_TEST_URL || 'http://127.0.0.1:5180';
 const OUT = process.env.MOTION_TEST_OUT || 'tmp/entity-motion-check';
 const reduceOnly = process.env.MOTION_REDUCE_ONLY === '1';
 fs.mkdirSync(OUT, { recursive: true });
-const sheets = ['char_brown_boy', 'char_pink_girl', 'char_glasses_boy', 'char_blond_explorer', 'pet_cat', 'pet_rabbit', 'pet_dragon', 'pet_squirrel', 'mon_boss_slime', 'char_poses'];
-const generated = ['char_attack_ko_v1', 'char_walk_v1', 'char_walk_v2', 'pet_walk_v1'].filter(key => fs.existsSync(`public/assets/sprites/${key}.json`));
+const sheets = ['char_brown_boy', 'char_pink_girl', 'char_glasses_boy', 'char_blond_explorer', 'pet_cat', 'pet_rabbit', 'pet_dragon', 'pet_squirrel', 'mon_boss_slime', 'mon_keyboard_golem', 'char_poses'];
+const generated = ['char_attack_ko_v1', 'char_walk_v1', 'char_walk_v2', 'pet_walk_v1', 'mon_keyboard_golem_defeat'].filter(key => fs.existsSync(`public/assets/sprites/${key}.json`));
 fs.writeFileSync(`${OUT}/harness.html`, `<!doctype html><html><body style="margin:0;background:#142440"><script type="module">
 import Phaser from 'phaser';
 import { Player } from '/src/game/entities/Player.ts';
@@ -78,6 +78,13 @@ try {
       check('release crouch restores running sheet and cadence', !p.crouching && p.sprite.anims.isPlaying && Math.abs(p.sprite.anims.timeScale-1.15)<.001, { texture:p.sprite.texture.key, rate:p.sprite.anims.timeScale });
       p.walking = false; p.idle('right'); p.attack(() => hits++); p.victory(); pet.skill(); pet.victory(); await wait(900);
       check('victory cancels transient actions and clears pet skill tint', p.sprite.frame.name === 'victory' && p.y === 520 && p.sprite.angle === 0 && !pet.sprite.isTinted && pet.sprite.frame.name === 'victory', { playerFrame:p.sprite.frame.name, y:p.y, petTint:pet.sprite.isTinted });
+      const boss = new Enemy(scene, 1020, 520, 'mon_keyboard_golem', 2);
+      boss.defeat(undefined, 'mon_keyboard_golem_defeat');
+      await wait(reduce ? 240 : 520);
+      check('boss defeat uses the dedicated collapse atlas', boss.dead && boss.sprite.texture.key === 'mon_keyboard_golem_defeat' && String(boss.sprite.frame.name).startsWith('defeat_'), { texture:boss.sprite.texture.key, frame:boss.sprite.frame.name, alpha:boss.sprite.alpha });
+      await wait(reduce ? 650 : 1200);
+      check('boss defeat settles and fades without blocking scene time', boss.sprite.alpha <= 0.01 && boss.shadow.alpha <= 0.01, { spriteAlpha:boss.sprite.alpha, shadowAlpha:boss.shadow.alpha });
+      boss.destroy();
       p.destroy(); pet.destroy();
       const doomed = new Player(scene, 300, 520, 'char_brown_boy'); let stale = 0;
       doomed.attack(() => stale++); doomed.destroy(); await wait(450);

@@ -133,4 +133,6 @@
   /* 판정 팝·리본은 일회성이라 유지하되 흔들림·회전 광선만 끈다 */
   .judge-pop.perfect::before { animation: none; opacity: 0.35; }
   .judge-pop.miss { animation: ta-judge-good 0.7s ease-out forwards; }
+  .battle-left.took-damage, .battle-left.danger::after, .screen.battle.low-health .battle-danger-vignette,
+  .reward-land, .input-rejected { animation: none !important; }
 }

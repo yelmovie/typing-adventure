@@ -3,7 +3,6 @@ import fs from 'node:fs';
 import { chromium } from 'playwright';
 
 // Actual source scenes and DOM input, each in its own disposable browser context.
-// Complete required practice using the real controls before checking motion.
 const BASE = process.env.STRIDE_TEST_URL || 'http://127.0.0.1:5180';
 const OUT = process.env.STRIDE_TEST_OUT || 'tmp/stride-scenes-20260911';
 const chars = ['brown_boy', 'pink_girl', 'glasses_boy', 'blond_explorer'];
@@ -23,7 +22,6 @@ try {
     await context.addInitScript(characterId => localStorage.setItem('typing_adventure_save_v1', JSON.stringify({
       version: '2',
       profile: { name: '보행 점검', characterId, petId: 'rabbit', difficulty: 'normal' },
-      // A cleared stage now counts its warm-up as done; keep none cleared so the intro offers the practice.
       progress: { unlockedStage: 5, clearedStages: [], stageStars: {}, coins: 123, tutorialCompleted: false },
       collection: { charactersUnlocked: ['brown_boy', 'pink_girl', 'glasses_boy', 'blond_explorer'], petsUnlocked: ['cat', 'rabbit'] },
       settings: { language: 'ko', bgm: false, sfx: false, prologueSeen: true, showKeyboardGuide: false },
@@ -46,27 +44,8 @@ try {
       assert.equal(intro.animating, false);
       assert.equal(motionResponses.length, 2, 'both v2 atlas files are really loaded by navigation');
       assert.ok(motionResponses.every(response => response.status === 200));
-      await page.locator('.intro-practice').click();
-      await page.locator('#tutorial-input').waitFor({ state: 'visible' });
-      await page.waitForFunction(() => !document.querySelector('#ui-stage[aria-busy]'));
-      // The warm-up is short now (3 items today). Type while the input is offered; its
-      // 「다음 파트 연습 →」/「준비 끝! 모험 시작 →」 button continues and finally enters the battle itself.
-      let practiceCount = 0;
-      for (let step = 0; step < 60; step++) {
-        await page.waitForFunction(() => { const input = document.querySelector('#tutorial-input'); const next = document.querySelector('.tutorial-next'); return document.querySelector('.bb-input') || (input && !input.disabled) || (next && !next.hidden && !next.disabled); });
-        if (await page.locator('.bb-input').count()) break;
-        if (await page.locator('.tutorial-next').isVisible()) {
-          await page.locator('.tutorial-next').click();
-          // One click only: wait until the button is consumed (next part hides it, or the battle screen mounts).
-          await page.waitForFunction(() => document.querySelector('.bb-input') || !document.querySelector('.tutorial-next') || document.querySelector('.tutorial-next').hidden, undefined, { timeout: 60000 });
-          continue;
-        }
-        const target = await page.locator('.tutorial-target').getAttribute('data-target');
-        await page.locator('#tutorial-input').fill(target);
-        await page.locator('#tutorial-input').press('Enter');
-        practiceCount++;
-      }
-      assert.ok(practiceCount >= 1, 'the warm-up asked for at least one real input');
+      assert.equal(await page.locator('.intro-practice').count(), 0, 'stage intro has no practice gate');
+      await page.locator('.intro-battle').click();
       await page.waitForFunction(() => window.__battle?.snapshot().target && document.querySelector('.bb-input') && !document.querySelector('.bb-input').disabled, undefined, { timeout: 60000 });
       const sceneName = stage === 'stage_1' ? 'Wave' : 'Race';
       await page.evaluate(({ sceneName, sheet }) => {
@@ -128,7 +107,7 @@ try {
       else assert.equal(observation.bursts, 0, 'the wave never shows a race dash burst');
       assert.deepEqual(errors, []);
       await page.screenshot({ path: `${OUT}/${characterId}-${stage}.png` });
-      results.push({ characterId, stage, pass: true, intro, practiceCount, motionResponses, observation });
+      results.push({ characterId, stage, pass: true, intro, motionResponses, observation });
       console.log(`PASS ${characterId} ${stage}: lazy-loaded v2, matching idle, all 8 frames, 3 typed targets, no stride restarts`);
     } catch (error) {
       results.push({ characterId, stage, pass: false, error: String(error), browserErrors: errors });

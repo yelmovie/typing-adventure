@@ -134,11 +134,15 @@ export class Enemy {
     });
   }
 
-  /** 쓰러짐 → 소멸 */
-  defeat(onDone?: () => void) {
+  /** 쓰러짐 → 소멸. 최종 보스는 전용 단계 시트를 선택적으로 사용한다. */
+  defeat(onDone?: () => void, defeatAtlas?: string) {
     if (this.dead || !this.sprite.active) return;
     this.stopAction();
     this.dead = true;
+    if (defeatAtlas && this.scene.textures.exists(defeatAtlas)) {
+      this.playDefeatAtlas(defeatAtlas, onDone);
+      return;
+    }
     this.sprite.setScale(this.baseScale);
     this.sprite.setFlipX(false);
     this.sprite.anims.stop(); this.sprite.setFrame('hit');
@@ -157,6 +161,40 @@ export class Enemy {
         onComplete: () => onDone?.(),
       });
     });
+  }
+
+  private playDefeatAtlas(atlas: string, onDone?: () => void) {
+    const first = this.scene.textures.getFrame(atlas, 'defeat_0');
+    const reference = this.scene.textures.getFrame(this.sheet, 'idle_left');
+    if (!first || !reference) return;
+    const scale = this.baseScale * reference.realHeight / Math.max(1, first.realHeight) * 0.9;
+    const fadeOut = () => {
+      if (!this.sprite.active) return;
+      this.movement = this.scene.tweens.add({
+        targets: [this.sprite, this.shadow],
+        alpha: 0,
+        duration: prefersReducedMotion() ? 220 : 360,
+        ease: 'Sine.easeOut',
+        onComplete: () => onDone?.(),
+      });
+    };
+    this.sprite.anims.stop();
+    this.sprite.setTexture(atlas, 'defeat_0').setOrigin(0.5, 1).setScale(scale).setFlipX(false).setAlpha(1);
+    this.shadow.setAlpha(0.2);
+    if (prefersReducedMotion()) {
+      this.sprite.setFrame('defeat_5');
+      this.later(520, fadeOut);
+      return;
+    }
+    const key = `${atlas}:collapse`;
+    if (!this.scene.anims.exists(key)) this.scene.anims.create({
+      key,
+      frames: [110, 150, 210, 180, 220, 360].map((duration, index) => ({ key: atlas, frame: `defeat_${index}`, duration })),
+      frameRate: 12,
+      repeat: 0,
+    });
+    this.sprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, fadeOut);
+    this.sprite.play(key);
   }
 
   destroy() {

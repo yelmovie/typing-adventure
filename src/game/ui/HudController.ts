@@ -48,12 +48,14 @@ export class HudController {
   private accVal: HTMLElement;
   private cpmVal: HTMLElement;
   private hpFill: HTMLElement;
+  private hpTrailFill: HTMLElement;
   private hpText: HTMLElement;
   private shieldEl: HTMLElement;
   private enemyName: HTMLElement;
   private enemyImg: HTMLImageElement;
   private enemyCount: HTMLElement;
   private enemyFill: HTMLElement;
+  private enemyTrailFill: HTMLElement;
   private enemyHpText: HTMLElement;
   private comboNum: HTMLElement;
   private comboTxt: HTMLElement;
@@ -61,6 +63,14 @@ export class HudController {
   private feverFill: HTMLElement;
   private lastCombo = 0;
   private lastTargetKey = '';
+  private lastHp?: number;
+  private lastEnemyHp?: number;
+  private displayedScore?: number;
+  private scoreTarget?: number;
+  private hpTrailTimer = 0;
+  private enemyTrailTimer = 0;
+  private damageTimer = 0;
+  private scoreFrame = 0;
 
   constructor(opts: { stageIndex: number; stageName: string; playerName: string; level: number; portrait: string; petName: string; petPortrait: string; petSkill: string; countLabel?: string; progressKind?: 'targets' | 'words' | 'distance' | 'phase'; bestCpm?: number; race?: boolean; timeLabel?: string; hideEnemy?: boolean; telegram?: boolean; title?: string; petActive?: string; comboInTop?: boolean; onHome?: () => void }) {
     this.progressKind = opts.progressKind ?? 'words';
@@ -96,7 +106,8 @@ export class HudController {
       ),
     );
 
-    this.hpFill = h('div', { class: 'gauge-fill', style: { width: '100%' } });
+    this.hpFill = h('div', { class: 'gauge-fill gauge-value', style: { width: '100%' } });
+    this.hpTrailFill = h('div', { class: 'gauge-fill gauge-trail hp-trail', style: { width: '100%' }, 'aria-hidden': 'true' });
     this.hpText = h('span', {}, '100 / 100');
     this.shieldEl = h('span', { class: 'pl-shield' }, '방어막');
     this.left = h(
@@ -104,20 +115,21 @@ export class HudController {
       { class: 'panel panel-glass battle-left' },
       h('div', { class: 'pl-head' }, h('img', { class: 'pl-portrait', src: opts.portrait, alt: '' }), h('div', {}, h('div', { class: 'pl-name', 'data-no-translate': 'true' }, opts.playerName), h('div', { class: 'pl-level' }, `Lv.${opts.level} ${opts.title ?? '모험가'}`))),
       h('div', { class: 'pl-hp-label' }, h('span', {}, icon('heart'), ' HP ', this.shieldEl), this.hpText),
-      h('div', { class: 'gauge' }, this.hpFill),
+      h('div', { class: 'gauge gauge-layered' }, this.hpTrailFill, this.hpFill),
       h('div', { class: 'pl-pet' }, h('img', { src: opts.petPortrait, alt: '' }), h('div', {}, h('div', { class: 'pl-pet-name' }, `${opts.petName}`), h('div', { class: 'pl-pet-skill', title: opts.petSkill }, opts.petActive ? uiImg(`item_${opts.petActive}`) : null, ' ', opts.petSkill))),
     );
 
     this.enemyName = h('span', { class: 'en-name' }, '');
     this.enemyImg = h('img', { src: '', alt: '' }) as HTMLImageElement;
     this.enemyCount = h('span', { class: 'en-count' }, '');
-    this.enemyFill = h('div', { class: 'gauge-fill red', style: { width: '100%' } });
+    this.enemyFill = h('div', { class: 'gauge-fill red gauge-value', style: { width: '100%' } });
+    this.enemyTrailFill = h('div', { class: 'gauge-fill gauge-trail enemy-trail', style: { width: '100%' }, 'aria-hidden': 'true' });
     this.enemyHpText = h('div', { class: 'gauge-label' }, '');
     this.enemyPanel = h(
       'div',
       { class: `panel panel-glass battle-enemy-hp empty ${opts.hideEnemy ? 'hidden' : ''}` },
       h('div', { class: 'en-head' }, this.enemyImg, this.enemyName, this.enemyCount),
-      h('div', { class: 'gauge gauge-lg' }, this.enemyFill, this.enemyHpText),
+      h('div', { class: 'gauge gauge-lg gauge-layered' }, this.enemyTrailFill, this.enemyFill, this.enemyHpText),
     );
 
     this.comboNum = h('div', { class: 'combo-num' }, '0');
@@ -168,11 +180,11 @@ export class HudController {
     this.progressFill.style.width = `${Math.min(100, prog)}%`;
     this.timeVal.textContent = fmt.time(s.timeLeft);
     this.timeVal.classList.toggle('warn', s.timeLimit > 0 && s.timeLeft <= 15);
-    this.scoreVal.textContent = fmt.int(s.score);
+    this.animateScore(s.score);
     this.accVal.replaceChildren(fmt.pct(s.accuracy), h('small', {}, '%'));
     this.cpmVal.replaceChildren(fmt.int(s.cpm), h('small', {}, ' 타/분'));
     const hpPct = (s.playerHp / s.playerMaxHp) * 100;
-    this.hpFill.style.width = `${hpPct}%`;
+    this.updateHealthBar(s.playerHp, s.playerMaxHp);
     this.hpFill.classList.toggle('hp-mid', hpPct <= 60 && hpPct > 30);
     this.hpFill.classList.toggle('hp-low', hpPct <= 30);
     this.hpText.textContent = `${s.playerHp} / ${s.playerMaxHp}`;
@@ -183,7 +195,7 @@ export class HudController {
       const src = `./assets/portraits/${s.enemy.sheet}.webp`;
       if (this.enemyImg.getAttribute('src') !== src) this.enemyImg.src = src;
       this.enemyCount.textContent = s.enemyLabel ?? `${s.enemyIndex + 1} / ${s.enemyTotal} 마리`;
-      this.enemyFill.style.width = `${(s.enemy.hp / s.enemy.maxHp) * 100}%`;
+      this.updateEnemyHealthBar(s.enemy.hp, s.enemy.maxHp);
       this.enemyHpText.textContent = `${s.enemy.hp} / ${s.enemy.maxHp}`;
       if (s.boss) {
         const b = s.boss, en = getLanguage() === 'en';
@@ -230,6 +242,77 @@ export class HudController {
       this.trackGap.textContent = en ? `${Math.ceil(r.gap)}m behind · ${status}` : `${Math.ceil(r.gap)}m 뒤 · ${status}`;
       this.track.classList.toggle('danger', r.threat > 0.65);
     }
+  }
+
+  /** 보상 이동 연출의 도착점. 실제 보상 계산과는 무관한 표시 전용 훅이다. */
+  rewardTarget(kind: 'coin' | 'heart') {
+    return kind === 'heart' ? this.hpText : this.scoreVal;
+  }
+
+  /** 화면이 바뀔 때 지연 연출과 RAF가 다음 판에 남지 않게 정리한다. */
+  dispose() {
+    window.clearTimeout(this.hpTrailTimer);
+    window.clearTimeout(this.enemyTrailTimer);
+    window.clearTimeout(this.damageTimer);
+    cancelAnimationFrame(this.scoreFrame);
+  }
+
+  private updateHealthBar(hp: number, maxHp: number) {
+    const pct = Math.max(0, Math.min(100, (hp / Math.max(1, maxHp)) * 100));
+    const previous = this.lastHp;
+    this.hpFill.style.width = `${pct}%`;
+    if (previous == null || hp > previous) {
+      window.clearTimeout(this.hpTrailTimer);
+      this.hpTrailFill.style.width = `${pct}%`;
+    } else if (hp < previous) {
+      this.left.classList.remove('took-damage');
+      void this.left.offsetWidth;
+      this.left.classList.add('took-damage');
+      window.clearTimeout(this.damageTimer);
+      this.damageTimer = window.setTimeout(() => this.left.classList.remove('took-damage'), 520);
+      window.clearTimeout(this.hpTrailTimer);
+      this.hpTrailTimer = window.setTimeout(() => { this.hpTrailFill.style.width = `${pct}%`; }, 360);
+    }
+    this.left.classList.toggle('danger', pct <= 30);
+    this.lastHp = hp;
+  }
+
+  private updateEnemyHealthBar(hp: number, maxHp: number) {
+    const pct = Math.max(0, Math.min(100, (hp / Math.max(1, maxHp)) * 100));
+    const previous = this.lastEnemyHp;
+    this.enemyFill.style.width = `${pct}%`;
+    if (previous == null || hp > previous) {
+      window.clearTimeout(this.enemyTrailTimer);
+      this.enemyTrailFill.style.width = `${pct}%`;
+    } else if (hp < previous) {
+      window.clearTimeout(this.enemyTrailTimer);
+      this.enemyTrailTimer = window.setTimeout(() => { this.enemyTrailFill.style.width = `${pct}%`; }, 260);
+    }
+    this.lastEnemyHp = hp;
+  }
+
+  private animateScore(score: number) {
+    if (this.scoreTarget === score && this.scoreFrame) return;
+    const previous = this.displayedScore;
+    cancelAnimationFrame(this.scoreFrame);
+    this.scoreFrame = 0;
+    this.scoreTarget = score;
+    if (previous == null || previous === score || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      this.displayedScore = score;
+      this.scoreVal.textContent = fmt.int(score);
+      return;
+    }
+    const started = performance.now();
+    const duration = Math.min(320, 140 + Math.abs(score - previous) * 2);
+    const step = (now: number) => {
+      const p = Math.min(1, (now - started) / duration);
+      const eased = 1 - Math.pow(1 - p, 3);
+      this.displayedScore = Math.round(previous + (score - previous) * eased);
+      this.scoreVal.textContent = fmt.int(this.displayedScore);
+      if (p < 1) this.scoreFrame = requestAnimationFrame(step);
+      else { this.displayedScore = score; this.scoreFrame = 0; }
+    };
+    this.scoreFrame = requestAnimationFrame(step);
   }
 
   setCombo(c: number, fever = 0, feverLeft = 0) {

@@ -18,6 +18,7 @@ import { BossImpact } from './BossImpact';
 
 const PLAYER_POS = { x: 480, y: 760 }; // 발끝 760: 하단 입력 패널(830~) 위
 const BOSS_POS = { x: 1490, y: 750 };
+const BOSS_DEFEAT_ATLAS = 'mon_keyboard_golem_defeat';
 const CRYSTAL_COLORS = [0xffd34d, 0x4fc3f7, 0xa78bfa, 0x63e074, 0xff7ab6];
 
 /**
@@ -336,7 +337,7 @@ export class BossScene extends Phaser.Scene {
       this.finalMarks.forEach(mark => mark.setFillStyle(0xffdf83));
       this.dark?.setFillStyle(0x0a0420, 0);
       this.core?.setFillStyle(0xffefb1, 0).setStrokeStyle(0);
-      this.boss?.defeat();
+      this.boss?.defeat(undefined, BOSS_DEFEAT_ATLAS);
       if (this.textures.exists('bg_bright_castle')) this.bg?.setTexture('bg_bright_castle');
       else this.bg?.setTint(0xfff2d0);
       if (!prefersReducedMotion()) this.burst?.explode(28, BOSS_POS.x, BOSS_POS.y - 220);

@@ -64,6 +64,8 @@ export class BattleScreen extends Screen<BattleData> {
   /** 스피드런 진행: 이 판이 스피드런의 한 지역이면 채워진다 */
   private speedrun?: SpeedrunRun;
   private interstitialTimer = 0;
+  private finishTimer = 0;
+  private finishSkipTimer = 0;
   private remixStory?: number;
   private visibilityHandler = () => {
     if (document.hidden) void this.pauseMenu(this.copy.pauseHidden);
@@ -192,11 +194,12 @@ export class BattleScreen extends Screen<BattleData> {
     );
 
     const feverOverlay = h('div', { class: 'fever-overlay' });
+    const dangerVignette = h('div', { class: 'battle-danger-vignette', 'aria-hidden': 'true' });
     this.feedback = new BattleFeedback(this.el, this.bottom);
     // 좌측은 한 열로 쌓는다(플레이어 → 모드 패널). 보스전만 적 HP도 이 열에 들어간다.
     const isBoss = st.mode === 'boss';
     const leftCol = h('div', { class: 'battle-left-col' }, this.hud.left, isBoss ? this.hud.enemyPanel : null, this.hud.track, this.hud.tele);
-    this.el.append(feverOverlay, this.hud.top, leftCol);
+    this.el.append(feverOverlay, dangerVignette, this.hud.top, leftCol);
     if (!isBoss) this.el.append(this.hud.enemyPanel);
     if (!this.hud.combo.parentElement) this.el.append(this.hud.combo); // wave 는 HudController 가 상단 HUD 바 안에 넣었다
     this.el.append(this.bottom, this.kbd.el);
@@ -214,7 +217,7 @@ export class BattleScreen extends Screen<BattleData> {
     this.hud.skipBtn.addEventListener('click', () => { this.doSkip(); this.typing?.focus(); });
 
     this.bind(Events.TARGET_CHANGED, (s: BattleSnapshot) => this.onTarget(s));
-    this.bind(Events.HUD_TICK, (s: BattleSnapshot) => this.hud?.update(s));
+    this.bind(Events.HUD_TICK, (s: BattleSnapshot) => this.updateHud(s));
     this.bind(Events.INPUT_CORRECT, (d: { perfect: boolean; corrected?: boolean; combo: number; snapshot: BattleSnapshot }) => { this.onCorrect(d); this.scheduleCheckpoint(); });
     this.bind(Events.INPUT_WRONG, (d: { snapshot: BattleSnapshot; forgiven: boolean; shielded: boolean }) => this.onWrong(d));
     this.bind(Events.STAGE_CLEAR, (s: BattleSnapshot) => this.finish(true, s));
@@ -236,11 +239,17 @@ export class BattleScreen extends Screen<BattleData> {
     this.bind(Events.TELE_OUTAGE, (d: { on: boolean }) => { if (d.on) this.feedback?.flash('wrong'); this.el.classList.toggle('outage', d.on); });
     this.bind(Events.LETTER_LOCK, (d: { lock: number; total: number; restored?: boolean }) => { if (!d.restored) this.feedback?.judge(this.copy.lockOpened(d.lock, d.total), 'fever'); });
     this.bind(Events.LETTER_GLOW, () => this.feedback?.judge(this.copy.runeGlow, 'good'));
-    this.bind(Events.LETTER_SECRET, (d: { coins: number }) => this.feedback?.judge(this.copy.secretRoom(d.coins), 'bonus'));
+    this.bind(Events.LETTER_SECRET, (d: { coins: number }) => {
+      this.feedback?.judge(this.copy.secretRoom(d.coins), 'bonus');
+      if (this.hud) this.feedback?.reward('coin', d.coins, this.hud.rewardTarget('coin'));
+    });
     this.bind(Events.LETTER_GATE, (d: { accuracyReward: boolean }) => { this.feedback?.judge(this.copy.goldenGate, 'fever'); if (d.accuracyReward) this.feedback?.later(() => this.feedback?.judge(this.copy.accuracyReward, 'bonus'), 900); });
     this.bind(Events.RACE_CAUGHT, (d: { catches: number; max: number }) => { this.feedback?.flash('wrong'); this.feedback?.judge(this.copy.caught(d.catches, d.max), 'miss'); });
     this.bind(Events.RACE_FINISH, (d: { beatGhost: boolean }) => this.feedback?.judge(d.beatGhost ? this.copy.beatGhost : this.copy.raceFinished, 'fever'));
     this.bind(Events.WAVE_TOUCH, (d: { hpLoss: number }) => { if (d.hpLoss > 0) this.feedback?.flash('wrong'); });
+    this.bind(Events.HP_HEAL, (d: { amount: number }) => {
+      if (d.amount > 0 && this.hud) this.feedback?.reward('heart', d.amount, this.hud.rewardTarget('heart'));
+    });
     this.bind(Events.FEVER_CHANGED, (d: { level: FeverLevel }) => this.onFever(d.level));
     this.bind(Events.PET_ACTIVE, (d: { active: PetActive; pet: { name: string } }) => this.feedback?.judge(this.copy.petActive(t(d.pet.name), this.petHelp(d.active)), 'pet'));
     this.bind(Events.PET_PASSIVE, (d: { pet: { name: string; passiveDesc: string } }) => this.feedback?.judge(this.copy.petPassive(t(d.pet.name), t(d.pet.passiveDesc)), 'pet'));
@@ -248,9 +257,12 @@ export class BattleScreen extends Screen<BattleData> {
     this.bind(Events.VARIANT_BONUS, (d: { variant: WordVariant; coins?: number; hp?: number }) => {
       AudioManager.sfx('coin');
       this.feedback?.judge(d.variant === 'treasure' ? this.copy.treasure(d.coins) : this.copy.hpBonus(d.hp), 'bonus');
+      const amount = d.variant === 'treasure' ? d.coins ?? 0 : d.hp ?? 0;
+      const kind = d.variant === 'treasure' ? 'coin' : 'heart';
+      if (amount > 0 && this.hud) this.feedback?.reward(kind, amount, this.hud.rewardTarget(kind));
     });
 
-    this.hud.update(this.battle.snapshot());
+    this.updateHud(this.battle.snapshot());
     this.hud.setSkips(this.battle.run.skipsLeft);
     document.addEventListener('visibilitychange', this.visibilityHandler);
     document.addEventListener('keydown', this.shortcutHandler);
@@ -331,7 +343,7 @@ export class BattleScreen extends Screen<BattleData> {
 
   private onTarget(s: BattleSnapshot) {
     this.currentTarget = s.target;
-    this.hud?.update(s);
+    this.updateHud(s);
     if (s.boss) {
       const help = this.el.querySelector<HTMLElement>('.bb-target-desc');
       if (help) {
@@ -367,6 +379,7 @@ export class BattleScreen extends Screen<BattleData> {
     const left = this.battle.run.skipsLeft;
     if (left <= 0) {
       this.feedback?.judge(this.copy.noSkips, 'miss');
+      if (this.hud) this.feedback?.reject(this.hud.skipBtn);
       AudioManager.sfx('miss');
       return;
     }
@@ -392,14 +405,20 @@ export class BattleScreen extends Screen<BattleData> {
   private onCorrect(d: { perfect: boolean; corrected?: boolean; combo: number; snapshot: BattleSnapshot }) {
     this.feedback?.flash('right');
     this.feedback?.judge(d.corrected ? this.copy.corrected : d.perfect ? this.copy.perfect : this.copy.completed, d.perfect || d.corrected ? 'perfect' : 'good');
-    this.hud?.update(d.snapshot);
+    this.updateHud(d.snapshot);
   }
 
   private onWrong(d: { snapshot: BattleSnapshot; forgiven: boolean; shielded: boolean }) {
     this.feedback?.flash('wrong');
     this.feedback?.judge(d.forgiven || d.shielded ? this.copy.protected : this.copy.retry, d.forgiven || d.shielded ? 'good' : 'miss');
-    this.hud?.update(d.snapshot);
+    this.updateHud(d.snapshot);
     this.inputEl?.classList.remove('bad');
+  }
+
+  private updateHud(snapshot: BattleSnapshot) {
+    this.hud?.update(snapshot);
+    const hpPct = snapshot.playerHp / Math.max(1, snapshot.playerMaxHp);
+    this.el.classList.toggle('low-health', hpPct <= 0.3 && !this.battle?.finished);
   }
 
   /** FEVER 단계 변화: 배경 밝아짐 + BGM 템포업 + 판정 문구 */
@@ -512,7 +531,9 @@ export class BattleScreen extends Screen<BattleData> {
     window.clearTimeout(this.checkpointTimer);
     SaveSystem.clearCheckpoint(false); // finalizeAndSave 가 바로 저장한다
     this.typing?.setEnabled(false);
-    this.hud?.update(s);
+    this.updateHud(s);
+    this.el.classList.remove('low-health');
+    this.el.classList.add('finishing', cleared ? 'finish-clear' : 'finish-fail');
     const st = this.battle.stage;
     const result = finalizeAndSave(
       {
@@ -560,7 +581,26 @@ export class BattleScreen extends Screen<BattleData> {
     }
     if (speedrunNextId) { this.speedrunInterstitial(result.cleared, speedrunNextId); return; }
     const lifetime = this.lifetime;
-    window.setTimeout(() => { if (lifetime === this.lifetime) void navigate('result', { result }); }, cleared ? (st.mode === 'boss' ? 4200 : 2200) : 1600);
+    const showResult = () => {
+      if (lifetime !== this.lifetime) return;
+      window.clearTimeout(this.finishTimer);
+      window.clearTimeout(this.finishSkipTimer);
+      this.el.querySelector('.finish-skip')?.remove();
+      void navigate('result', { result });
+    };
+    const delay = cleared ? (st.mode === 'boss' ? 3600 : 2200) : 1600;
+    this.finishTimer = window.setTimeout(showResult, delay);
+    // 보스 붕괴와 승리 포즈는 먼저 충분히 읽히게 하고, 반복 판에서는 남은 여운만 건너뛸 수 있다.
+    if (cleared && st.mode === 'boss') {
+      this.finishSkipTimer = window.setTimeout(() => {
+        if (lifetime !== this.lifetime) return;
+        const skip = h('button', { class: 'btn btn-cream finish-skip', type: 'button', onclick: () => {
+          skip.setAttribute('disabled', '');
+          showResult();
+        } }, getLanguage() === 'en' ? 'View results' : '결과 보기');
+        this.el.append(skip);
+      }, 2100);
+    }
   }
 
   /** HUD 지역 이름 뒤에 붙는 모드 표시: "· 스피드런 2/5" 또는 "· 어둠 모드" (관찰자가 영어로 바꿀 수 있게 낱말 단위로 둔다) */
@@ -604,7 +644,10 @@ export class BattleScreen extends Screen<BattleData> {
   protected onHide() {
     this.lifetime++;
     window.clearTimeout(this.interstitialTimer);
+    window.clearTimeout(this.finishTimer);
+    window.clearTimeout(this.finishSkipTimer);
     this.el.querySelector('.speedrun-interstitial')?.remove();
+    this.el.querySelector('.finish-skip')?.remove();
     document.removeEventListener('visibilitychange', this.visibilityHandler);
     document.removeEventListener('keydown', this.shortcutHandler);
     this.modalObserver?.disconnect();
@@ -613,6 +656,7 @@ export class BattleScreen extends Screen<BattleData> {
     window.clearTimeout(this.checkpointTimer);
     this.feedback?.dispose();
     this.feedback = undefined;
+    this.hud?.dispose();
     AudioManager.setRate(1);
     closeModal();
     for (const [ev, fn] of this.handlers) EventBus.off(ev, fn);
@@ -624,5 +668,6 @@ export class BattleScreen extends Screen<BattleData> {
     this.hud = undefined;
     this.kbd = undefined;
     this.currentTarget = null;
+    this.el.classList.remove('low-health', 'finishing', 'finish-clear', 'finish-fail');
   }
 }
