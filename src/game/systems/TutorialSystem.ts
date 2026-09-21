@@ -1,5 +1,5 @@
 import type { GameLanguage } from '../types';
-import { KO_CHARACTER_PRACTICE_STORIES, KO_WORLD_PRACTICE_SENTENCES } from '../data/practiceSentences';
+import { characterPracticeStories, EN_CHARACTER_PRACTICE_STORIES, KO_CHARACTER_PRACTICE_STORIES, KO_WORLD_PRACTICE_SENTENCES, splitCharacterPracticeStory } from '../data/practiceSentences';
 import { toKeySequence } from '../util/hangul';
 
 export interface TutorialStep {
@@ -69,13 +69,25 @@ export function tutorialSteps(language: GameLanguage): TutorialStep[] {
     { part: 'consonants', title: 'Consonant practice', instruction: 'Type all 21 consonants, one at a time.', hint: 'Type the letter, then press Enter. Use Backspace to fix mistakes.', targets: [...'bcdfghjklmnpqrstvwxyz'], success: 'All consonants complete!' },
     { part: 'vowels', title: 'Vowel practice', instruction: 'Meet all five vowels.', hint: 'Type each vowel and press Enter.', targets: [...'aeiou'], success: 'All vowels complete!' },
     { part: 'sentences', title: 'Five funny sentences', instruction: 'Send each sentence with its spaces and punctuation.', hint: 'Use Space between words. Hold Shift for capital letters and !.', targets: ['My cat wants a flying fish.', 'A dragon toasted my sandwich.', 'The sleepy robot wore my socks.', 'A rabbit raced the school bus.', 'My pencil shouted, Go team!'], success: 'Five sentences complete!' },
-    { part: 'story', title: 'The dragon bakery', instruction: 'Finish one short story, one sentence at a time.', hint: 'Press Enter at the end of each sentence.', targets: ['A little dragon opened a bakery.', 'He sneezed beside the bread.', 'Every loaf turned into toast.', 'Now he is the breakfast chef!'], success: 'One whole story complete. Breakfast is ready!' },
+    { part: 'story', title: 'Four character adventure journals', instruction: 'Complete one adventure journal from Haneul, Bora, Jiho, and Luca.', hint: 'Match every space and punctuation mark, then press Enter.', targets: [...EN_CHARACTER_PRACTICE_STORIES], success: 'Four long stories complete! You have met all four adventurers.' },
   ] : [
     { part: 'consonants', title: '자음 전체 연습', instruction: '기본 자음 14개와 쌍자음 5개를 익혀요.', hint: '한/영 키로 한글을 켜요. 쌍자음은 Shift와 함께! 다 쓰면 Enter.', targets: [...'ㄱㄴㄷㄹㅁㅂㅅㅇㅈㅊㅋㅌㅍㅎㄲㄸㅃㅆㅉ'], success: '자음 19개 완료! 쌍자음까지 모두 익혔어요.' },
     { part: 'vowels', title: '모음 전체 연습', instruction: '기본 모음부터 이중모음까지 21개를 익혀요.', hint: 'ㅘ는 ㅗ→ㅏ, ㅙ는 ㅗ→ㅐ! 노란 키를 따라 누르고 Enter.', targets: [...'ㅏㅑㅓㅕㅗㅛㅜㅠㅡㅣㅐㅔㅒㅖㅘㅙㅚㅝㅞㅟㅢ'], success: '모음 21개 완료! 이중모음도 문제없어요.' },
     { part: 'sentences', title: '세계관 모험 문장 50개', instruction: '다섯 지역을 여행하며 이어지는 문장을 하나씩 완성해 봐요.', hint: '띄어쓰기는 Space, 쉼표와 느낌표까지 똑같이 쓰고 Enter!', targets: [...KO_WORLD_PRACTICE_SENTENCES], success: '쉰 문장 완료! 다섯 지역의 이야기를 모두 되찾았어요.' },
-    { part: 'story', title: '캐릭터 모험 장문 3편', instruction: '하늘, 보라, 지호가 직접 쓴 모험 기록을 한 편씩 완성해 봐요.', hint: '띄어쓰기와 문장부호까지 똑같이 쓰고, 완성하면 Enter!', targets: [...KO_CHARACTER_PRACTICE_STORIES], success: '장문 세 편 완료! 세 모험가의 이야기를 모두 읽었어요.' },
+    { part: 'story', title: '캐릭터 모험 장문 4편', instruction: '하늘, 보라, 지호, 루카가 직접 쓴 모험 기록을 한 편씩 완성해 봐요.', hint: '띄어쓰기와 문장부호까지 똑같이 쓰고, 완성하면 Enter!', targets: [...KO_CHARACTER_PRACTICE_STORIES], success: '장문 네 편 완료! 네 모험가의 이야기를 모두 읽었어요.' },
   ];
+}
+
+export function characterStoryStep(language: GameLanguage, storyIndex: number): TutorialStep {
+  const story = characterPracticeStories(language)[storyIndex] ?? characterPracticeStories(language)[0];
+  return {
+    part: 'story',
+    title: story.title,
+    instruction: language === 'en' ? `Type ${story.name}'s journal about two lines at a time.` : `${story.name}의 일기를 두 줄 정도씩 차근차근 써 봐요.`,
+    hint: language === 'en' ? 'Match spaces and punctuation, then press Enter.' : '띄어쓰기와 문장부호까지 똑같이 쓰고 Enter!',
+    targets: splitCharacterPracticeStory(story.text, language),
+    success: language === 'en' ? `${story.name}'s diary is complete!` : `${story.name}의 일기 완성!`,
+  };
 }
 
 /** A rehearsal only: no clock, damage, coins, stage unlocks, or learning-record side effects. */
@@ -84,8 +96,8 @@ export class TutorialSystem {
   stepIndex = 0;
   targetIndex = 0;
   stepComplete = false;
-  constructor(language: GameLanguage, parts?: TutorialStep['part'][], quick = false) {
-    this.steps = tutorialSteps(language).filter(step => !parts || parts.includes(step.part)).map(step => {
+  constructor(language: GameLanguage, parts?: TutorialStep['part'][], quick = false, source = tutorialSteps(language)) {
+    this.steps = source.filter(step => !parts || parts.includes(step.part)).map(step => {
       if (!quick) return step;
       const count = step.part === 'sentences' ? 1 : step.part === 'story' ? 2 : 3;
       const targets = step.part === 'story' || step.part === 'sentences' ? step.targets.slice(0, count)

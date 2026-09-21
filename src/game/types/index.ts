@@ -26,6 +26,9 @@ export interface ContentUnit {
 export interface UnlockRule {
   stars?: number; // 별 총합
   badge?: string; // 배지 id
+  coins?: number; // 누적 코인
+  combo?: number; // 한 판 최대 콤보 기록
+  clearedStage?: Exclude<StageId, 'daily'>; // 해당 스테이지 클리어
   desc: string;
 }
 export interface CharacterDef {
@@ -101,6 +104,8 @@ export interface SaveProgress {
   tutorialCompleted?: boolean;
   /** First-time preparation, archived independently for Korean and English. */
   practicedParts?: Array<'consonants' | 'vowels' | 'sentences' | 'story'>;
+  /** Character journals completed from the optional long-form practice chooser. */
+  completedPracticeStories?: number[];
   /** Stages whose warm-up was intentionally skipped; kept separate from completed practice. */
   skippedPracticeStages?: Array<Exclude<StageId, 'daily'>>;
   unlockedStage: number;

@@ -11,7 +11,7 @@
 import type { ContentUnit, Difficulty, LearningAttempt, PetActive, PetDef, StageDef, WordVariant } from '../types';
 import { TypingStats, inputErrorCount, type StatsSnapshot } from './TypingStats';
 import { countStrokes, isPrefixInput } from '../util/hangul';
-import { obj, readInt, readStrings } from './Checkpoint';
+import { obj, readBool, readInt, readStrings } from './Checkpoint';
 
 /** Counters a mid-stage checkpoint carries so score, combo, coins, skips and accuracy continue after a reload. */
 export interface RunCounters {
@@ -29,6 +29,7 @@ export interface RunCounters {
   seen: string[];
   learningAttempts: LearningAttempt[];
   stats: StatsSnapshot;
+  petRescueUsed: boolean;
 }
 
 export type FeverLevel = 0 | 1 | 2 | 3;
@@ -118,6 +119,8 @@ export class TypingRun {
   correctedCount = 0;
   /** 최근 80회 입력 근거. 자동 저장은 결과 화면에서만 수행한다. */
   learningAttempts: LearningAttempt[] = [];
+  /** 한 판에 한 번, HP가 0이 될 때 동행 펫이 대신 사라지고 절반을 회복한다. */
+  petRescueUsed = false;
 
   private o: RunOptions;
   private now: () => number;
@@ -161,7 +164,7 @@ export class TypingRun {
       combo: this.combo, maxCombo: this.maxCombo, perfectCount: this.perfectCount, wordsDone: this.wordsDone,
       coins: this.coins, treasures: this.treasures, skipsLeft: this.skipsLeft, skippedCount: this.skippedCount, correctedCount: this.correctedCount,
       adaptiveOffset: this.adaptiveOffset, mistakes: [...this.mistakes], seen: [...this.seen],
-      learningAttempts: this.learningAttempts.map((a) => ({ ...a })), stats: this.stats.snapshot(),
+      learningAttempts: this.learningAttempts.map((a) => ({ ...a })), stats: this.stats.snapshot(), petRescueUsed: this.petRescueUsed,
     };
   }
 
@@ -181,6 +184,7 @@ export class TypingRun {
     this.skippedCount = readInt(c.skippedCount, 0, 0, 100000);
     this.correctedCount = readInt(c.correctedCount, 0, 0, 100000);
     this.adaptiveOffset = readInt(c.adaptiveOffset, 0, -1, 1);
+    this.petRescueUsed = readBool(c.petRescueUsed, false);
     this.mistakes = readStrings(c.mistakes, 200);
     this.seen = new Set(readStrings(c.seen, 500, 120));
     this.learningAttempts = (Array.isArray(c.learningAttempts) ? c.learningAttempts : []).slice(-80).flatMap((entry): LearningAttempt[] => {
@@ -222,6 +226,16 @@ export class TypingRun {
 
   isShielded() {
     return this.shieldLeft > 0;
+  }
+
+  /** HP가 0이 된 첫 순간에만 펫 희생을 발동하고 최대 HP의 50%로 되살린다. */
+  rescueIfDown(hp: number, maxHp: number): number {
+    if (hp > 0 || this.petRescueUsed) return hp;
+    this.petRescueUsed = true;
+    const restoredHp = Math.max(1, Math.ceil(maxHp * 0.5));
+    this.o.emit('PET_RESCUE', { pet: this.pet, restoredHp, maxHp });
+    this.o.emit('HP_HEAL', { amount: restoredHp, hp: restoredHp, source: 'pet_rescue' });
+    return restoredHp;
   }
 
   /** 강공격 배율 */

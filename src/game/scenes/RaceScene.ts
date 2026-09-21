@@ -20,11 +20,14 @@ export const RACE_PLAYER_X = 1240;
 const GROUND_Y = 770; // 발끝 770: 하단 입력 패널(830~) 위
 const PX_PER_M = 7; // 캐릭터 간 거리 표현 배율
 const CHASER_MIN_SEPARATION = 125;
-// 레이스 초반에는 추격자가 왼쪽 화면 밖/가장자리에 걸치게 해
-// 실제로 거리를 좁히며 화면 안으로 파고드는 흐름을 만든다.
-const CHASER_MAX_SEPARATION = 1350;
+// 가장 멀리 벌어져도 큰 추격자의 몸 전체가 왼쪽 화면 안에 남는다.
+const CHASER_MIN_SCREEN_X = 310;
+const CHASER_EDGE_PADDING = 18;
+const CHASER_MAX_SEPARATION = RACE_PLAYER_X - CHASER_MIN_SCREEN_X;
 const CHASER_VISUAL_GAP_M = 50;
 const CHASER_APPROACH_CURVE = 0.82;
+const FRONT_AMBUSH_METRES = [190, 405, 625] as const;
+const FRONT_AMBUSH_SCALE = 0.78;
 
 /** 실제 미터 간격을 화면 거리로 변환한다. 가까운 구간일수록 접근이 더 크게 읽히는 곡선이다. */
 export function raceChaserScreenX(gap: number) {
@@ -60,6 +63,9 @@ export class RaceScene extends Phaser.Scene {
   private chaser?: Phaser.GameObjects.Sprite;
   private chaserShadow?: Phaser.GameObjects.Ellipse;
   private pressure?: Phaser.GameObjects.Ellipse;
+  private frontAmbush?: Phaser.GameObjects.Sprite;
+  private chaserSheet = '';
+  private nextAmbush = 0;
   private wordText?: Phaser.GameObjects.Text;
   private speedLines?: Phaser.GameObjects.Particles.ParticleEmitter;
   private burst?: Phaser.GameObjects.Particles.ParticleEmitter;
@@ -92,6 +98,8 @@ export class RaceScene extends Phaser.Scene {
     this.threat = 0;
     this.finished = false;
     this.caughtUntil = 0;
+    this.nextAmbush = 0;
+    this.frontAmbush = undefined;
     this.targets = { chaserX: raceChaserScreenX(40), ghostX: -400 };
 
     // 배경: 같은 그림을 두 겹으로 다른 속도로 흘려 원근감
@@ -129,6 +137,7 @@ export class RaceScene extends Phaser.Scene {
 
     // 추격자 (그림자 시트가 오기 전엔 스테이지 첫 몬스터로 대체)
     const chaserDef = getEnemy(stage.enemies[0]);
+    this.chaserSheet = chaserDef.sheet;
     registerSheetAnims(this, chaserDef.sheet);
     const chaserStartX = raceChaserScreenX(40);
     this.pressure = this.add.ellipse(chaserStartX - 70, GROUND_Y - 170, 590, 390, 0x572858, 0.12).setDepth(4);
@@ -158,6 +167,7 @@ export class RaceScene extends Phaser.Scene {
     this.bind(Events.INPUT_CORRECT, (d: { perfect: boolean; combo: number }) => this.onCorrect(d));
     this.bind(Events.INPUT_WRONG, (d: { forgiven: boolean }) => this.onWrong(d));
     this.bind(Events.RACE_CAUGHT, (d: { hpLoss: number }) => this.onCaught(d));
+    this.bind(Events.RACE_GHOST_CAUGHT, (d: { hpLoss: number }) => this.onGhostCaught(d));
     // TURBO: 대시 자세를 길게 잡고 먼지를 크게 터뜨린다
     this.bind(Events.RACE_TURBO, () => { this.player?.burst(420); this.pet?.cheer(); this.flash(0xffd34d, 0.25); if (!prefersReducedMotion()) this.dust?.explode(18, RACE_PLAYER_X - 30, GROUND_Y - 6); });
     this.bind(Events.PET_ACTIVE, () => this.pet?.skill());
@@ -177,6 +187,8 @@ export class RaceScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       for (const [ev, fn] of this.handlers) EventBus.off(ev, fn);
       this.handlers = [];
+      this.frontAmbush?.destroy();
+      this.frontAmbush = undefined;
     });
     void AudioManager.bgm(STAGE_BGM[stage.id] ?? 'battle');
   }
@@ -212,8 +224,10 @@ export class RaceScene extends Phaser.Scene {
     const lerp = (a: number, b: number) => Phaser.Math.Linear(a, b, 1 - Math.exp(-5 * dt));
     if (this.chaser && this.chaserShadow) {
       const contact = this.time.now < this.caughtUntil;
-      const x = lerp(this.chaser.x, contact ? RACE_PLAYER_X - 112 : this.targets.chaserX);
       const scale = lerp(this.chaser.scaleX, 2.05 + this.threat * 0.58);
+      const wantedX = contact ? RACE_PLAYER_X - 112 : this.targets.chaserX;
+      const safeLeft = Math.max(CHASER_MIN_SCREEN_X, this.chaser.frame.realWidth * scale / 2 + CHASER_EDGE_PADDING);
+      const x = lerp(this.chaser.x, Math.max(safeLeft, wantedX));
       this.chaser.setX(x).setScale(scale);
       this.chaser.setOrigin(0.5, 1 + (prefersReducedMotion() ? 0 : (1 - Math.cos(_t * 0.026 * this.chaserPace)) * 2) / this.chaser.displayHeight);
       this.chaserShadow.setX(x).setScale(0.88 + this.threat * 0.42, 0.9 + this.threat * 0.2).setAlpha(0.3 + this.threat * 0.28);
@@ -251,6 +265,10 @@ export class RaceScene extends Phaser.Scene {
     // recovery slows the pursuer rather than teleporting it out of view.
     this.threat = r.threat;
     this.targets.chaserX = raceChaserScreenX(r.gap);
+    if (!this.finished && !this.frontAmbush && this.nextAmbush < FRONT_AMBUSH_METRES.length && r.player >= FRONT_AMBUSH_METRES[this.nextAmbush]) {
+      this.nextAmbush++;
+      this.showFrontAmbush();
+    }
     this.turbo = r.turboLeft > 0;
     this.chaserPace = Phaser.Math.Clamp(r.chaserSpeed / 5, 0.9, 2);
     if (this.chaser) this.chaser.anims.timeScale = this.chaserPace;
@@ -265,6 +283,9 @@ export class RaceScene extends Phaser.Scene {
       this.ghostLabel?.setVisible(true);
       this.targets.ghostX = Phaser.Math.Clamp(RACE_PLAYER_X + (r.ghost - r.player) * PX_PER_M, -300, DESIGN_W + 200);
       this.ghostLabel?.setText(tr(r.ghostAhead ? '어제의 나' : '어제의 나 (추월!)'));
+    } else {
+      this.ghost?.setVisible(false);
+      this.ghostLabel?.setVisible(false);
     }
     // 추격자 눈 빛: 가까울수록 붉게
     if (this.chaser?.texture.key === 'mon_shadow_chaser') this.chaser.setTint(r.threat > 0.65 ? 0xffb2b2 : 0xffffff);
@@ -309,6 +330,60 @@ export class RaceScene extends Phaser.Scene {
     }
   }
 
+  private onGhostCaught(d: { hpLoss: number }) {
+    const x = this.ghost?.x ?? this.targets.ghostX;
+    this.ghost?.setVisible(false);
+    this.ghostLabel?.setVisible(false);
+    this.targets.ghostX = -400;
+    if (!prefersReducedMotion()) this.burst?.explode(16, x, GROUND_Y - 120);
+    if (d.hpLoss > 0) this.onCaught(d);
+  }
+
+  /** 진행 중 세 번, 같은 추격자의 작은 잔상이 앞에서 튀어나오는 순수 시각 연출. */
+  private showFrontAmbush() {
+    if (!this.chaserSheet) return;
+    const reduced = prefersReducedMotion();
+    const targetX = Math.min(DESIGN_W - 120, RACE_PLAYER_X + 315);
+    const sprite = this.add.sprite(reduced ? targetX : DESIGN_W + 90, GROUND_Y + 2, this.chaserSheet, 'walk_left_0')
+      .setOrigin(0.5, 1)
+      .setScale(reduced ? FRONT_AMBUSH_SCALE : 0.22)
+      .setAlpha(reduced ? 0.82 : 0)
+      .setDepth(10);
+    sprite.play(anim(this.chaserSheet, 'run_left'));
+    sprite.anims.timeScale = 1.7;
+    this.frontAmbush = sprite;
+    const remove = () => {
+      if (this.frontAmbush === sprite) this.frontAmbush = undefined;
+      sprite.destroy();
+    };
+    if (reduced) {
+      this.time.delayedCall(520, remove);
+      return;
+    }
+    this.tweens.add({
+      targets: sprite,
+      x: targetX,
+      scaleX: FRONT_AMBUSH_SCALE,
+      scaleY: FRONT_AMBUSH_SCALE,
+      alpha: 0.9,
+      duration: 180,
+      ease: 'Back.easeOut',
+      onComplete: () => this.tweens.add({
+        targets: sprite,
+        x: targetX - 90,
+        y: GROUND_Y - 62,
+        angle: -7,
+        alpha: 0,
+        scaleX: 0.5,
+        scaleY: 0.5,
+        delay: 360,
+        duration: 260,
+        ease: 'Quad.easeIn',
+        onComplete: remove,
+      }),
+    });
+  }
+
   private flash(color: number, alpha: number) {
     if (prefersReducedMotion()) return;
     const f = this.add.ellipse(RACE_PLAYER_X + 70, GROUND_Y - 110, 100, 44, color, alpha).setDepth(10);
@@ -321,6 +396,8 @@ export class RaceScene extends Phaser.Scene {
     this.speed = 12;
     if (this.finished) return;
     this.finished = true;
+    this.frontAmbush?.destroy();
+    this.frontAmbush = undefined;
     const beam = this.add.rectangle(DESIGN_W - 300, DESIGN_H / 2, 300, DESIGN_H, 0xfff2b0, 0).setDepth(28).setBlendMode(Phaser.BlendModes.ADD);
     if (!prefersReducedMotion()) this.tweens.add({ targets: beam, fillAlpha: 0.5, scaleX: 1.5, duration: 900, ease: 'Sine.easeOut' });
     this.tweens.add({ targets: [this.player!.sprite, this.player!.shadow], x: DESIGN_W + 200, duration: 1400, delay: 300, ease: 'Quad.easeIn' });

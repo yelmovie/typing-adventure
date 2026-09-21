@@ -19,7 +19,7 @@ export const BOSS = {
   crystals: 5,
   rushSec: 2.4,
   queueMax: 4,
-  darkHp: 10,
+  darkHp: 1,
   rushDamage: 4,
   finalFeverDamage: 20,
   phase3At: 30,
@@ -106,12 +106,14 @@ export class BossSystem implements TypingMode {
   private crystalIdx = 0;
   private rushSec: number;
   private bossSheet: string;
+  private rabbitGuard = false;
 
   constructor(stage: StageDef, difficulty: Difficulty, pet: PetDef, words: BossWords, bossSheet: string, emit: Emit, options: BossOptions = {}) {
     this.stage = stage;
     this.difficulty = difficulty;
     this.emit = emit;
     this.bossSheet = bossSheet;
+    this.rabbitGuard = pet.id === 'rabbit';
     const random = options.random ?? Math.random;
     this.rushPool = shuffle(uniqueWords(words.rush), random);
     this.finalPool = shuffle(uniqueWords(words.final), random);
@@ -175,6 +177,7 @@ export class BossSystem implements TypingMode {
       finalIdx: this.finalIdx, armorBroken: this.armorBroken, coreExposed: this.coreExposed, playerHp: this.playerHp, timeLeft: this.timeLeft,
       score: this.score, darkness: this.darkness, finalSentences: this.finalSentences.map((u) => ({ ...u })), rushPool: this.rushPool.map((u) => u.id),
       rushCursor: this.rushCursor, rushSeen: [...this.rushSeen], bombTimer: this.bombTimer, run: this.run.serializeCounters(),
+      rabbitGuard: this.rabbitGuard,
     };
   }
 
@@ -219,6 +222,7 @@ export class BossSystem implements TypingMode {
     this.score = readInt(s.score, 0, 0, 1e7);
     this.darkness = readNum(s.darkness, 0, 0, 1);
     this.bombTimer = readNum(s.bombTimer, BOSS.bombEverySec, 0, BOSS.bombEverySec);
+    this.rabbitGuard = readBool(s.rabbitGuard, this.rabbitGuard);
     this.rushTimer = phase === 2 ? 0.5 : 0;
     this.run.restoreCounters(s.run);
   }
@@ -234,12 +238,18 @@ export class BossSystem implements TypingMode {
       // 큐 가득: 어둠이 밀려온다
       this.darkness = Math.min(1, this.darkness + 0.34);
       let hpLoss = 0;
-      if (!this.run.isShielded()) {
+      let guarded = false;
+      if (!this.run.isShielded() && this.rabbitGuard) {
+        this.rabbitGuard = false;
+        guarded = true;
+      } else if (!this.run.isShielded()) {
         hpLoss = BOSS.darkHp;
         this.playerHp = Math.max(0, this.playerHp - hpLoss);
       }
       this.emit('BOSS_DARK', { darkness: this.darkness, hpLoss });
+      if (guarded) this.emit('BOSS_PET_GUARD', { pet: this.run.pet, darkness: this.darkness });
       if (hpLoss > 0) this.emit('PLAYER_HIT', { hpLoss, hp: this.playerHp });
+      this.playerHp = this.run.rescueIfDown(this.playerHp, this.playerMaxHp);
       if (this.playerHp <= 0) this.fail('hp');
       return;
     }
@@ -281,6 +291,7 @@ export class BossSystem implements TypingMode {
     if (drain > 0) {
       this.playerHp = Math.max(0, this.playerHp - drain);
       this.emit('IDLE_DRAIN', { hpLoss: drain, hp: this.playerHp, idle: this.run.idleSeconds });
+      this.playerHp = this.run.rescueIfDown(this.playerHp, this.playerMaxHp);
       if (this.playerHp <= 0) {
         this.fail('hp');
         return;
@@ -369,6 +380,7 @@ export class BossSystem implements TypingMode {
     if (!r.correct) {
       this.applyHp(r.hpDelta);
       this.emit('INPUT_WRONG', { typed: value, target: t, hpLoss: r.hpDelta < 0 ? -r.hpDelta : 0, timeLoss: 0, forgiven: r.forgiven, shielded: this.run.isShielded(), snapshot: this.snapshot() });
+      this.playerHp = this.run.rescueIfDown(this.playerHp, this.playerMaxHp);
       if (this.playerHp <= 0) { this.fail('hp'); return; }
       // 결정·러시·최종 문장 모두 정답만 진행한다. 현재 목표를 보고 고칠 수 있다.
       this.emit('TARGET_CHANGED', this.snapshot());

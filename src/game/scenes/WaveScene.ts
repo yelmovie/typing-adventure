@@ -25,6 +25,8 @@ const PLAYER_POS = { x: 960, y: 520 };
 const ARENA_OUTER = { x: 830, y: 345 };
 const ARENA_TOUCH = { x: 125, y: 58 };
 const MONSTER_VISUAL_SCALE = 0.5; // 2/3 of the former 0.75 presentation size
+const REAR_LANE_SPAWN_SCALE = 0.58;
+const REAR_LANE_FULL_SCALE_AT = 0.72;
 const LANE_ORDER = [0, 4, 2, 6, 1, 5, 3, 7]; // 같은 쪽만 연달아 나오지 않게 반대편을 번갈아 배치
 
 function laneAngle(uid: number) {
@@ -35,6 +37,13 @@ function lanePoint(angle: number, progress: number) {
   const rx = Phaser.Math.Linear(ARENA_OUTER.x, ARENA_TOUCH.x, progress);
   const ry = Phaser.Math.Linear(ARENA_OUTER.y, ARENA_TOUCH.y, progress);
   return { x: PLAYER_POS.x + Math.cos(angle) * rx, y: PLAYER_POS.y + Math.sin(angle) * ry };
+}
+
+/** 플레이어 뒤 12시 레인은 멀리서 작게 보이다가 가까워질수록 원래 크기로 돌아온다. */
+function rearLanePerspective(progress: number) {
+  const t = Phaser.Math.Clamp(progress / REAR_LANE_FULL_SCALE_AT, 0, 1);
+  const eased = t * t * (3 - 2 * t);
+  return Phaser.Math.Linear(REAR_LANE_SPAWN_SCALE, 1, eased);
 }
 
 /** 대왕 슬라임은 10시 상단에서 얼굴이 먼저 보이도록 전용 직선으로 진입한다. */
@@ -67,11 +76,17 @@ class Mob {
   dead = false;
   danger = false;
   targeted = false;
+  private readonly baseScale: number;
+  private readonly rearLane: boolean;
+  private perspectiveScale = 1;
+  private impactScaleX = 1;
+  private impactScaleY = 1;
   private restColor = '#ffffff'; // 변화구 색 — 위험 표시가 끝나면 이 색으로 되돌린다
   constructor(private scene: Phaser.Scene, m: WaveMonster) {
     this.word = m.word.text;
     this.big = !!m.big;
     this.angle = m.big ? -5 * Math.PI / 6 : laneAngle(m.uid);
+    this.rearLane = !m.big && Math.abs(this.angle + Math.PI / 2) < 0.001;
     const spawn = m.big ? bossLanePoint(0) : lanePoint(this.angle, 0);
     this.targetX = spawn.x;
     this.targetY = spawn.y;
@@ -81,8 +96,10 @@ class Mob {
     registerSheetAnims(scene, sheet);
     // 전용 대장 시트는 그림 자체가 크고 왕관이 있으니 덜 키우고 틴트도 안 입힌다
     const baseScale = m.big ? 1.05 * (ownSheet ? 1.25 : 1.8) : m.kind === 'bat' ? 1.0 : 1.05;
-    const scale = baseScale * MONSTER_VISUAL_SCALE * (m.big ? 2 : 1);
-    this.enemy = new Enemy(scene, spawn.x, spawn.y, sheet, scale);
+    this.baseScale = baseScale * MONSTER_VISUAL_SCALE * (m.big ? 2 : 1);
+    this.perspectiveScale = this.rearLane ? rearLanePerspective(0) : 1;
+    this.enemy = new Enemy(scene, spawn.x, spawn.y, sheet, this.baseScale);
+    this.applyVisualScale();
     if (m.big && !ownSheet) this.enemy.sprite.setTint(0xffcf7a);
     this.enemy.setDepth(8);
     this.enemy.sprite.play(anim(sheet, `walk_${approachDirection(this.angle)}`));
@@ -152,6 +169,14 @@ class Mob {
     const p = this.big ? bossLanePoint(clamped) : lanePoint(this.angle, clamped);
     this.targetX = p.x;
     this.targetY = p.y;
+    if (this.rearLane) this.perspectiveScale = rearLanePerspective(clamped);
+  }
+  private applyVisualScale() {
+    this.enemy.sprite.setScale(
+      this.baseScale * this.perspectiveScale * this.impactScaleX,
+      this.baseScale * this.perspectiveScale * this.impactScaleY,
+    );
+    this.enemy.shadow.setScale(this.perspectiveScale);
   }
   private drawPath() {
     this.path.clear();
@@ -177,6 +202,7 @@ class Mob {
   update() {
     if (this.dead) return;
     const s = this.enemy.sprite;
+    this.applyVisualScale();
     const nx = Phaser.Math.Linear(s.x, this.targetX, 0.18);
     const ny = Phaser.Math.Linear(s.y, this.targetY, 0.18);
     s.setPosition(nx, ny);
@@ -190,7 +216,7 @@ class Mob {
     s.setTintFill(0xffffff);
     this.scene.time.delayedCall(60, () => s.setTint(0xff9090));
     this.scene.time.delayedCall(160, () => s.clearTint());
-    this.scene.tweens.add({ targets: s, scaleX: s.scaleX * 1.12, scaleY: s.scaleY * 0.9, duration: 70, yoyo: true });
+    this.scene.tweens.add({ targets: this, impactScaleX: 1.12, impactScaleY: 0.9, duration: 70, yoyo: true });
   }
   lunge(onHit: () => void) {
     const s = this.enemy.sprite;
@@ -218,10 +244,14 @@ class Mob {
     this.labelRest.destroy();
     this.ring.destroy();
     this.path.destroy();
+    const scaleX = this.enemy.sprite.scaleX;
+    const scaleY = this.enemy.sprite.scaleY;
     this.enemy.defeat(() => {
       this.enemy.destroy();
       onDone();
     });
+    // Enemy.defeat의 기본 크기 복원을 되돌려, 먼 거리에서 처치돼도 갑자기 커지지 않게 한다.
+    this.enemy.sprite.setScale(scaleX, scaleY);
   }
   destroy() {
     this.labelDone.destroy();

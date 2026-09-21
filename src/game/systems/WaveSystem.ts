@@ -384,6 +384,7 @@ export class WaveSystem {
     if (drain > 0) {
       this.playerHp = Math.max(0, this.playerHp - drain);
       this.emit('IDLE_DRAIN', { hpLoss: drain, hp: this.playerHp, idle: this.run.idleSeconds });
+      this.playerHp = this.run.rescueIfDown(this.playerHp, this.playerMaxHp);
       if (this.playerHp <= 0) {
         this.fail('hp');
         return;
@@ -460,6 +461,7 @@ export class WaveSystem {
     }
     this.emit('WAVE_TOUCH', { uid: m.uid, hpLoss, shielded: hpLoss === 0 });
     if (hpLoss > 0) this.emit('PLAYER_HIT', { hpLoss, hp: this.playerHp });
+    this.playerHp = this.run.rescueIfDown(this.playerHp, this.playerMaxHp);
     if (this.playerHp <= 0) {
       this.fail('hp');
       return;
@@ -529,6 +531,7 @@ export class WaveSystem {
       t.x = Math.min(t.x, 0.5);
       t.pushed = WAVE.pushStunSec;
       this.emit('WAVE_PUSH', { uid: t.uid, retry: true });
+      this.playerHp = this.run.rescueIfDown(this.playerHp, this.playerMaxHp);
       if (this.playerHp <= 0) { this.fail('hp'); return; }
       this.emit('TARGET_CHANGED', this.snapshot());
       return;

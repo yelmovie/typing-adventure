@@ -1,4 +1,5 @@
 import type { SaveData, LearningFocus, LearningPattern, LearningProgress } from '../types';
+import { unlockEligibleFriends } from '../data/characters';
 import { validateCheckpoint } from './Checkpoint';
 
 export const CURRENT_SAVE_VERSION = '2';
@@ -19,7 +20,7 @@ export function defaultSave(): SaveData {
   return {
     version: CURRENT_SAVE_VERSION,
     profile: { name: '', characterId: 'brown_boy', petId: 'cat', difficulty: 'normal' },
-    progress: { tutorialCompleted: false, practicedParts: [], skippedPracticeStages: [], unlockedStage: 1, stageStars: {}, clearedStages: [], coins: 0, gems: { green: 0, blue: 0, violet: 0 }, items: { heart: 0, star: 0, shield: 0, bolt: 0 }, fails: {}, assist: {}, challenges: {}, storiesDone: {} },
+    progress: { tutorialCompleted: false, practicedParts: [], completedPracticeStories: [], skippedPracticeStages: [], unlockedStage: 1, stageStars: {}, clearedStages: [], coins: 0, gems: { green: 0, blue: 0, violet: 0 }, items: { heart: 0, star: 0, shield: 0, bolt: 0 }, fails: {}, assist: {}, challenges: {}, storiesDone: {} },
     records: { bestCpm: 0, bestAccuracy: 0, bestCombo: 0, bestScoreByStage: {}, ghosts: {}, daily: {}, learning: { patterns: {}, recent: [], seen: [] }, streak: { count: 0, best: 0, last: '' } },
     collection: { badges: [], wordsSeen: [], petsUnlocked: ['cat', 'rabbit'], charactersUnlocked: characters.slice(0, 3), enemiesSeen: [] },
     settings: { language: 'ko', bgm: true, sfx: true, screenShake: true, showKeyboardGuide: false, bgmVolume: 0.7, sfxVolume: 0.9, prologueSeen: false },
@@ -78,6 +79,7 @@ export function validateSave(value: unknown, includeArchives = true): SaveData {
   d.progress = {
     tutorialCompleted: bool(progress.tutorialCompleted, false),
     practicedParts: strings(progress.practicedParts, 4).filter((part): part is NonNullable<SaveData['progress']['practicedParts']>[number] => ['consonants', 'vowels', 'sentences', 'story'].includes(part)),
+    completedPracticeStories: [...new Set((Array.isArray(progress.completedPracticeStories) ? progress.completedPracticeStories : []).filter((index): index is number => typeof index === 'number' && Number.isInteger(index) && index >= 0 && index < 4))],
     skippedPracticeStages: strings(progress.skippedPracticeStages, stages.length).filter((id): id is NonNullable<SaveData['progress']['skippedPracticeStages']>[number] => stages.includes(id)),
     unlockedStage: 1,
     stageStars: Object.fromEntries(entries(progress.stageStars).filter(([id]) => stages.includes(id)).map(([id, n]) => [id, Math.floor(num(n, 0, 3))])),
@@ -126,6 +128,9 @@ export function validateSave(value: unknown, includeArchives = true): SaveData {
     speedrun: speedrun(records.speedrun),
   };
   d.collection = { badges: strings(c.badges, 100), wordsSeen: strings(c.wordsSeen, 500), petsUnlocked: unlockedPets, charactersUnlocked: unlockedCharacters, enemiesSeen: strings(c.enemiesSeen, 100) };
+  unlockEligibleFriends(d);
+  d.profile.characterId = choose(p.characterId, d.collection.charactersUnlocked, d.profile.characterId);
+  d.profile.petId = choose(p.petId, d.collection.petsUnlocked, d.profile.petId);
   d.settings = { language: s.language === 'en' ? 'en' : 'ko', bgm: bool(s.bgm, true), sfx: bool(s.sfx, true), screenShake: bool(s.screenShake, true), showKeyboardGuide: bool(s.showKeyboardGuide, false), bgmVolume: num(s.bgmVolume, 0.7, 1), sfxVolume: num(s.sfxVolume, 0.9, 1), prologueSeen: bool(s.prologueSeen, false) };
   d.stats = { totalClears: num(stats.totalClears), totalWords: num(stats.totalWords), totalPlaySec: num(stats.totalPlaySec) };
   d.updatedAt = date(v.updatedAt);

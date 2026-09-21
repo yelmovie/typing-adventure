@@ -19,6 +19,18 @@ export const StagePractice = {
     progress.practicedParts = [...new Set([...(progress.practicedParts ?? []), part])];
     SaveSystem.save();
   },
+  completedStories(language: GameLanguage): number[] {
+    return [...(progressFor(language)?.completedPracticeStories ?? [])];
+  },
+  completeStory(storyIndex: number, language: GameLanguage) {
+    const progress = progressFor(language);
+    if (!progress || storyIndex < 0 || storyIndex > 3) return;
+    progress.completedPracticeStories = [...new Set([...(progress.completedPracticeStories ?? []), storyIndex])].sort((a, b) => a - b);
+    if (progress.completedPracticeStories.length === 4) {
+      progress.practicedParts = [...new Set<PracticePart>([...(progress.practicedParts ?? []), 'story'])];
+    }
+    SaveSystem.save();
+  },
   complete(stageId: StageId, language: GameLanguage, _remix = false) {
     const progress = progressFor(language);
     if (!progress) return;

@@ -97,11 +97,18 @@ async function inspect(page, panels, controls) {
   return { panels: data.panels.length, controls: data.controls.length, minControlHeight: Math.min(...data.controls.map(c => c.height)), verticalScrollAllowed: data.panels.some(p => p.scrollY > 1 && ['auto', 'scroll'].includes(p.overflowY)) };
 }
 async function finishTelegram(page) {
-  for (let i = 0; i < 5; i++) { // 전보 5문장(TELE.sentences)
+  for (let i = 0; i < 12; i++) { // 전보 5문장 + 첫 문장 뒤 박쥐 기습 4낱말
+    if (await page.evaluate(() => window.__battle.finished)) break;
     await page.waitForFunction(() => document.querySelector('.bb-input') && !document.querySelector('.bb-input').disabled && !window.__battle.snapshot().telegram.outage);
-    const completed = await page.evaluate(() => window.__battle.snapshot().wordsDone);
+    const before = await page.evaluate(() => {
+      const s = window.__battle.snapshot();
+      return `${s.wordsDone}:${s.telegram.bat.active}:${s.telegram.bat.index}`;
+    });
     await page.locator('.bb-input').fill(await page.locator('.bb-target').innerText());
-    await page.waitForFunction(previous => window.__battle.finished || window.__battle.snapshot().wordsDone > previous, completed);
+    await page.waitForFunction(previous => {
+      const b = window.__battle, s = b.snapshot();
+      return b.finished || `${s.wordsDone}:${s.telegram.bat.active}:${s.telegram.bat.index}` !== previous;
+    }, before);
   }
   await page.locator('.result-panel').waitFor({ state: 'visible', timeout: 60000 });
   await settled(page);

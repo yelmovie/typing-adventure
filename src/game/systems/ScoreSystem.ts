@@ -1,7 +1,7 @@
 import type { BattleResult, StageDef, SaveData } from '../types';
 import { evaluateBadges, evaluateStreakBadges } from '../data/badges';
 import { SaveSystem } from './SaveSystem';
-import { CHARACTERS, PETS, unlockMet } from '../data/characters';
+import { unlockEligibleFriends } from '../data/characters';
 import { todayKey, currentDailyKind, touchStreak } from './DailySystem';
 import { currentTitle, unlockedDecors } from '../data/titles';
 import { calcStars, hasAchievement } from './AwardRules';
@@ -41,8 +41,9 @@ export function finalizeAndSave(partial: Omit<BattleResult, 'newBadges' | 'isNew
     // 오늘의 도전은 지역 배지를 주지 않지만, 출석 스트릭 배지는 여기서도 받는다.
     const streakBadges = partial.cleared ? evaluateStreakBadges(save) : [];
     for (const b of streakBadges) if (!save.collection.badges.includes(b)) save.collection.badges.push(b);
+    const newUnlocks = unlockEligibleFriends(save);
     SaveSystem.save();
-    return { ...partial, stars: calcStars(stage, partial.cleared, partial.accuracy, partial.elapsedSec, partial.maxCombo), newBadges: streakBadges, isNewCpm: false, isNewAccuracy: false, isNewCombo: false, isNewScore: false, newUnlocks: [], dailyNew };
+    return { ...partial, stars: calcStars(stage, partial.cleared, partial.accuracy, partial.elapsedSec, partial.maxCombo), newBadges: streakBadges, isNewCpm: false, isNewAccuracy: false, isNewCombo: false, isNewScore: false, newUnlocks, dailyNew };
   }
   const stars = calcStars(stage, partial.cleared, partial.accuracy, partial.elapsedSec, partial.maxCombo);
   const base = { ...partial, stars };
@@ -97,20 +98,7 @@ export function finalizeAndSave(partial: Omit<BattleResult, 'newBadges' | 'isNew
     save.progress.fails[stage.id] = (save.progress.fails[stage.id] ?? 0) + 1;
   }
   // 캐릭터·펫 해금
-  const newUnlocks: string[] = [];
-  save.collection.charactersUnlocked ??= ['brown_boy', 'pink_girl', 'glasses_boy'];
-  for (const c of CHARACTERS) {
-    if (!save.collection.charactersUnlocked.includes(c.id) && unlockMet(c.unlock, save)) {
-      save.collection.charactersUnlocked.push(c.id);
-      newUnlocks.push(`캐릭터 ${c.name}`);
-    }
-  }
-  for (const p of PETS) {
-    if (!save.collection.petsUnlocked.includes(p.id) && unlockMet(p.unlock, save)) {
-      save.collection.petsUnlocked.push(p.id);
-      newUnlocks.push(`펫 ${p.name}`);
-    }
-  }
+  const newUnlocks = unlockEligibleFriends(save);
   SaveSystem.save();
 
   return { ...base, newBadges, newChallenges, isNewCpm, isNewAccuracy, isNewCombo, isNewScore, newUnlocks, newTitles };

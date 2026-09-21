@@ -261,7 +261,41 @@ export class BattleScreen extends Screen<BattleData> {
     this.bind(Events.BOSS_PHASE, (d: { phase: number }) => { if (d.phase === 2) this.feedback?.judge(this.copy.bossRush, 'fever'); if (d.phase === 3) this.feedback?.judge(this.copy.bossFinal, 'fever'); });
     this.bind(Events.BOSS_ARMOR, () => this.feedback?.judge(this.copy.armorBroken, 'fever'));
     this.bind(Events.BOSS_DARK, () => { this.feedback?.flash('wrong'); this.feedback?.judge(this.copy.darkness, 'miss'); });
+    this.bind(Events.BOSS_PET_GUARD, () => this.feedback?.judge(copyText('토끼 방어! 어둠 공격을 막았어요', 'Rabbit guard! The dark attack was blocked'), 'fever'));
+    this.bind(Events.PET_RESCUE, () => {
+      this.feedback?.flash('right');
+      this.feedback?.judgeNow(copyText('친구가 대신 막았어요! HP 50% 회복', 'Your friend protected you! HP restored to 50%'), 'perfect big');
+    });
     this.bind(Events.TELE_BRAKE, (d: { stage: number; total: number }) => this.feedback?.judge(this.copy.brake(d.stage, d.total), 'good'));
+    this.bind(Events.TELE_AMBUSH_START, () => {
+      this.el.classList.add('tele-bat-ambush');
+      this.hud!.skipBtn.hidden = true;
+      const help = this.el.querySelector<HTMLElement>('.bb-target-desc');
+      if (help) help.textContent = copyText('박쥐 기습! 낱말을 제한 시간 안에 입력해', 'Bat ambush! Type each word before time runs out');
+      this.feedback?.judgeNow(copyText('⚠ 박쥐 4마리 접근!', '⚠ 4 bats incoming!'), 'miss big');
+      AudioManager.sfx('bomb', { rate: 1.35, gain: 0.6 });
+    });
+    this.bind(Events.TELE_BAT_HIT, (d: { index: number; total: number; bonus: number }) => {
+      this.feedback?.flash('right');
+      this.feedback?.judge(copyText(`박쥐 격퇴 ${d.index + 1}/${d.total} · +${d.bonus}점`, `Bat blocked ${d.index + 1}/${d.total} · +${d.bonus}`), 'perfect');
+    });
+    this.bind(Events.TELE_BAT_WRONG, () => {
+      this.feedback?.flash('wrong');
+      if (this.inputEl) this.feedback?.reject(this.inputEl);
+      this.feedback?.judge(copyText('낱말이 달라! 다시 빠르게!', 'Wrong word! Try again, quickly!'), 'miss');
+      AudioManager.sfx('miss');
+    });
+    this.bind(Events.TELE_BAT_MISSED, (d: { index: number; total: number; hpLoss: number }) => {
+      this.feedback?.flash('wrong');
+      this.feedback?.judge(copyText(`방어 실패 ${d.index + 1}/${d.total} · HP -${d.hpLoss}`, `Missed ${d.index + 1}/${d.total} · HP -${d.hpLoss}`), 'miss');
+    });
+    this.bind(Events.TELE_AMBUSH_END, (d: { hits: number; total: number }) => {
+      this.el.classList.remove('tele-bat-ambush');
+      this.hud!.skipBtn.hidden = false;
+      const help = this.el.querySelector<HTMLElement>('.bb-target-desc');
+      if (help) help.textContent = this.copy.telegramHelp;
+      this.feedback?.judge(copyText(`기습 종료 · ${d.hits}/${d.total}마리 방어! 전보 재개`, `Ambush over · ${d.hits}/${d.total} blocked! Resume the telegram`), d.hits === d.total ? 'fever' : 'good');
+    });
     this.bind(Events.TELE_STOP, () => this.feedback?.judge(this.copy.trainStopped, 'fever'));
     this.bind(Events.TELE_OUTAGE, (d: { on: boolean }) => { if (d.on) this.feedback?.flash('wrong'); this.el.classList.toggle('outage', d.on); });
     this.bind(Events.LETTER_LOCK, (d: { lock: number; total: number; restored?: boolean }) => { if (!d.restored) this.feedback?.judge(this.copy.lockOpened(d.lock, d.total), 'fever'); });
@@ -385,7 +419,7 @@ export class BattleScreen extends Screen<BattleData> {
     this.started = true;
     this.el.querySelector('.countdown')?.remove();
     this.battle.start();
-    // 목표가 없이 시작하는 판(편지의 다음 조각 고르기, 복원한 보스 러시 큐 대기)은 목표가 생길 때 TARGET_CHANGED 가 입력을 연다.
+    // 목표가 없이 시작하는 판(복원한 보스 러시 큐 대기)은 목표가 생길 때 TARGET_CHANGED 가 입력을 연다.
     this.typing?.setEnabled(this.battle.run.current != null);
     this.lastTick = performance.now();
     this.tickTimer = window.setInterval(() => {
@@ -832,6 +866,6 @@ export class BattleScreen extends Screen<BattleData> {
     this.hud = undefined;
     this.kbd = undefined;
     this.currentTarget = null;
-    this.el.classList.remove('low-health', 'finishing', 'finish-clear', 'finish-fail');
+    this.el.classList.remove('low-health', 'finishing', 'finish-clear', 'finish-fail', 'tele-bat-ambush');
   }
 }

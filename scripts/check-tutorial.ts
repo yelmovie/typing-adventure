@@ -34,7 +34,7 @@ for (const language of ['ko', 'en'] as const) {
     assert.equal(single.next(), false);
   }
 }
-assert.deepEqual(new TutorialSystem('ko').steps.map(s => s.targets.length), [19, 21, 50, 3]);
+assert.deepEqual(new TutorialSystem('ko').steps.map(s => s.targets.length), [19, 21, 50, 4]);
 assert.equal(new Set(new TutorialSystem('ko', ['sentences']).step.targets).size, 50, 'World practice sentences stay unique');
 assert.equal(practiceCpm(0, '학교', '학', 30_000), 6, 'CPM counts actual 2-beolsik strokes during IME composition');
 assert.equal(practiceStrokeErrors('학교', '학겨'), 1, 'Only entered mismatched strokes count as errors');

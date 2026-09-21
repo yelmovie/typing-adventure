@@ -4,13 +4,13 @@ import { build } from 'esbuild';
 
 // Exercise the live locale boundary, not a second copy of the content selector.
 const compiled = await build({ stdin: { contents: `
-export { allContent, getContentForStage } from './src/game/data/content';
+export { allContent, getContentForStage, buildTargetList } from './src/game/data/content';
 export { setLanguage, installTranslations, t } from './src/game/i18n/Locale';
 export { EN, translateDynamic } from './src/game/i18n/en';
 export { ENGLISH_CONTENT_META } from './src/game/data/content-en';
 export { STUDENT_GUIDE, TEACHER_GUIDE, ABOUT } from './src/game/data/about';
 `, resolveDir: process.cwd() }, bundle: true, write: false, format: 'esm', platform: 'node' });
-const { allContent, getContentForStage, setLanguage, installTranslations, t, EN, translateDynamic, ENGLISH_CONTENT_META, STUDENT_GUIDE, TEACHER_GUIDE, ABOUT } = await import(`data:text/javascript;base64,${Buffer.from(compiled.outputFiles[0].text).toString('base64')}`);
+const { allContent, getContentForStage, buildTargetList, setLanguage, installTranslations, t, EN, translateDynamic, ENGLISH_CONTENT_META, STUDENT_GUIDE, TEACHER_GUIDE, ABOUT } = await import(`data:text/javascript;base64,${Buffer.from(compiled.outputFiles[0].text).toString('base64')}`);
 const expected = {
   ko: { stage_1: 46, stage_2: 42, stage_3: 12, stage_4: 8, stage_5: 60, daily: 45 },
   en: { stage_1: 30, stage_2: 30, stage_3: 9, stage_4: 5, stage_5: 58, daily: 24 },
@@ -53,6 +53,8 @@ for (const locale of ['ko', 'en']) {
       }
     }
     summary[locale][stage] = { count, minLength: Math.min(...units.map(u => u.text.length)), maxLength: Math.max(...units.map(u => u.text.length)), examples: units.slice(0, 4).map(u => u.text) };
+    const firstCycle = buildTargetList(stage, count);
+    assert.equal(new Set(firstCycle.map(u => u.text)).size, firstCycle.length, `${locale} ${stage}: no repeat before pool exhaustion`);
   }
   for (const [stage, tag, count] of [['stage_3', '편지', 9], ['stage_4', '전보', 5]]) {
     const sequence = getContentForStage(stage).filter(u => u.tags.includes(tag));

@@ -73,7 +73,7 @@ try {
     return { player: scene.player.sprite.x, far, middle, near };
   });
   assert.ok(pursuit.player > 960, 'player stays in the forward half of the stage');
-  assert.ok(pursuit.far.target < 0, 'pursuer begins beyond the left edge at a wide gap');
+  assert.ok(pursuit.far.target >= 300, 'pursuer stays fully on screen even at a wide gap');
   assert.ok(pursuit.far.x < pursuit.middle.x && pursuit.middle.x < pursuit.near.x && pursuit.near.x < pursuit.player, 'pursuer closes the visible gap continuously');
   assert.ok(pursuit.near.scale > pursuit.far.scale, 'pursuer gains visual pressure as it approaches');
 

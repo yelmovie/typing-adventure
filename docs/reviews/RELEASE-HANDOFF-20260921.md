@@ -6,6 +6,18 @@
 
 **로컬 릴리스 후보 통과.** 빌드, 핵심 게임 규칙, 연습 화면, 전투 입력, 반응형 레이아웃, 오프라인 교실 배포 패키지 검사가 모두 통과했다. 실제 공개 주소의 최종 검사는 이번 커밋을 배포한 뒤 한 번 더 실행해야 한다.
 
+### 2026-09-21 저녁 이어서 확인한 결과
+
+- 오후 4:29 커밋 `1701974`, 오후 4:33 커밋 `3030577`과 이 문서(4:33 저장)를 기준으로 이어서 검사했다.
+- `npm run check`, `npm run check:gameplay`, `npm run build` 재통과. 왕슬라임 5타 처치·아이템 효과·저장 로직 포함.
+- `node scripts/check-delivery-final.mjs`: 421개 자산 해시와 한/영 홈 레이아웃 6개 통과.
+- `DELIVERY_SKIP_PERF=1 npm run check:delivery`: 오프라인 5개 지역·저장 복원을 포함한 브라우저 검사 13개 통과. 성능 측정은 이번 재검사에서 제외했다.
+- `npm run check:battle`: 기존 9개 검사 통과. 추가한 아이템 검사도 `BATTLE_TEST_FILTER=아이템`으로 별도 통과했다. 전체 명령에는 이제 추가 검사가 포함된다.
+- 추가 검사: 최대 HP에서 하트 미소모, F1 반복 키다운 시 1회 소모·HP 20 회복, 화면 버튼으로 별 사용·150점 증가, 정지 중 다른 보석 미소모, 일시정지 중 F1 미소모, 저장 인벤토리와 체크포인트 일치.
+- 결과 파일: `tmp/delivery-check/final-delivery.json`, `tmp/delivery-check/results.json`, `tmp/battle-flow-check/results.json`, `tmp/battle-items-20260921/results.json`.
+- **공개 주소는 이전 배포본이다.** `https://typing-adventure-six.vercel.app/`의 manifest는 `90712d20b7c1dbf0`, 현재 로컬 빌드는 `bca7c453941e2761`이다. 둘 다 421개이지만 HTML은 구형 `social-preview-v2.jpg`를 참조하고 JS/CSS 번들도 다르다. 공개본에는 최신 골렘 처치 스프라이트 2개와 OG v4도 없다. 자산 개수만으로 최신 여부를 판정하면 안 된다.
+- 이번에는 공개 사이트를 변경하지 않았다. 최신 빌드 배포 후 아래 공개 주소 검사 실행이 여전히 필수다. 실제 학교 키보드의 F1 가로채기 여부는 브라우저 자동검사 범위 밖이다.
+
 로컬 확인 주소: <http://127.0.0.1:5180/>
 
 ## 이번에 완료한 작업
@@ -55,11 +67,11 @@
 배포가 끝난 뒤 새 공개 주소와 로컬 `dist`가 같은지 확인한다.
 
 ```powershell
-$env:HOSTED_URL='https://실제-배포-주소/'
+$env:HOSTED_URL='https://typing-adventure-six.vercel.app/'
 node scripts/check-hosted-release.mjs
 ```
 
-통과 조건: 공개 OG v3, PWA manifest, classroom manifest 421개 자산과 해시, 저장 복원, 외부 요청 없음.
+통과 조건: 공개 OG v4, PWA manifest, classroom manifest 421개 자산과 해시, 저장 복원, 외부 요청 없음. 검증한 `dist`를 배포하고 동일한 `dist`와 대조한다.
 
 ### 2. 실제 키보드 수동 확인 — 권장
 

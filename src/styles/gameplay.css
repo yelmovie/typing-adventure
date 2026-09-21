@@ -7,6 +7,7 @@
 .tutorial-scene-caption strong { font-size: max(36px, calc(24 * var(--ui-unit))); color: #ffdf82; }
 .tutorial-scene-caption span { font-size: max(24px, calc(17 * var(--ui-unit))); }
 .tutorial-panel { position: absolute; top: 145px; right: 65px; width: 1050px; bottom: 55px; box-sizing: border-box; padding: 36px 44px; overflow-y: auto; overscroll-behavior: contain; border: 2px solid #879fa04d; border-radius: 24px; background: linear-gradient(155deg,#192e39f5,#13252df5); box-shadow: 0 24px 80px #0007; }
+.tutorial-panel.tutorial-menu { bottom: auto; height: auto; max-height: calc(100% - 200px); }
 .tutorial.practice-active .tutorial-scene-caption { display: none; }
 .tutorial-panel.tutorial-practice { left: 50%; right: auto; width: min(1460px, calc(100% - 120px)); transform: translateX(-50%); }
 .tutorial-status-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
@@ -101,7 +102,26 @@
 .tutorial-part-card strong { font-size: var(--read-title); }
 .tutorial-part-card span { color: #ffdf82; }
 .tutorial-part-card small { font-size: var(--read-copy); line-height: 1.4; color: #d8e7ec; }
-.short-display .tutorial-panel.tutorial-menu { display: block; }
+.tutorial-story-menu { width: min(1120px, calc(100% - 100px)); }
+.tutorial-story-back { margin-bottom: 12px; }
+.tutorial-story-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.tutorial-story-card { display: grid; grid-template-columns: 86px minmax(0, 1fr); gap: 14px; align-items: center; min-width: 0; padding: 14px; border: 2px solid #76909c66; border-radius: 18px; background: linear-gradient(145deg, #203744f0, #132631f0); box-shadow: inset 0 0 0 2px #07151d88; }
+.tutorial-story-card.complete { border-color: #ffdf82aa; background: linear-gradient(145deg, #31413df0, #182d31f0); }
+.tutorial-story-portrait { width: 82px; height: 82px; object-fit: contain; image-rendering: auto; filter: drop-shadow(0 7px 8px #0007); }
+.tutorial-story-copy { min-width: 0; }
+.tutorial-story-copy h2 { margin: 3px 0 5px; font-size: max(24px, calc(17 * var(--ui-unit))); color: #fff5d8; }
+.tutorial-story-copy p { margin: 0; color: #d8e7ec; font-size: max(18px, calc(13 * var(--ui-unit))); line-height: 1.35; }
+.tutorial-story-state { color: #ffdf82; font-weight: 800; font-size: max(17px, calc(12 * var(--ui-unit))); }
+.tutorial-story-actions { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.tutorial-story-actions .btn:only-child { grid-column: 1 / -1; }
+.tutorial-diary-view { left: 50%; right: auto; width: min(1120px, calc(100% - 100px)); bottom: 32px; transform: translateX(-50%); text-align: center; }
+.tutorial-diary-heading h1 { margin: 5px 0; color: #fff5d8; }
+.tutorial-diary-heading p { margin: 0 0 16px; color: #d8e7ec; }
+.tutorial-diary-image { display: block; width: min(760px, 100%); height: auto; margin: 0 auto; border: 8px solid #eadab5; border-radius: 10px; background: #f7edcf; box-shadow: 0 18px 46px #0008; }
+.tutorial-diary-actions { position: sticky; bottom: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; width: min(760px, 100%); margin: 18px auto 0; padding: 10px; border-radius: 14px; background: #122630ed; }
+.tutorial-longform .tutorial-target { min-height: 3.3em; max-height: 4.9em; }
+.tutorial-longform #tutorial-input { min-height: 92px; }
+.short-display .tutorial-panel.tutorial-menu { bottom: 32px; max-height: none; display: block; }
 .race-track .tk-gap { font-size: max(23px, calc(16 * var(--ui-unit))); color: #dbedff; margin-top: 9px; }
 .race-track .tk-bar { margin-bottom: 26px; }
 .race-track .tk-mark.chaser { top: 100%; transform: translate(-50%, 2px); }

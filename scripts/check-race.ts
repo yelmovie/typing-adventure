@@ -9,11 +9,25 @@ const pet: PetDef = { id: 'rabbit', name: '', desc: '', sheet: '', passive: 'bom
 const unit = (text: string): ContentUnit => ({ id: text, stage: 'stage_2', type: 'word', text, difficulty: 1, tags: [], weight: 1 });
 const words = ['신호등', '도서관', '학교', '달리기', '미래', '버스'].map(unit);
 
-function make(ghost: GhostRecord | null = null) {
+function make(ghost: GhostRecord | null = null, source = words) {
   const events: [string, unknown][] = [];
-  const r = new RaceSystem(stage, 'normal', pet, words, ghost, 'mon_ink_slime', (ev, d) => events.push([ev, d]));
+  const r = new RaceSystem(stage, 'normal', pet, source, ghost, 'mon_ink_slime', (ev, d) => events.push([ev, d]));
   r.start();
   return { r, events, count: (ev: string) => events.filter((e) => e[0] === ev).length };
+}
+
+// 한 셔플 묶음에서는 같은 표기의 낱말이 다시 나오지 않고, 새 묶음의
+// 첫 낱말도 직전 낱말과 겹치지 않는다. 적응형 길이 선택도 이 규칙을 지킨다.
+{
+  const duplicate = { ...unit('신호등'), id: 'same-text-different-id' };
+  const { r } = make(null, [...words, duplicate]);
+  const shown: string[] = [];
+  for (let i = 0; i < words.length + 1; i++) {
+    shown.push(r.run.current!.text);
+    r.submit(r.run.current!.text, false);
+  }
+  assert.equal(new Set(shown.slice(0, words.length)).size, words.length, '한 묶음 안에서 낱말이 중복되지 않는다');
+  assert.notEqual(shown[words.length - 1], shown[words.length], '새 묶음 경계에서 직전 낱말을 바로 반복하지 않는다');
 }
 
 // 1. 접두어를 계속 누르더라도 낱말을 완성하지 않으면 관성 주행이 멈추고 잡힌다.
@@ -91,7 +105,28 @@ for (const ghost of [
   assert.equal(r.beatGhost, undefined);
 }
 
-// 5. 피격 직후에는 회복 시간이 있고, 위치를 뒤로 옮기지 않는다. 방치는 결국 3회 피격 실패.
+// 5. 추격자가 고스트와 부딪히면 고스트는 사라지고, 같은 프레임의 플레이어 접촉과 중복 없이 한 번만 피해를 준다.
+{
+  const ghost: GhostRecord = { samples: [0, 0, 0], finishSec: 20, goalDistance: RACE.goal, rulesVersion: RACE.rulesVersion };
+  const { r, events, count } = make(ghost);
+  const hp = r.playerHp;
+  r.chaser = r.dist + 1;
+  r.tick(0.05);
+  assert.equal(r.ghostDist(), null, '추격자와 충돌한 고스트는 즉시 사라진다');
+  assert.equal(count('RACE_GHOST_CAUGHT'), 1);
+  assert.equal(count('PLAYER_HIT'), 1, '고스트와 플레이어를 함께 지나도 피해 이벤트는 1회다');
+  assert.equal(count('RACE_CAUGHT'), 0, '같은 프레임의 플레이어 접촉을 중복 피격으로 세지 않는다');
+  assert.equal(r.playerHp, hp - RACE.catchHp);
+  assert.equal(r.catches, 0);
+  assert.equal((events.find(([ev]) => ev === 'RACE_GHOST_CAUGHT')?.[1] as { hpLoss: number }).hpLoss, RACE.catchHp);
+
+  const restored = new RaceSystem(stage, 'normal', pet, words, ghost, 'mon_ink_slime', () => {});
+  restored.restore(JSON.parse(JSON.stringify(r.serialize())));
+  restored.start();
+  assert.equal(restored.ghostDist(), null, '이어하기해도 소멸한 고스트가 재등장하지 않는다');
+}
+
+// 6. 플레이어 피격 직후에는 회복 시간이 있고, 위치를 뒤로 옮기지 않는다. 방치는 결국 3회 피격 실패.
 {
   const { r, count } = make();
   r.chaser = r.dist + 1; r.tick(0.05);

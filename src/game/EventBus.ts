@@ -25,6 +25,7 @@ export const Events = {
   FEVER_CHANGED: 'FEVER_CHANGED', // { level: 0|1|2|3 }
   PET_ACTIVE: 'PET_ACTIVE', // POWER/FEVER 진입 시 펫 액티브 { active, pet }
   PET_PASSIVE: 'PET_PASSIVE', // 펫 패시브가 실제로 작동한 순간 { passive, pet }
+  PET_RESCUE: 'PET_RESCUE', // HP가 0이 되는 순간 펫이 희생하고 최대 HP의 50% 회복
   IDLE_DRAIN: 'IDLE_DRAIN', // 무입력으로 HP 감소 { hpLoss, hp }
   SKIP: 'SKIP', // 점프로 낱말 건너뜀 { left, target }
   WAVE_SWEEP: 'WAVE_SWEEP', // 5콤보마다 화면의 적 전부 소탕 { combo, count }
@@ -55,6 +56,7 @@ export const Events = {
   // 스테이지 2 레이스
   RACE_TICK: 'RACE_TICK',
   RACE_CAUGHT: 'RACE_CAUGHT',
+  RACE_GHOST_CAUGHT: 'RACE_GHOST_CAUGHT',
   RACE_TURBO: 'RACE_TURBO',
   RACE_FINISH: 'RACE_FINISH',
   // 스테이지 3 편지
@@ -67,14 +69,18 @@ export const Events = {
   LETTER_IDLE: 'LETTER_IDLE',
   LETTER_SECRET: 'LETTER_SECRET',
   LETTER_GATE: 'LETTER_GATE',
-  LETTER_CHOICE: 'LETTER_CHOICE', // 다음 조각 고르기 시작 { choices, index, total, choose(i) }
-  LETTER_CHOICE_OK: 'LETTER_CHOICE_OK', // 정답 조각 { index, text }
-  LETTER_CHOICE_WRONG: 'LETTER_CHOICE_WRONG', // 오답 조각 { index, text, hint, mistakes }
   // 스테이지 4 전보
   TELE_TICK: 'TELE_TICK',
   TELE_WORD: 'TELE_WORD',
   TELE_OUTAGE: 'TELE_OUTAGE',
   TELE_BRAKE: 'TELE_BRAKE',
+  TELE_AMBUSH_START: 'TELE_AMBUSH_START',
+  TELE_BAT_TARGET: 'TELE_BAT_TARGET',
+  TELE_BAT_TICK: 'TELE_BAT_TICK',
+  TELE_BAT_HIT: 'TELE_BAT_HIT',
+  TELE_BAT_WRONG: 'TELE_BAT_WRONG',
+  TELE_BAT_MISSED: 'TELE_BAT_MISSED',
+  TELE_AMBUSH_END: 'TELE_AMBUSH_END',
   TELE_STOP: 'TELE_STOP',
   TELE_CRASH: 'TELE_CRASH',
   // 스테이지 5 보스
@@ -85,6 +91,7 @@ export const Events = {
   BOSS_QUEUE: 'BOSS_QUEUE',
   BOSS_HIT: 'BOSS_HIT',
   BOSS_DARK: 'BOSS_DARK',
+  BOSS_PET_GUARD: 'BOSS_PET_GUARD', // 토끼가 보스의 어둠 공격을 1회 방어
   BOSS_ARMOR: 'BOSS_ARMOR',
   BOSS_CORE: 'BOSS_CORE',
   BOSS_FINAL: 'BOSS_FINAL',

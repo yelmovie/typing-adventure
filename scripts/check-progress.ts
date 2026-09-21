@@ -29,6 +29,14 @@ assert.equal(validateSave({ progress: { unlockedStage: 5, clearedStages: [] } })
 assert.equal(validateSave({ progress: { unlockedStage: 1, clearedStages: [], stageStars: { stage_3: 1 } } }).progress.unlockedStage, 4, '별을 받은 지역도 완료 근거다');
 assert.equal(validateSave({ progress: { unlockedStage: 2, clearedStages: ['stage_5'] } }).progress.unlockedStage, 5, '마지막 지역 이후로는 넘지 않는다');
 assert.deepEqual(validateSave(null).progress.clearedStages, []);
+// 낮아진 친구 해금 조건은 경계값에서 열리고, 기존 저장도 불러오는 즉시 반영된다.
+assert.deepEqual(validateSave({ progress: { coins: 29 }, records: { bestCombo: 4 } }).collection.petsUnlocked, ['cat', 'rabbit']);
+assert.ok(validateSave({ progress: { coins: 30 } }).collection.petsUnlocked.includes('dragon'));
+assert.ok(validateSave({ records: { bestCombo: 5 } }).collection.petsUnlocked.includes('squirrel'));
+assert.ok(validateSave({ progress: { clearedStages: ['stage_3'] } }).collection.charactersUnlocked.includes('blond_explorer'));
+const eligibleProfile = validateSave({ profile: { characterId: 'blond_explorer', petId: 'dragon' }, progress: { coins: 30, clearedStages: ['stage_3'] } });
+assert.equal(eligibleProfile.profile.characterId, 'blond_explorer');
+assert.equal(eligibleProfile.profile.petId, 'dragon');
 // 출석 스트릭: 날짜 형식이 아니면 0, best 는 count 보다 작을 수 없고, 정수·음수 방어
 assert.deepEqual(defaultSave().records.streak, { count: 0, best: 0, last: '' });
 assert.deepEqual(validateSave({ records: { streak: { count: 3, best: 1, last: '2026-09-10' } } }).records.streak, { count: 3, best: 3, last: '2026-09-10' });

@@ -23,24 +23,25 @@ function shuffle<T>(arr: T[], rnd: () => number = Math.random): T[] {
 
 /**
  * 출제 목록 생성: 쉬운(difficulty 낮은) 것부터, 같은 난이도 안에서는 무작위.
- * count 보다 콘텐츠가 적으면 순환 출제.
+ * 같은 표기 낱말·문장은 한 바퀴 안에서 한 번만 출제한다. 풀이 부족할 때만 새로 섞어 다음 바퀴를 만든다.
  */
 export function buildTargetList(stage: StageId, count: number): ContentUnit[] {
-  const pool = getContentForStage(stage);
+  const seenText = new Set<string>();
+  const pool = getContentForStage(stage).filter((u) => {
+    const key = u.text.normalize('NFC').trim();
+    if (!key || seenText.has(key)) return false;
+    seenText.add(key);
+    return true;
+  });
   if (pool.length === 0) return [];
-  const groups = new Map<number, ContentUnit[]>();
-  for (const u of pool) {
-    const g = groups.get(u.difficulty) ?? [];
-    g.push(u);
-    groups.set(u.difficulty, g);
-  }
-  const ordered: ContentUnit[] = [];
-  for (const d of [...groups.keys()].sort((a, b) => a - b)) ordered.push(...shuffle(groups.get(d)!));
   const out: ContentUnit[] = [];
-  let i = 0;
   while (out.length < count) {
-    out.push(ordered[i % ordered.length]);
-    i++;
+    const groups = new Map<number, ContentUnit[]>();
+    for (const u of pool) groups.set(u.difficulty, [...(groups.get(u.difficulty) ?? []), u]);
+    const cycle: ContentUnit[] = [];
+    for (const d of [...groups.keys()].sort((a, b) => a - b)) cycle.push(...shuffle(groups.get(d)!));
+    if (out.length && cycle.length > 1 && cycle[0].text === out[out.length - 1].text) cycle.push(cycle.shift()!);
+    out.push(...cycle.slice(0, count - out.length));
   }
   return out;
 }
@@ -52,7 +53,9 @@ export function buildTargetList(stage: StageId, count: number): ContentUnit[] {
 export function pickAdjusted(stage: StageId, base: ContentUnit, offset: number, avoidIds: Set<string>, rnd: () => number = Math.random): ContentUnit {
   if (offset === 0) return base;
   const want = base.difficulty + offset;
-  const cand = getContentForStage(stage).filter((u) => u.difficulty === want && u.type === base.type && !avoidIds.has(u.id));
+  const baseText = base.text.normalize('NFC').trim();
+  const cand = getContentForStage(stage).filter((u) => u.difficulty === want && u.type === base.type
+    && !avoidIds.has(u.id) && u.text.normalize('NFC').trim() !== baseText);
   if (cand.length === 0) return base;
   return cand[Math.floor(rnd() * cand.length)];
 }

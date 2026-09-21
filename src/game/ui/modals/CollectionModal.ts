@@ -46,7 +46,9 @@ export function collectionModal() {
     h('div', { class: 'coll-meter-row' }, h('b', {}, meterText), h('span', { class: 'coll-meter-bar', role: 'progressbar', 'aria-valuenow': String(progress.percent), 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-label': meterText }, h('i', { style: `width:${progress.percent}%` }))),
     h('div', { class: 'coll-meter-sections' }, progress.sections.map((s) => h('span', { class: s.done >= s.total ? 'done' : '' }, `${sectionLabel[s.key]} ${s.done}/${s.total}`))));
   const pageByTab: Record<string, number> = {};
-  const cardsPerPage = () => window.innerWidth >= 1500 && window.innerHeight >= 800 ? 6 : window.innerWidth >= 1100 && window.innerHeight >= 650 ? 4 : 2;
+  // 넓은 가로 화면은 한 페이지에 3열 × 2행으로 채운다. 아주 낮은 화면만
+  // 두 열로 줄여 카드와 페이지 버튼을 함께 읽을 수 있게 한다.
+  const cardsPerPage = () => window.innerWidth >= 900 && window.innerHeight >= 500 ? 6 : 2;
   let activeTab = 'monsters', pageSize = cardsPerPage();
   let equipmentChanged = false;
   const refreshEquipment = () => {

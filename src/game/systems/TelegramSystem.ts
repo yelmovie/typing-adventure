@@ -13,7 +13,7 @@ import { calcWordScore } from './TypingStats';
 import { TypingRun, RULES, type Emit } from './TypingRun';
 import { countStrokes } from '../util/hangul';
 import type { BattleSnapshot, TypingMode, CheckpointState } from './BattleState';
-import { obj, readInt, readNum, readStrings, readUnits } from './Checkpoint';
+import { obj, readBool, readInt, readNum, readStrings, readUnits } from './Checkpoint';
 
 export const TELE = {
   sentences: 5,
@@ -23,7 +23,23 @@ export const TELE = {
   outageSec: 1.5,
   feverMul: 0.5,
   sentenceBonus: 300,
+  batCount: 4,
+  batTimeSec: 3.2,
+  batHitBonus: 120,
+  batMissHp: 10,
 };
+
+const BAT_WORDS = ['번개', '기적', '용기', '질주', '바람', '불꽃', '철교', '기관차', '신호', '탈출', '방어', '출발'];
+
+export interface TelegramBatInfo {
+  active: boolean;
+  index: number;
+  total: number;
+  word: string | null;
+  timeLeft: number;
+  timeLimit: number;
+  hits: number;
+}
 
 export interface TelegramInfo {
   dist: number;
@@ -36,6 +52,7 @@ export interface TelegramInfo {
   wordsDone: number;
   wordsTotal: number;
   stopped: boolean;
+  bat: TelegramBatInfo;
 }
 
 export class TelegramSystem implements TypingMode {
@@ -63,6 +80,12 @@ export class TelegramSystem implements TypingMode {
   /** 통신 끊김 중에 들어온 제출은 버리지 않고 끊김이 끝나면 처리한다 (문장 소실 방지) */
   private queued: { value: string; usedBackspace: boolean } | null = null;
   private baseSpeed: number;
+  private batWords: string[];
+  private batIndex = 0;
+  private batLeft = 0;
+  private batHits = 0;
+  private batActive = false;
+  private ambushTriggered = false;
 
   constructor(stage: StageDef, difficulty: Difficulty, pet: PetDef, sentences: ContentUnit[], emit: Emit) {
     this.stage = stage;
@@ -74,6 +97,7 @@ export class TelegramSystem implements TypingMode {
     this.playerMaxHp = rule.playerHp;
     this.playerHp = rule.playerHp;
     this.baseSpeed = (TELE.speed / rule.timeMul) * (stage.speedMul ?? 1); // 어둠 모드는 열차가 stage.speedMul 만큼 빠르다(제한 시간도 그만큼 준다)
+    this.batWords = this.pickBatWords();
     this.run = new TypingRun({ stage, difficulty, pet, next: () => this.sentences[this.idx] ?? null, emit });
   }
 
@@ -81,9 +105,26 @@ export class TelegramSystem implements TypingMode {
     return text.split(' ').filter(Boolean);
   }
 
+  /** 한 판 안에서는 같은 낱말이 다시 나오지 않게 시작 위치와 진행 간격을 섞는다. */
+  private pickBatWords(): string[] {
+    const start = Math.floor(Math.random() * BAT_WORDS.length);
+    const step = 5; // 12와 서로소라 중복 없이 전체 풀을 돈다.
+    return Array.from({ length: TELE.batCount }, (_, i) => BAT_WORDS[(start + i * step) % BAT_WORDS.length]);
+  }
+
+  private batTarget(): ContentUnit | null {
+    if (!this.batActive) return null;
+    const text = this.batWords[this.batIndex];
+    if (!text) return null;
+    return { id: `tele-bat-${this.batIndex}-${text}`, stage: this.stage.id, type: 'word', text, difficulty: 2, tags: ['박쥐 기습'], weight: 1 };
+  }
+
   start() {
     this.running = true;
     this.run.start();
+    if (this.batActive) this.announceAmbush();
+    // 예전 체크포인트가 첫 문장 직후 저장됐어도 기습을 빠뜨리지 않는다.
+    else if (this.idx === 1 && !this.ambushTriggered) this.startAmbush();
     this.emit('BATTLE_START', this.snapshot());
     this.emit('TARGET_CHANGED', this.snapshot());
   }
@@ -113,7 +154,9 @@ export class TelegramSystem implements TypingMode {
     const blockedSec = Math.min(dt, this.outageLeft);
     const activeSec = dt - blockedSec;
     this.run.stats.tick(blockedSec, false);
-    if (activeSec > 0) this.run.tick(activeSec);
+    // 박쥐 낱말은 전보 학습 기록과 CPM에 섞지 않는다.
+    if (this.batActive) this.run.stats.tick(activeSec, false);
+    else if (activeSec > 0) this.run.tick(activeSec);
     if (this.outageLeft > 0) {
       this.outageLeft = Math.max(0, this.outageLeft - dt);
       if (this.outageLeft === 0) {
@@ -125,16 +168,29 @@ export class TelegramSystem implements TypingMode {
         }
       }
     }
-    const drain = this.run.idleDrain(activeSec);
+    const drain = this.batActive ? 0 : this.run.idleDrain(activeSec);
     if (drain > 0) {
       this.playerHp = Math.max(0, this.playerHp - drain);
       this.emit('IDLE_DRAIN', { hpLoss: drain, hp: this.playerHp, idle: this.run.idleSeconds });
+      this.playerHp = this.run.rescueIfDown(this.playerHp, this.playerMaxHp);
       if (this.playerHp <= 0) {
         this.fail('hp');
         return;
       }
     }
     this.dist = Math.max(0, this.dist - this.speed() * dt);
+    if (this.batActive) {
+      this.batLeft = Math.max(0, this.batLeft - dt);
+      this.emit('TELE_BAT_TICK', this.snapshot().telegram?.bat);
+      if (this.batLeft <= 0) {
+        const missed = this.batWords[this.batIndex] ?? '';
+        this.applyHp(-TELE.batMissHp);
+        this.emit('TELE_BAT_MISSED', { index: this.batIndex, total: TELE.batCount, word: missed, hpLoss: TELE.batMissHp });
+        this.playerHp = this.run.rescueIfDown(this.playerHp, this.playerMaxHp);
+        if (this.playerHp <= 0) { this.fail('hp'); return; }
+        this.advanceBat();
+      }
+    }
     this.emit('HUD_TICK', this.snapshot());
     this.emit('TELE_TICK', this.snapshot().telegram);
     if (this.dist <= 0) this.fail('time');
@@ -142,6 +198,7 @@ export class TelegramSystem implements TypingMode {
 
   commit(value: string) {
     if (!this.running || this.finished || this.outageLeft > 0) return;
+    if (this.batActive) return;
     const cur = this.run.current;
     if (!cur) return;
     const { wrongIndex } = this.run.onCommit(value);
@@ -176,6 +233,7 @@ export class TelegramSystem implements TypingMode {
 
   skip(): boolean {
     if (!this.running || this.finished) return false;
+    if (this.batActive) return false;
     const t = this.run.current;
     if (!t) return false;
     const r = this.run.skip();
@@ -190,6 +248,21 @@ export class TelegramSystem implements TypingMode {
 
   submit(value: string, usedBackspace: boolean) {
     if (!this.running || this.finished) return;
+    if (this.batActive) {
+      const target = this.batWords[this.batIndex];
+      const typed = value.normalize('NFC').trim();
+      if (typed !== target) {
+        this.batLeft = Math.max(0.4, this.batLeft - 0.35);
+        this.emit('TELE_BAT_WRONG', { index: this.batIndex, total: TELE.batCount, word: target, typed });
+        this.emit('TARGET_CHANGED', this.snapshot());
+        return;
+      }
+      this.batHits++;
+      this.score += TELE.batHitBonus;
+      this.emit('TELE_BAT_HIT', { index: this.batIndex, total: TELE.batCount, word: target, bonus: TELE.batHitBonus });
+      this.advanceBat();
+      return;
+    }
     if (this.outageLeft > 0) {
       this.queued = { value, usedBackspace }; // 입력창은 이미 비워졌으니 끊김이 끝나면 대신 제출
       return;
@@ -207,6 +280,7 @@ export class TelegramSystem implements TypingMode {
       this.emit('INPUT_WRONG', { typed: value, target: cur, hpLoss: r.hpDelta < 0 ? -r.hpDelta : 0, timeLoss: 0, forgiven: r.forgiven, shielded: this.run.isShielded(), snapshot: this.snapshot() });
       // 잘못 전송한 문장은 고쳐 다시 보내야 한다. 오답으로 브레이크를 걸 수 없다.
       this.wordsCur = 0;
+      this.playerHp = this.run.rescueIfDown(this.playerHp, this.playerMaxHp);
       if (this.playerHp <= 0) { this.fail('hp'); return; }
       this.emit('TARGET_CHANGED', this.snapshot());
       return;
@@ -227,6 +301,35 @@ export class TelegramSystem implements TypingMode {
       return;
     }
     this.run.advance();
+    if (this.idx === 1 && !this.ambushTriggered) this.startAmbush();
+    else this.emit('TARGET_CHANGED', this.snapshot());
+  }
+
+  private startAmbush() {
+    this.ambushTriggered = true;
+    this.batActive = true;
+    this.batIndex = 0;
+    this.batLeft = TELE.batTimeSec;
+    this.announceAmbush();
+    this.emit('TARGET_CHANGED', this.snapshot());
+  }
+
+  private announceAmbush() {
+    this.emit('TELE_AMBUSH_START', { words: [...this.batWords], total: TELE.batCount, timeLimit: TELE.batTimeSec });
+    this.emit('TELE_BAT_TARGET', { index: this.batIndex, total: TELE.batCount, word: this.batWords[this.batIndex], timeLeft: this.batLeft });
+  }
+
+  private advanceBat() {
+    this.batIndex++;
+    if (this.batIndex >= TELE.batCount) {
+      this.batActive = false;
+      this.batLeft = 0;
+      this.emit('TELE_AMBUSH_END', { hits: this.batHits, total: TELE.batCount });
+      this.emit('TARGET_CHANGED', this.snapshot());
+      return;
+    }
+    this.batLeft = TELE.batTimeSec;
+    this.emit('TELE_BAT_TARGET', { index: this.batIndex, total: TELE.batCount, word: this.batWords[this.batIndex], timeLeft: this.batLeft });
     this.emit('TARGET_CHANGED', this.snapshot());
   }
 
@@ -264,6 +367,7 @@ export class TelegramSystem implements TypingMode {
     return {
       idx: this.idx, lines: [...this.lines], brake: this.brake, dist: this.dist, elapsed: this.elapsed, score: this.score, playerHp: this.playerHp,
       wordsDoneBefore: this.wordsDoneBefore, sentences: this.sentences.map((u) => ({ ...u })), run: this.run.serializeCounters(),
+      ambushTriggered: this.ambushTriggered, batActive: this.batActive, batWords: [...this.batWords], batIndex: this.batIndex, batLeft: this.batLeft, batHits: this.batHits,
     };
   }
 
@@ -284,6 +388,14 @@ export class TelegramSystem implements TypingMode {
     this.elapsed = readNum(s.elapsed, 0, 0, 86400);
     this.score = readInt(s.score, 0, 0, 1e7);
     this.playerHp = readNum(s.playerHp, this.playerMaxHp, 1, this.playerMaxHp);
+    this.ambushTriggered = readBool(s.ambushTriggered, this.idx > 1);
+    const restoredBatWords = readStrings(s.batWords, TELE.batCount, 20).filter((word, i, all) => word.length > 0 && all.indexOf(word) === i);
+    if (restoredBatWords.length === TELE.batCount) this.batWords = restoredBatWords;
+    this.batActive = readBool(s.batActive, false) && this.idx === 1;
+    this.batIndex = readInt(s.batIndex, 0, 0, TELE.batCount - 1);
+    this.batLeft = readNum(s.batLeft, TELE.batTimeSec, 0.1, TELE.batTimeSec);
+    this.batHits = readInt(s.batHits, 0, 0, TELE.batCount);
+    if (this.batActive) this.ambushTriggered = true;
     this.run.restoreCounters(s.run);
   }
 
@@ -292,7 +404,7 @@ export class TelegramSystem implements TypingMode {
     return {
       targetIndex: this.lines.length,
       targetTotal: this.sentences.length,
-      target: r.current,
+      target: this.batTarget() ?? r.current,
       combo: r.combo,
       maxCombo: r.maxCombo,
       score: Math.round(this.score),
@@ -327,6 +439,15 @@ export class TelegramSystem implements TypingMode {
         wordsDone: this.wordsDoneBefore + this.wordsCur,
         wordsTotal: this.wordsTotal,
         stopped: this.stopped,
+        bat: {
+          active: this.batActive,
+          index: this.batIndex,
+          total: TELE.batCount,
+          word: this.batActive ? (this.batWords[this.batIndex] ?? null) : null,
+          timeLeft: this.batLeft,
+          timeLimit: TELE.batTimeSec,
+          hits: this.batHits,
+        },
       },
     };
   }

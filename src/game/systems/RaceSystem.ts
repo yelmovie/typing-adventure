@@ -14,7 +14,7 @@ import { TypingRun, RULES, type Emit } from './TypingRun';
 import { applyVariant } from '../data/content';
 import { countStrokes } from '../util/hangul';
 import type { BattleSnapshot, EnemyState, TypingMode, CheckpointState } from './BattleState';
-import { obj, readInt, readNum, readNums, restoreOrder } from './Checkpoint';
+import { obj, readBool, readInt, readNum, readNums, restoreOrder } from './Checkpoint';
 
 export const RACE = {
   goal: 800,
@@ -111,13 +111,16 @@ export class RaceSystem implements TypingMode {
   private catchRecoveryLeft = 0;
   private chaserSlowLeft = 0;
   private ghost: GhostRecord | null;
+  private ghostCaught = false;
   private chaserSheet: string;
 
   constructor(stage: StageDef, difficulty: Difficulty, pet: PetDef, words: ContentUnit[], ghost: GhostRecord | null, chaserSheet: string, emit: Emit) {
     this.stage = stage;
     this.difficulty = difficulty;
     this.emit = emit;
-    this.pool = shuffle(words);
+    // 한 묶음 안에서는 화면에 보이는 낱말이 겹치지 않는다. 콘텐츠에 같은
+    // 표기의 다른 id가 있어도 아이에게는 같은 낱말이므로 한 번만 남긴다.
+    this.pool = shuffle(uniqueWords(words));
     this.ghost = ghost?.goalDistance === RACE.goal && ghost.rulesVersion === RACE.rulesVersion ? ghost : null;
     this.chaserSheet = chaserSheet;
     const rule = DIFFICULTY_RULES[difficulty];
@@ -129,14 +132,32 @@ export class RaceSystem implements TypingMode {
   }
 
   private nextWord(offset: number): ContentUnit {
-    // 적응형: +1이면 긴 낱말, -1이면 짧은 낱말을 우선
-    let u = this.pool[this.cursor++ % this.pool.length];
+    if (!this.pool.length) throw new Error('RaceSystem requires at least one word');
+    // 현재 셔플 묶음을 모두 쓴 뒤에만 새 묶음을 만든다. 묶음 경계에서도
+    // 방금 본 낱말이 바로 다시 나오지 않게 첫 칸을 교환한다.
+    if (this.cursor >= this.pool.length) {
+      const previous = this.pool[this.pool.length - 1]?.text;
+      this.pool = shuffle(this.pool);
+      if (this.pool.length > 1 && this.pool[0].text === previous) {
+        const different = this.pool.findIndex((u) => u.text !== previous);
+        if (different > 0) [this.pool[0], this.pool[different]] = [this.pool[different], this.pool[0]];
+      }
+      this.cursor = 0;
+    }
+    // 적응형: +1이면 긴 낱말, -1이면 짧은 낱말을 남은 묶음 안에서 우선한다.
+    // 선택한 칸을 현재 커서와 바꿔 모든 낱말을 정확히 한 번씩 소비한다.
+    let pick = this.cursor;
     if (offset !== 0) {
       const len = (x: ContentUnit) => [...x.text].length;
-      const cand = this.pool.filter((x) => (offset > 0 ? len(x) >= 3 : len(x) <= 2) && x.id !== u.id);
-      if (cand.length) u = cand[Math.floor(Math.random() * cand.length)];
+      const candidates: number[] = [];
+      for (let i = this.cursor; i < this.pool.length; i++) {
+        if (offset > 0 ? len(this.pool[i]) >= 3 : len(this.pool[i]) <= 2) candidates.push(i);
+      }
+      if (candidates.length) pick = candidates[Math.floor(Math.random() * candidates.length)];
     }
-    return this.cursor <= 1 ? u : applyVariant(u);
+    if (pick !== this.cursor) [this.pool[this.cursor], this.pool[pick]] = [this.pool[pick], this.pool[this.cursor]];
+    const u = this.pool[this.cursor++];
+    return this.run?.wordsDone === 0 ? u : applyVariant(u);
   }
 
   start() {
@@ -182,7 +203,7 @@ export class RaceSystem implements TypingMode {
   }
 
   ghostDist(): number | null {
-    if (!this.ghost) return null;
+    if (!this.ghost || this.ghostCaught) return null;
     const s = this.ghost.samples;
     const i = Math.floor(this.elapsed / RACE.ghostSampleSec);
     if (i >= s.length - 1) return s[s.length - 1] ?? 0;
@@ -218,11 +239,14 @@ export class RaceSystem implements TypingMode {
     if (drain > 0) {
       this.playerHp = Math.max(0, this.playerHp - drain);
       this.emit('IDLE_DRAIN', { hpLoss: drain, hp: this.playerHp, idle: this.run.idleSeconds });
+      this.playerHp = this.run.rescueIfDown(this.playerHp, this.playerMaxHp);
       if (this.playerHp <= 0) {
         this.fail('hp');
         return;
       }
     }
+    const ghost = this.ghostDist();
+    if (ghost != null && this.chaser >= ghost) this.catchGhost(ghost);
     if (this.catchRecoveryLeft <= 0 && this.chaser >= this.dist) this.caught();
     if (this.finished) return;
     this.emit('HUD_TICK', this.snapshot());
@@ -233,6 +257,21 @@ export class RaceSystem implements TypingMode {
 
   private caught() {
     this.catches++;
+    const hpLoss = this.takeChaserHit();
+    this.emit('RACE_CAUGHT', { hpLoss, catches: this.catches, max: RACE.maxCatches });
+    if (this.catches >= RACE.maxCatches || this.playerHp <= 0) this.fail('hp');
+  }
+
+  /** 추격자가 이전 기록에 닿으면 고스트는 이 판에서 사라지고, 회복 중이 아닐 때 플레이어도 한 번 피해를 받는다. */
+  private catchGhost(ghostDist: number) {
+    this.ghostCaught = true;
+    const hpLoss = this.catchRecoveryLeft <= 0 ? this.takeChaserHit() : 0;
+    this.emit('RACE_GHOST_CAUGHT', { hpLoss, hp: this.playerHp, ghost: ghostDist, chaser: this.chaser });
+    if (this.playerHp <= 0) this.fail('hp');
+  }
+
+  /** 추격 접촉 공통 피해. 회복 시간을 여기서 열어 같은 프레임의 고스트·플레이어 중복 감점을 막는다. */
+  private takeChaserHit(): number {
     this.catchRecoveryLeft = RACE.catchRecoverySec;
     let hpLoss = 0;
     if (!this.run.isShielded()) {
@@ -241,9 +280,9 @@ export class RaceSystem implements TypingMode {
     }
     this.slowLeft = RACE.typoSec;
     this.noTypoStreak = 0;
-    this.emit('RACE_CAUGHT', { hpLoss, catches: this.catches, max: RACE.maxCatches });
     if (hpLoss > 0) this.emit('PLAYER_HIT', { hpLoss, hp: this.playerHp });
-    if (this.catches >= RACE.maxCatches || this.playerHp <= 0) this.fail('hp');
+    this.playerHp = this.run.rescueIfDown(this.playerHp, this.playerMaxHp);
+    return hpLoss;
   }
 
   commit(value: string) {
@@ -282,6 +321,7 @@ export class RaceSystem implements TypingMode {
       }
       this.applyHp(r.hpDelta);
       this.emit('INPUT_WRONG', { typed: value, target: t, hpLoss: r.hpDelta < 0 ? -r.hpDelta : 0, timeLoss: 0, forgiven: r.forgiven, shielded: this.run.isShielded(), snapshot: this.snapshot() });
+      this.playerHp = this.run.rescueIfDown(this.playerHp, this.playerMaxHp);
       if (this.playerHp <= 0) { this.fail('hp'); return; }
       // 고쳐 완성한 낱말만 가속한다. 오답 뒤의 수정 시간도 이번 낱말 기록에 포함한다.
       this.emit('TARGET_CHANGED', this.snapshot());
@@ -344,7 +384,7 @@ export class RaceSystem implements TypingMode {
     return {
       dist: this.dist, chaser: this.chaser, elapsed: this.elapsed, catches: this.catches, playerHp: this.playerHp, timeLeft: this.timeLeft,
       // 보고 있던 낱말이 복원 뒤 다시 나오도록 커서를 한 칸 되돌린다(뽑을 때 이미 지나갔다).
-      score: this.score, samples: [...this.samples], noTypoStreak: this.noTypoStreak, cursor: this.run.current ? Math.max(0, this.cursor - 1) : this.cursor, pool: this.pool.map((u) => u.id),
+      score: this.score, samples: [...this.samples], ghostCaught: this.ghostCaught, noTypoStreak: this.noTypoStreak, cursor: this.run.current ? Math.max(0, this.cursor - 1) : this.cursor, pool: this.pool.map((u) => u.id),
       recentCpm: [...this.recentCpm], run: this.run.serializeCounters(),
     };
   }
@@ -364,6 +404,7 @@ export class RaceSystem implements TypingMode {
     this.score = readInt(s.score, 0, 0, 1e7);
     const samples = readNums(s.samples).map((n) => Math.min(RACE.goal, Math.max(0, n)));
     this.samples = samples.length ? samples : [0];
+    this.ghostCaught = readBool(s.ghostCaught);
     this.noTypoStreak = readInt(s.noTypoStreak, 0, 0, 1e5);
     this.recentCpm = readNums(s.recentCpm, 3).map((n) => Math.min(3000, Math.max(0, n)));
     this.run.restoreCounters(s.run);
@@ -410,7 +451,7 @@ export class RaceSystem implements TypingMode {
       bombLeft: r.bombLeft(),
       shielded: r.isShielded(),
       coins: r.coins,
-      nextHint: r.wordHint ? (this.pool[this.cursor % this.pool.length]?.text ?? null) : null,
+      nextHint: r.wordHint && this.cursor < this.pool.length ? (this.pool[this.cursor]?.text ?? null) : null,
       race: {
         goal: RACE.goal,
         player: Math.min(RACE.goal, this.dist),
@@ -442,4 +483,14 @@ function shuffle<T>(arr: T[]): T[] {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
+}
+
+function uniqueWords(words: ContentUnit[]): ContentUnit[] {
+  const seen = new Set<string>();
+  return words.filter((u) => {
+    const key = u.text.normalize('NFC');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }

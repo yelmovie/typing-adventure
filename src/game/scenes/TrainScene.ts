@@ -10,6 +10,7 @@ import { AudioManager, STAGE_BGM } from '../systems/AudioManager';
 import { DESIGN_W, DESIGN_H } from '../Game';
 import type { StageId } from '../types';
 import { TELE, type TelegramInfo } from '../systems/TelegramSystem';
+import { anim, registerSheetAnims } from '../entities/anims';
 
 const DECK_Y = 780; // 발끝 760: 하단 입력 패널(830~) 위
 
@@ -38,10 +39,22 @@ export class TrainScene extends Phaser.Scene {
   private reducedMotion = false;
   private english = false;
   private shakeAcc = 0;
+  private bats: Phaser.GameObjects.Container[] = [];
+  private batBases: { x: number; y: number }[] = [];
+  private batTimerText?: Phaser.GameObjects.Text;
+  private batTimerBar?: Phaser.GameObjects.Graphics;
+  private activeBat = -1;
+  private ambushStartedAt = 0;
   private handlers: [string, (...args: never[]) => void][] = [];
 
   constructor() {
     super('Train');
+  }
+
+  preload() {
+    if (!this.textures.exists('mon_letter_bat')) {
+      this.load.atlas('mon_letter_bat', './assets/sprites/mon_letter_bat.webp', './assets/sprites/mon_letter_bat.json');
+    }
   }
 
   create(data: { stageId: StageId }) {
@@ -123,6 +136,12 @@ export class TrainScene extends Phaser.Scene {
     this.bind(Events.PET_PASSIVE, () => this.pet?.skill());
     this.bind(Events.TELE_OUTAGE, (d: { on: boolean }) => this.setOutage(d.on));
     this.bind(Events.TELE_BRAKE, (d: { stage: number }) => this.onBrake(d.stage));
+    this.bind(Events.TELE_AMBUSH_START, (d: { words: string[] }) => this.startBatAmbush(d.words));
+    this.bind(Events.TELE_BAT_TARGET, (d: { index: number; word: string }) => this.setBatTarget(d.index, d.word));
+    this.bind(Events.TELE_BAT_TICK, (d: NonNullable<TelegramInfo['bat']>) => this.updateBatTimer(d));
+    this.bind(Events.TELE_BAT_HIT, (d: { index: number }) => this.hitBat(d.index));
+    this.bind(Events.TELE_BAT_MISSED, (d: { index: number }) => this.missBat(d.index));
+    this.bind(Events.TELE_AMBUSH_END, () => this.endBatAmbush());
     this.bind(Events.TELE_STOP, () => this.onStop());
     this.bind(Events.TELE_CRASH, () => this.onCrash());
     // 문장 완성: 진짜 공격 자세 + 깡충. 어절·글자 단위로는 캐릭터가 움직이지 않는다
@@ -138,6 +157,7 @@ export class TrainScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       for (const [ev, fn] of this.handlers) EventBus.off(ev, fn);
       this.handlers = [];
+      this.clearBats();
     });
     void AudioManager.bgm(STAGE_BGM[stage.id] ?? 'battle');
   }
@@ -249,6 +269,116 @@ export class TrainScene extends Phaser.Scene {
     this.tweens.add({ targets: t, scale: 1, duration: 200, ease: 'Back.easeOut' });
     this.tweens.add({ targets: t, alpha: 0, y: 480, duration: 500, delay: 900, onComplete: () => t.destroy() });
     if (!this.reducedMotion) this.sparks?.explode(40, 500, DECK_Y + 60);
+  }
+
+  /** 앞쪽에서 네 마리가 동시에 들이닥치고, 현재 입력 대상만 플레이어 쪽으로 파고든다. */
+  private startBatAmbush(words: string[]) {
+    this.clearBats();
+    registerSheetAnims(this, 'mon_letter_bat');
+    this.ambushStartedAt = this.time.now;
+    this.activeBat = -1;
+    const positions = [
+      { x: 1040, y: 370 }, { x: 1270, y: 510 }, { x: 1510, y: 345 }, { x: 1735, y: 555 },
+    ];
+    this.batBases = positions;
+    this.bats = positions.map((pos, i) => {
+      const shadow = this.add.ellipse(0, 66, 150, 28, 0x060713, 0.35);
+      const sprite = this.add.sprite(0, 54, 'mon_letter_bat', 'idle_left').setOrigin(0.5, 1).setScale(0.72);
+      sprite.play(anim('mon_letter_bat', 'walk_left'));
+      const label = this.add.text(0, -86, words[i] ?? '', styleText(34, '#fff2b0')).setOrigin(0.5).setVisible(false)
+        .setStroke('#251339', 8).setShadow(0, 5, '#000000', 8, true, true);
+      const bat = this.add.container(this.reducedMotion ? pos.x : DESIGN_W + 260 + i * 90, pos.y, [shadow, sprite, label]).setDepth(18);
+      bat.setScale(this.reducedMotion ? 1 : 0.28).setAlpha(this.reducedMotion ? 1 : 0.2);
+      if (!this.reducedMotion) this.tweens.add({
+        targets: bat, x: pos.x, scale: 1, alpha: 1, duration: 520 + i * 70, ease: 'Back.easeOut',
+      });
+      return bat;
+    });
+    this.batTimerText = this.add.text(DESIGN_W / 2, 205, '', styleText(48, '#fff2b0')).setOrigin(0.5).setDepth(27)
+      .setStroke('#30132c', 10).setShadow(0, 5, '#000000', 10, true, true);
+    this.batTimerBar = this.add.graphics().setDepth(27);
+    const alert = this.add.text(DESIGN_W / 2, 300, this.english ? '⚠ BAT AMBUSH!' : '⚠ 박쥐 기습!', styleText(78, '#ff8278')).setOrigin(0.5).setDepth(28);
+    if (this.reducedMotion) this.time.delayedCall(700, () => alert.destroy());
+    else {
+      alert.setScale(0.35);
+      this.tweens.add({ targets: alert, scale: 1, duration: 260, ease: 'Back.easeOut' });
+      this.tweens.add({ targets: alert, alpha: 0, y: 270, duration: 350, delay: 750, onComplete: () => alert.destroy() });
+      if (this.shakeOn) this.cameras.main.shake(320, 0.012);
+    }
+  }
+
+  private setBatTarget(index: number, word: string) {
+    this.activeBat = index;
+    for (let i = 0; i < this.bats.length; i++) {
+      const bat = this.bats[i];
+      const sprite = bat.getAt(1) as Phaser.GameObjects.Sprite | undefined;
+      const label = bat.getAt(2) as Phaser.GameObjects.Text | undefined;
+      label?.setText(i === index ? word : '').setVisible(i === index);
+      sprite?.setTint(i === index ? 0xffd45f : 0xb7a7d8);
+    }
+    AudioManager.sfx('go', { rate: 1.65, gain: 0.45 });
+  }
+
+  private updateBatTimer(info: TelegramInfo['bat']) {
+    if (!info.active || this.activeBat < 0) return;
+    this.batTimerText?.setText(this.english
+      ? `BAT ${info.index + 1}/${info.total}  ·  ${info.timeLeft.toFixed(1)}s`
+      : `박쥐 ${info.index + 1}/${info.total}  ·  ${info.timeLeft.toFixed(1)}초`);
+    const ratio = Phaser.Math.Clamp(info.timeLeft / info.timeLimit, 0, 1);
+    this.batTimerBar?.clear();
+    this.batTimerBar?.fillStyle(0x160e25, 0.9).fillRoundedRect(DESIGN_W / 2 - 230, 242, 460, 20, 10);
+    this.batTimerBar?.fillStyle(ratio < 0.35 ? 0xff4f59 : 0xffd34d, 1).fillRoundedRect(DESIGN_W / 2 - 226, 246, 452 * ratio, 12, 6);
+    const bat = this.bats[this.activeBat];
+    const base = this.batBases[this.activeBat];
+    if (!bat || !base || this.reducedMotion || this.time.now - this.ambushStartedAt < 560) return;
+    const danger = 1 - ratio;
+    bat.setX(Phaser.Math.Linear(base.x, 660, danger)).setY(base.y + Math.sin(this.time.now / 80) * 10).setScale(1 + danger * 0.42);
+  }
+
+  private hitBat(index: number) {
+    const bat = this.bats[index];
+    if (!bat?.active) return;
+    const sprite = bat.getAt(1) as Phaser.GameObjects.Sprite | undefined;
+    sprite?.clearTint().setFrame('hit');
+    AudioManager.sfx('hit', { rate: 1.5, gain: 0.65 });
+    this.player?.attack(() => {});
+    if (this.reducedMotion) bat.setVisible(false);
+    else this.tweens.add({ targets: bat, x: bat.x + 170, y: bat.y - 80, angle: 22, scale: 0.45, alpha: 0, duration: 300, ease: 'Quad.easeIn', onComplete: () => bat.setVisible(false) });
+  }
+
+  private missBat(index: number) {
+    const bat = this.bats[index];
+    if (!bat?.active) return;
+    AudioManager.sfx('hurt', { gain: 0.7 });
+    this.player?.hit();
+    if (this.reducedMotion) bat.setVisible(false);
+    else this.tweens.add({
+      targets: bat, x: 570, y: DECK_Y - 160, scale: 1.45, alpha: 0, duration: 220, ease: 'Quad.easeIn',
+      onComplete: () => bat.setVisible(false),
+    });
+    this.warn?.setFillStyle(0xff2a2a, 0.22);
+    this.time.delayedCall(160, () => this.warn?.setFillStyle(0xff2a2a, 0));
+  }
+
+  private endBatAmbush() {
+    this.activeBat = -1;
+    this.batTimerText?.setText(this.english ? 'Ambush cleared — resume transmission!' : '기습 종료 — 전보를 계속 보내자!').setColor('#7ff0a0');
+    this.batTimerBar?.clear();
+    this.time.delayedCall(800, () => this.clearBats());
+  }
+
+  private clearBats() {
+    for (const bat of this.bats) {
+      this.tweens.killTweensOf(bat);
+      if (bat.active) bat.destroy(true);
+    }
+    this.bats = [];
+    this.batBases = [];
+    this.batTimerText?.destroy();
+    this.batTimerText = undefined;
+    this.batTimerBar?.destroy();
+    this.batTimerBar = undefined;
+    this.activeBat = -1;
   }
 
   private onStop() {

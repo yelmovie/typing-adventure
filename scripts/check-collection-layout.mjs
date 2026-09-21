@@ -14,9 +14,13 @@ try {
     await page.addInitScript(() => localStorage.setItem('typing_adventure_save_v1', JSON.stringify({ profile: { name: 'Player', characterId: 'brown_boy', petId: 'cat' }, settings: { language: 'ko', bgm: false, sfx: false, prologueSeen: true } })));
     await page.goto('http://127.0.0.1:5180');
     if (height > width && width < 900) {
-      await page.locator('#rotate-hint').waitFor({ state: 'visible' });
-      console.log(`${width}x${height}: portrait rotation guidance visible`);
-      await page.close(); continue;
+      // Recent layouts support portrait directly. Older builds show a rotation hint;
+      // accept that fallback, otherwise inspect the real portrait collection panel.
+      const hint = page.locator('#rotate-hint');
+      if (await hint.isVisible()) {
+        console.log(`${width}x${height}: portrait rotation guidance visible`);
+        await page.close(); continue;
+      }
     }
     await page.locator('.opening-skip').click();
     await page.locator('.home-tutorial').waitFor();
@@ -25,6 +29,16 @@ try {
     await page.locator('.home-extra-grid button').filter({ hasText: '도감' }).click();
     for (const tab of ['monsters', 'badges', 'pets', 'items', 'titles']) {
       await page.locator(`[data-tab="${tab}"]`).click();
+      const gridLayout = await page.locator('.popup-card-grid:visible').evaluate(grid => ({
+        columns: getComputedStyle(grid).gridTemplateColumns.split(' ').filter(Boolean).length,
+        cards: grid.children.length,
+        cardColumns: getComputedStyle(grid).getPropertyValue('--popup-card-columns').trim(),
+        inlineStyle: grid.getAttribute('style'),
+        stageClass: document.getElementById('ui-stage')?.className,
+      }));
+      const roomyLandscape = width >= 900 && height >= 500;
+      assert.equal(gridLayout.columns, roomyLandscape ? 3 : 2, `${tab}: expected card columns ${JSON.stringify(gridLayout)}`);
+      assert.ok(gridLayout.cards <= (roomyLandscape ? 6 : 2), `${tab}: page only holds one complete card grid`);
       const metrics = await page.locator('.modal').evaluate(panel => {
         const body = panel.querySelector('.collection-body') ?? panel.lastElementChild;
         const r = panel.getBoundingClientRect();
@@ -39,7 +53,7 @@ try {
         assert.ok(metrics.scroll || metrics.lastBottom <= metrics.bottom, 'Cards stay inside body or scroll');
         assert.ok(metrics.closeVisible, 'Close button is reachable');
         await page.locator('.collection-body').evaluate(el => { el.scrollTop = el.scrollHeight; });
-        const lastCard = page.locator('.coll-item').last();
+        const lastCard = page.locator('.popup-page:not([hidden]) .coll-item').last();
         assert.ok(await lastCard.evaluate(el => { const r = el.getBoundingClientRect(); const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return el === hit || el.contains(hit); }), 'Last card reachable by internal scrolling');
       }
       console.log(`${width} ${tab}: ${JSON.stringify(metrics)}`);

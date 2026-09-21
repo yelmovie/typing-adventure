@@ -14,6 +14,7 @@ export class Enemy {
   private timers = new Set<Phaser.Time.TimerEvent>();
   private baseX: number;
   private baseScale: number;
+  private readonly spawnScale: number;
   dead = false;
 
   constructor(scene: Phaser.Scene, x: number, y: number, sheet: string, scale = 1) {
@@ -21,6 +22,7 @@ export class Enemy {
     this.sheet = sheet;
     this.baseX = x;
     this.baseScale = scale;
+    this.spawnScale = scale;
     registerSheetAnims(scene, sheet);
     this.shadow = scene.add.ellipse(x, y + 6, 170 * scale, 44 * scale, 0x000000, 0.3);
     this.sprite = scene.add.sprite(x, y, sheet, 'idle_left').setOrigin(0.5, 1).setScale(scale);
@@ -49,6 +51,16 @@ export class Enemy {
   setDepth(d: number) {
     this.sprite.setDepth(d);
     this.shadow.setDepth(d - 1);
+  }
+
+  /** 전투 중 적이 서 있는 기준점을 옮긴다. 공격·피격 뒤에도 새 위치로 돌아온다. */
+  setApproach(x: number, scale = this.spawnScale) {
+    this.baseX = x;
+    this.baseScale = scale;
+    if (this.movement?.isPlaying()) return;
+    this.sprite.setX(x).setScale(scale);
+    this.shadow.setX(x).setScale(scale / this.spawnScale);
+    placeFeet(this.sprite);
   }
 
   /** 오른쪽 화면 밖에서 걸어 들어오기 */

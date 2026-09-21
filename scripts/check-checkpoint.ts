@@ -33,18 +33,9 @@ function assertRunContinues(a: TypingMode, b: TypingMode) {
   const seen = new Set(b.wordsSeen());
   assert.ok(a.wordsSeen().every((id) => seen.has(id)), '본 낱말 이어짐 (복원 직후 새 목표가 하나 더 보일 수 있다)');
 }
-/** 편지의 「다음 조각 고르기」가 열려 있으면 순서상 다음 문장을 고른다(없는 모드·판에서는 아무것도 하지 않는다). */
-function resolveChoice(mode: TypingMode) {
-  const choices = mode.snapshot().letter?.choices;
-  if (!choices || mode.run.current) return;
-  const m = mode as unknown as { sentences?: ContentUnit[]; idx?: number; choose?: (index: number) => boolean };
-  const want = choices.indexOf(m.sentences?.[m.idx ?? 0]?.text ?? '');
-  for (const index of want >= 0 ? [want] : choices.map((_, k) => k)) { if (mode.run.current) break; m.choose?.(index); }
-}
 /** 현재 목표를 계속 정답 제출해 끝까지 간다 */
 function finish(mode: TypingMode, guard = 6000) {
   for (let i = 0; i < guard && !mode.finished; i++) {
-    resolveChoice(mode);
     if (mode.run.current) mode.submit(mode.run.current.text, false);
     mode.tick(0.1);
   }
@@ -112,13 +103,12 @@ function finish(mode: TypingMode, guard = 6000) {
   const units = S.map((text, i) => ({ ...unit('stage_3', text, 'sentence', ['편지', `순서${i + 1}`]), id: `s${i}` }));
   const ra = recorder(), a = new LetterSystem(stage, 'normal', pet, units, ra.emit);
   a.start();
-  resolveChoice(a); a.submit(S[0], true); a.tick(2);
-  resolveChoice(a); a.submit(S[1], false); a.tick(2);
-  resolveChoice(a); a.submit(S[2], false); a.tick(2);
-  resolveChoice(a); a.commit('문은 정직한 손끗'); a.submit('문은 정직한 손끗에만 열린다.', false); a.tick(1);
+  a.submit(S[0], true); a.tick(2);
+  a.submit(S[1], false); a.tick(2);
+  a.submit(S[2], false); a.tick(2);
+  a.commit('문은 정직한 손끗'); a.submit('문은 정직한 손끗에만 열린다.', false); a.tick(1);
   a.submit(S[3], false); a.tick(2);
   assert.equal(a.lines.length, 4); assert.equal(a.locksOpen, 1);
-  resolveChoice(a);
   const state = roundTrip(a.serialize());
   const rb = recorder(), b = new LetterSystem(stage, 'normal', pet, [...units].reverse(), rb.emit);
   b.restore(state);
@@ -126,14 +116,13 @@ function finish(mode: TypingMode, guard = 6000) {
   assert.deepEqual(b.lines, a.lines, '되찾은 문장 이어짐');
   assert.equal(b.locksOpen, 1); assert.equal(b.perfectLines, a.perfectLines); assert.equal(b.secretRoom, a.secretRoom);
   assert.equal(b.elapsed, a.elapsed);
-  resolveChoice(b); // 문장 사이 고르기가 걸려 있었다면 복원 뒤 다시 고른다
   assert.equal(b.run.current!.text, S[4], '다섯 번째 문장부터 — 저장된 편지 순서를 따른다');
   assert.equal(rb.count('LETTER_LOCK'), 1, '열린 자물쇠를 씬이 다시 그리도록 알린다');
   assert.ok(rb.events.every(([ev, d]) => ev !== 'LETTER_LOCK' || (d as { restored?: boolean }).restored === true), '복원 알림은 restored 표시');
   assertRunContinues(a, b);
   finish(b);
   assert.equal(b.lines.length, LETTER.sentences); assert.equal(b.locksOpen, LETTER.locks); assert.equal(rb.count('STAGE_CLEAR'), 1);
-  const g = new LetterSystem(stage, 'normal', pet, units, () => {}); g.restore(garbage); g.start(); resolveChoice(g); g.submit(g.run.current!.text, false);
+  const g = new LetterSystem(stage, 'normal', pet, units, () => {}); g.restore(garbage); g.start(); g.submit(g.run.current!.text, false);
   assert.equal(g.lines.length, 1);
 }
 
@@ -144,7 +133,9 @@ function finish(mode: TypingMode, guard = 6000) {
   const units = S.map((text, i) => ({ ...unit('stage_4', text, 'sentence', ['전보', `순서${i + 1}`]), id: `t${i}` }));
   const ra = recorder(), a = new TelegramSystem(stage, 'normal', pet, units, ra.emit);
   a.start();
-  a.submit(S[0], false); a.tick(1);
+  a.submit(S[0], false);
+  while (a.snapshot().telegram!.bat.active) a.submit(a.snapshot().telegram!.bat.word!, false);
+  a.tick(1);
   a.submit('틀린 전보', false); for (let i = 0; i < 25; i++) a.tick(0.1); // 통신 끊김이 끝난 뒤 저장
   a.submit(S[1], false); a.tick(1);
   const state = roundTrip(a.serialize());

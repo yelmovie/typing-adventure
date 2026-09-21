@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { registerSheetAnims, anim, placeFeet, playStride, type Dir } from './anims';
 import { prefersReducedMotion } from '../scenes/common';
+import { EventBus, Events } from '../EventBus';
 
 /** Travel is persistent: a celebration never sends a running pet back to idle. */
 export class Pet {
@@ -23,6 +24,7 @@ export class Pet {
     this.sprite = scene.add.sprite(x, y, sheet, 'idle_right').setOrigin(0.5, 1).setScale(scale);
     placeFeet(this.sprite);
     scene.events.on(Phaser.Scenes.Events.UPDATE, this.updateMotion, this);
+    EventBus.on(Events.PET_RESCUE, this.sacrifice, this);
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, this.destroy, this);
   }
   setSheet(sheet: string) {
@@ -82,9 +84,31 @@ export class Pet {
     this.celebrateUntil = 0; this.sprite.setTexture(this.sheet, 'hit').setScale(this.baseScale).clearTint().setFlipX(false);
     this.sprite.anims.stop(); this.sprite.setFrame('hit').setAngle(-4).setOrigin(0.5, 1);
   }
+  /** 플레이어 대신 쓰러지는 단 한 번의 구조 연출. */
+  sacrifice() {
+    if (this.finalPose || !this.sprite.active || !this.sprite.visible) return;
+    this.finalPose = true;
+    this.motion = 'idle';
+    this.poseTimer?.remove();
+    this.sprite.anims.stop();
+    this.sprite.setTexture(this.sheet, 'cheer').setTint(0xffef9a).setDepth(30);
+    this.shadow.setDepth(29);
+    if (prefersReducedMotion()) {
+      this.sprite.setVisible(false);
+      this.shadow.setVisible(false);
+      return;
+    }
+    this.scene.tweens.add({ targets: this.shadow, alpha: 0, scaleX: 0.2, duration: 520, ease: 'Quad.easeIn' });
+    this.scene.tweens.add({
+      targets: this.sprite, y: this.sprite.y - 110, scale: this.baseScale * 1.45, angle: 12, alpha: 0,
+      duration: 650, ease: 'Cubic.easeOut',
+      onComplete: () => { this.sprite.setVisible(false); this.shadow.setVisible(false); },
+    });
+  }
   destroy() {
     this.scene.events.off(Phaser.Scenes.Events.UPDATE, this.updateMotion, this);
     this.scene.events.off(Phaser.Scenes.Events.SHUTDOWN, this.destroy, this);
+    EventBus.off(Events.PET_RESCUE, this.sacrifice, this);
     this.poseTimer?.remove();
     if (this.sprite.active) this.sprite.destroy();
     if (this.shadow.active) this.shadow.destroy();

@@ -44,13 +44,24 @@ export function certificateModal() {
 /** 오늘의 인증서: 개인 기록만 (우리 반/친구 기록 없음) */
 function showCertificate() {
   const save = SaveSystem.get();
+  const language = getLanguage();
   const today = new Date();
-  const dateStr = `${today.getFullYear()}년 ${today.getMonth() + 1}월 ${today.getDate()}일`;
-  const name = profileDisplayName(save.profile, getLanguage());
+  const dateStr = language === 'en'
+    ? new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'long', day: 'numeric' }).format(today)
+    : `${today.getFullYear()}년 ${today.getMonth() + 1}월 ${today.getDate()}일`;
+  const name = profileDisplayName(save.profile, language);
   const cpm = save.records.bestCpm;
   const acc = save.records.bestAccuracy;
   const clears = save.progress.clearedStages.length;
-  const praise =
+  const praise = language === 'en'
+    ? clears === 0
+      ? 'Begin your first adventure to fill this certificate!'
+      : acc >= 95
+        ? 'Careful fingers and a true typing master’s focus!'
+        : acc >= 90
+          ? 'Your thoughtful practice is shining. Well done!'
+          : 'Your progress shows with every try. Keep exploring!'
+    :
     clears === 0
       ? '첫 모험을 떠나면 인증서가 채워져요!'
       : acc >= 95
@@ -58,49 +69,69 @@ function showCertificate() {
         : acc >= 90
           ? '꼼꼼한 연습이 빛나고 있어요. 멋져요!'
           : '조금씩 성장하는 모습이 보여요. 계속 도전!';
-  const cert = h(
-    'div',
-    { class: 'cert' },
-    h('div', { class: 'c-title' }, '오늘의 모험 인증서'),
-    h('div', { class: 'c-date' }, dateStr),
-    h('div', { class: 'c-name' }, h('span', { 'data-no-translate': 'true' }, getLanguage() === 'en' ? `Adventurer ${name}` : `${name} 모험가`), h('div', { class: 'c-title-tag' }, `칭호 · ${currentTitle(save.progress.coins ?? 0).name}`)),
-    h('div', { class: 'c-line' }, `타이핑 어드벤처에서 ${clears}개 지역을 완료했어요.`, h('br'), '아래는 이 기기에 남긴 나의 모험 기록이에요.'),
-    h(
+  const title = h('div', { class: 'c-title' }, popupCopy('타이핑 모험 인증서', 'Typing Adventure Certificate'));
+  const date = h('div', { class: 'c-date' }, dateStr);
+  const adventurerName = h('div', { class: 'c-name' },
+    h('span', { 'data-no-translate': 'true' }, language === 'en' ? `Adventurer ${name}` : `${name} 모험가`),
+    h('div', { class: 'c-title-tag' }, `${popupCopy('칭호', 'Title')} · ${currentTitle(save.progress.coins ?? 0).name}`),
+  );
+  const completion = h('div', { class: 'c-line' },
+    language === 'en'
+      ? `Completed ${clears} regions in Typing Adventure.`
+      : `타이핑 어드벤처에서 ${clears}개 지역을 완료했어요.`,
+    h('br'),
+    popupCopy('아래는 이 기기에 남긴 나의 모험 기록이에요.', 'These are the adventure records saved on this device.'),
+  );
+  const stats = h(
       'div',
       { class: 'c-stats' },
-      h('div', {}, `${fmt.int(cpm)}`, h('small', {}, '최고 타/분')),
-      h('div', {}, `${fmt.pct(acc)}%`, h('small', {}, '최고 정확도')),
-      h('div', {}, `${save.records.bestCombo}`, h('small', {}, '최대 콤보')),
-      h('div', {}, `${save.collection.badges.length}`, h('small', {}, '획득 배지')),
-    ),
-    (() => {
+      h('div', {}, `${fmt.int(cpm)}`, h('small', {}, popupCopy('최고 타/분', 'Best CPM'))),
+      h('div', {}, `${fmt.pct(acc)}%`, h('small', {}, popupCopy('최고 정확도', 'Best accuracy'))),
+      h('div', {}, `${save.records.bestCombo}`, h('small', {}, popupCopy('최대 콤보', 'Best combo'))),
+      h('div', {}, `${save.collection.badges.length}`, h('small', {}, popupCopy('획득 배지', 'Badges'))),
+    );
+  const todayRecord = (() => {
       const todayRecords = ['', ':sentence', ':long'].flatMap((suffix, i) => {
         const d = save.records.daily[todayKey() + suffix];
-        return d ? [h('div', { class: 'c-line' }, `오늘 ${['낱말', '문장', '긴 글'][i]}: ${fmt.int(d.cpm)}타/분 · 정확도 ${fmt.pct(d.accuracy)}%`)] : [];
+        const type = language === 'en' ? ['words', 'sentences', 'story'][i] : ['낱말', '문장', '긴 글'][i];
+        return d ? [h('div', { class: 'c-line' }, language === 'en'
+          ? `Today’s ${type}: ${fmt.int(d.cpm)} CPM · ${fmt.pct(d.accuracy)}% accuracy`
+          : `오늘 ${type}: ${fmt.int(d.cpm)}타/분 · 정확도 ${fmt.pct(d.accuracy)}%`)] : [];
       });
-      return todayRecords.length ? h('div', {}, todayRecords) : h('div', { class: 'c-line muted' }, '오늘의 도전은 아직 안 했어요');
-    })(),
-    learningSummary(),
-    h('div', { class: 'c-praise' }, praise),
-    canDoBlock(save.profile.canDo ?? ''),
+      return todayRecords.length ? h('div', {}, todayRecords) : h('div', { class: 'c-line muted' }, popupCopy('오늘의 도전은 아직 안 했어요', 'No daily challenge yet today'));
+    })();
+  const learning = learningSummary();
+  const praiseLine = h('div', { class: 'c-praise' }, praise);
+  const canDo = canDoBlock(save.profile.canDo ?? '');
+  const cert = h(
+    'div',
+    { class: `cert${language === 'en' ? ' cert-en' : ''}` },
+    h('img', { class: 'certificate-art', src: './assets/ui/certificate-frame-v2.webp', alt: '', 'aria-hidden': 'true' }),
+    h('div', { class: 'certificate-copy' },
+      h('div', { class: 'c-kicker' }, popupCopy('별빛 기록 보관소', 'STARLIGHT ARCHIVE')),
+      title,
+      date,
+      h('div', { class: 'certificate-rule', 'aria-hidden': 'true' }),
+      adventurerName,
+      stats,
+    ),
+    h('div', { class: 'certificate-seal', 'aria-hidden': 'true' }, popupCopy('완주', 'BRAVE')),
   );
   const panel = h('div', { class: 'panel panel-cream modal modal-md certificate-modal detail-modal', 'aria-labelledby': 'certificate-title' },
-    h('div', { class: 'detail-modal-header' }, h('h2', { class: 'panel-title', id: 'certificate-title' }, icon('trophy'), '오늘의 인증서'), closeBtn()),
+    h('div', { class: 'detail-modal-header' }, h('h2', { class: 'panel-title', id: 'certificate-title' }, icon('trophy'), popupCopy('오늘의 인증서', 'Today’s certificate')), closeBtn()),
     h('div', { class: 'detail-modal-body certificate-body', role: 'region', tabindex: '0', 'aria-label': getLanguage() === 'en' ? 'Certificate details' : '인증서 내용' }, cert),
-    h('div', { class: 'modal-actions detail-modal-actions' }, h('button', { class: 'btn btn-gold', onclick: () => { AudioManager.sfx('click'); closeModal(); } }, '확인')));
+    h('div', { class: 'modal-actions detail-modal-actions' }, h('button', { class: 'btn btn-gold', onclick: () => { AudioManager.sfx('click'); closeModal(); } }, popupCopy('확인', 'Confirm'))));
   panel.classList.add('popup-paged');
-  const parts = [...cert.children] as HTMLElement[];
-  const learningParts = [...parts[6].children] as HTMLElement[];
-  cert.replaceChildren(parts[0], parts[1], parts[2], parts[4]);
+  const learningParts = [...learning.children] as HTMLElement[];
   const pages: ContentPage[] = [
     { title: '', content: cert },
-    { title: popupCopy('오늘의 도전 기록', 'Today’s challenge records'), content: h('div', { class: 'certificate-record-page' }, parts[3], parts[5], parts[7]) },
+    { title: popupCopy('오늘의 도전 기록', 'Today’s challenge records'), content: h('div', { class: 'certificate-record-page' }, completion, todayRecord, praiseLine) },
     { title: popupCopy('차곡차곡 쌓인 성장', 'Your progress'), content: h('div', { class: 'learning-summary' }, learningParts.slice(0, 3)) },
     { title: popupCopy('다음에 연습할 것', 'What to practise next'), content: h('div', { class: 'learning-summary' }, learningParts.slice(3)) },
-    { title: '', content: parts[8] },
+    { title: '', content: canDo },
   ];
-  const writing = parts[8].querySelector<HTMLInputElement>('.c-cando-input')!;
-  const writingLine = parts[8].querySelector<HTMLElement>('.c-cando-line')!;
+  const writing = canDo.querySelector<HTMLInputElement>('.c-cando-input')!;
+  const writingLine = canDo.querySelector<HTMLElement>('.c-cando-line')!;
   pages.push({ title: popupCopy('내 말로 쓰기', 'Write it in your own words'), content: h('div', { class: 'certificate-writing-page' },
     writingLine,
     writing,

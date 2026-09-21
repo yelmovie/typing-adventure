@@ -15,6 +15,7 @@ import type { StageId } from '../types';
 import type { BossInfo, BossCrystal } from '../systems/BossSystem';
 import { playClassFx } from './ClassFx';
 import { BossImpact } from './BossImpact';
+import { addJourneyMotion, startJourneyStride } from './JourneyMotion';
 
 const PLAYER_POS = { x: 480, y: 760 }; // 발끝 760: 하단 입력 패널(830~) 위
 const BOSS_POS = { x: 1490, y: 750 };
@@ -55,6 +56,7 @@ export class BossScene extends Phaser.Scene {
     const stage = getStage(data.stageId);
     this.bg = addBackground(this, stage.bgBattle);
     ensureParticleTextures(this);
+    addJourneyMotion(this, this.bg, 'citadel', 765);
     const save = SaveSystem.get();
     this.shakeOn = save.settings.screenShake && !prefersReducedMotion();
     this.cls = save.profile.characterId;
@@ -73,6 +75,7 @@ export class BossScene extends Phaser.Scene {
     this.player.setLively(true);
     this.pet = new Pet(this, PLAYER_POS.x - 170, PLAYER_POS.y + 10, getPet(save.profile.petId).sheet, 0.62);
     this.pet.setDepth(6);
+    startJourneyStride(this.player, this.pet, 0.8);
     const def = getEnemy(stage.enemies[0]);
     // The attack atlas is taller than idle (265px vs 208px of visible paint).
     // Fit the entire attack, including the keys above its head, below the HUD.
@@ -103,6 +106,7 @@ export class BossScene extends Phaser.Scene {
     this.bind(Events.BOSS_QUEUE, (d: { queue: string[]; added?: string; bomb?: boolean; cleared?: boolean }) => this.renderQueue(d));
     this.bind(Events.BOSS_HIT, (d: { damage: number; perfect?: boolean; weak?: boolean; phase?: number }) => this.onBossHit(d));
     this.bind(Events.BOSS_DARK, (d: { hpLoss: number }) => this.onDark(d));
+    this.bind(Events.BOSS_PET_GUARD, () => this.onPetGuard());
     this.bind(Events.BOSS_ARMOR, () => this.onArmor());
     this.bind(Events.BOSS_CORE, () => this.onCore());
     this.bind(Events.BOSS_FINAL, () => this.onFinal());
@@ -137,6 +141,9 @@ export class BossScene extends Phaser.Scene {
 
   private onTick(b: BossInfo) {
     this.dark?.setFillStyle(0x0a0420, b.darkness * 0.55);
+    // 큐가 차고 어둠이 짙어질수록 골렘이 화면 앞으로 다가온다.
+    const pressure = b.phase === 2 ? Phaser.Math.Clamp(Math.max(b.darkness, b.queue.length / 4), 0, 1) : 0;
+    this.boss?.setApproach(Phaser.Math.Linear(BOSS_POS.x, BOSS_POS.x - 230, pressure), Phaser.Math.Linear(2, 2.18, pressure));
     if (b.phase === 1 && this.crystals.length === 0) this.buildCrystals(b.crystals);
     if (b.phase === 1) {
       const cur = b.currentCrystalIndex;
@@ -239,7 +246,7 @@ export class BossScene extends Phaser.Scene {
     const b = this.boss;
     if (!b || b.dead) return;
     const level = d.weak ? 'weak' : d.perfect ? 'perfect' : 'strong';
-    const target = { x: BOSS_POS.x - 35, y: BOSS_POS.y - 235 };
+    const target = { x: (b.sprite.x || BOSS_POS.x) - 35, y: BOSS_POS.y - 235 };
     this.impact?.launch(this.muzzle(), target, level, d.weak ? this.lastGlyph : getLanguage() === 'en' ? 'OK' : '완', () => {
       if (b.dead || !b.sprite.active) return;
       b.hit(!d.weak);
@@ -253,15 +260,33 @@ export class BossScene extends Phaser.Scene {
   }
 
   private onDark(d: { hpLoss: number }) {
-    AudioManager.sfx('hurt');
+    AudioManager.sfx(d.hpLoss > 0 ? 'hurt' : 'star');
     this.boss?.attack(() => {
-      this.player?.hit();
-      if (this.shakeOn) this.cameras.main.shake(200, 0.008);
+      if (d.hpLoss > 0) this.player?.hit();
+      if (this.shakeOn && d.hpLoss > 0) this.cameras.main.shake(200, 0.008);
       if (d.hpLoss > 0) {
         const txt = this.add.text(PLAYER_POS.x, PLAYER_POS.y - 240, `-${d.hpLoss}`, styleText(44, '#ff6b6b')).setOrigin(0.5).setDepth(22);
         if (prefersReducedMotion()) this.time.delayedCall(600, () => txt.destroy());
         else this.tweens.add({ targets: txt, y: PLAYER_POS.y - 320, alpha: 0, duration: 800, onComplete: () => txt.destroy() });
       }
+    });
+  }
+
+  private onPetGuard() {
+    const pet = this.pet;
+    if (!pet) return;
+    pet.skill();
+    AudioManager.sfx('star', { gain: 0.7 });
+    if (prefersReducedMotion()) return;
+    const sx = pet.sprite.x, sy = pet.sprite.y, shadowX = pet.shadow.x, shadowY = pet.shadow.y;
+    const shield = this.add.circle(PLAYER_POS.x + 85, PLAYER_POS.y - 105, 82, 0x9cecff, 0.22)
+      .setStrokeStyle(8, 0xe7fbff, 0.95).setDepth(21).setScale(0.25);
+    this.tweens.add({ targets: [pet.sprite, pet.shadow], x: PLAYER_POS.x + 75, duration: 180, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: shield, scale: 1.15, alpha: 0, duration: 650, ease: 'Cubic.easeOut', onComplete: () => shield.destroy() });
+    this.time.delayedCall(520, () => {
+      if (!pet.sprite.active) return;
+      this.tweens.add({ targets: pet.sprite, x: sx, y: sy, duration: 260, ease: 'Sine.easeInOut' });
+      this.tweens.add({ targets: pet.shadow, x: shadowX, y: shadowY, duration: 260, ease: 'Sine.easeInOut' });
     });
   }
 

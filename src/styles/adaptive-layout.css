@@ -105,6 +105,9 @@
 #ui-stage.portrait-display .tutorial-keyboard .kbd-finger-guide { flex-direction: column; gap: 6px; }
 #ui-stage.portrait-display .tutorial-keyboard .kbd-finger-copy { justify-items: center; }
 #ui-stage.portrait-display .tutorial-part-grid { grid-template-columns: 1fr; }
+#ui-stage.portrait-display .tutorial-story-grid { grid-template-columns: 1fr; }
+#ui-stage.portrait-display .tutorial-story-menu,
+#ui-stage.portrait-display .tutorial-diary-view { width: auto; }
 #ui-stage.portrait-display .tutorial-keyboard { margin-top: 20px; }
 #ui-stage.portrait-display .tutorial-target-wrap .tutorial-target { padding: 16px; }
 #ui-stage.portrait-display .tutorial-item-progress { position: static; display: block; margin-top: 8px; }

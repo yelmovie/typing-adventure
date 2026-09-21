@@ -43,6 +43,16 @@ try {
       await settled();
       assert.equal(await page.locator('.tutorial-part-card').count(), 4, 'Home practice opens a four-part chooser');
       assert.ok((await page.locator('.tutorial-menu h1').innerText()).includes(language === 'ko' ? '타이핑 연습 선택' : 'Choose typing practice'));
+      const menuFit = await page.locator('.tutorial-menu').evaluate(el => {
+        const rect = el.getBoundingClientRect();
+        return { top: rect.top, bottom: rect.bottom, height: rect.height, clientHeight: el.clientHeight, scrollHeight: el.scrollHeight, viewportHeight: innerHeight };
+      });
+      assert.ok(menuFit.bottom <= menuFit.viewportHeight, `Practice chooser stays inside the viewport: ${JSON.stringify(menuFit)}`);
+      if (width === 1280) {
+        assert.ok(menuFit.bottom < menuFit.viewportHeight - 40, `Landscape chooser leaves its scenic background visible: ${JSON.stringify(menuFit)}`);
+        assert.ok(menuFit.scrollHeight <= menuFit.clientHeight + 1, `Landscape chooser has no reserved blank scroll area: ${JSON.stringify(menuFit)}`);
+      }
+      await page.screenshot({ path: `${OUT}/${language}-${width}-practice-menu.png` });
       await page.locator('[data-part="vowels"]').click();
       assert.equal(await page.locator('.tutorial-item-progress').textContent(), language === 'ko' ? '1 / 21' : '1 / 5');
       assert.ok(await page.locator('.tutorial-keyboard .key.hand-left').count() >= 5);
@@ -58,26 +68,45 @@ try {
       await settled();
       assert.equal(await gameCall('currentScreen'), 'home');
 
-      if (language === 'ko' && width === 1280) {
+      if (width === 1280) {
         await page.locator('.home-tutorial').click();
+        const stories = await page.evaluate(async language => (await import('/src/game/systems/TutorialSystem.ts')).tutorialSteps(language).find(step => step.part === 'story'), language);
+        assert.equal(stories.targets.length, 4, 'Character long-form practice has four stories');
+        assert.ok(stories.targets[3].startsWith(language === 'ko' ? '루카의 탐험대장 기록.' : "Luca's Explorer Captain Log."), 'The fourth long-form story belongs to Luca');
+        assert.ok((await page.locator('[data-part="story"]').innerText()).includes(language === 'ko' ? '긴 글 4편' : '4 character stories'));
         await page.locator('[data-part="story"]').click();
+        assert.equal(await page.locator('.tutorial-story-card').count(), 4, 'Long-form practice offers four character diaries');
+        assert.equal(await page.locator('.tutorial-story-open').count(), 0, 'Diary art stays locked until its story is typed');
+        await page.screenshot({ path: `${OUT}/${language}-${width}-story-chooser.png` });
+        await page.locator('.tutorial-story-start').first().click();
         const storyInput = page.locator('#tutorial-input');
         await storyInput.waitFor();
         const storyTarget = await page.locator('.tutorial-target').getAttribute('data-target');
-        assert.ok(storyTarget?.length > 900, 'Long-form practice keeps the full character story');
+        assert.ok(storyTarget?.length > 20 && storyTarget.length <= (language === 'ko' ? 72 : 112), 'Long-form practice shows about two lines at a time');
         await page.locator('.tutorial-target span').first().evaluate(node => { node.dataset.stabilityProbe = 'kept'; });
         await storyInput.evaluate((input, text) => {
           input.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
-          input.value = text.slice(0, 500);
-          input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertCompositionText', data: text.slice(0, 500) }));
-          input.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, data: text.slice(0, 500) }));
+          input.value = text.slice(0, 20);
+          input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertCompositionText', data: text.slice(0, 20) }));
+          input.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, data: text.slice(0, 20) }));
         }, storyTarget);
         await page.waitForTimeout(100);
         assert.equal(await page.locator('.tutorial-target span').first().getAttribute('data-stability-probe'), 'kept', 'Long-form input reuses target nodes');
         assert.equal(await page.locator('.tutorial-target span').count(), [...storyTarget].length, 'Long-form input keeps every target character');
         await page.screenshot({ path: `${OUT}/${language}-${width}-story-follow.png` });
-        await page.locator('.tutorial-leave').click();
-        await settled();
+        for (let guard = 0; guard < 40 && await storyInput.isVisible(); guard++) {
+          const target = await page.locator('.tutorial-target').getAttribute('data-target');
+          await storyInput.fill(target);
+          await page.locator('.tutorial-form button[type="submit"]').click();
+        }
+        await page.locator('.tutorial-diary-image').waitFor();
+        assert.ok((await page.locator('.tutorial-diary-image').getAttribute('src')).includes(`${language}-haneul.webp`), 'Finished story reveals its diary image');
+        const finishedStories = await page.evaluate(async () => (await import('/src/game/systems/SaveSystem.ts')).SaveSystem.get().progress.completedPracticeStories ?? []);
+        assert.deepEqual(finishedStories, [0], 'Completing one diary saves only that character story');
+        await page.screenshot({ path: `${OUT}/${language}-${width}-story-diary.png`, fullPage: true });
+        await page.locator('.tutorial-diary-actions .btn').first().click();
+        assert.equal(await page.locator('.tutorial-story-open').count(), 1, 'Completed diary can be reopened from the chooser');
+        await page.locator('.tutorial-leave').click(); await settled();
       }
 
       const stages = width === 1280 ? ['stage_1', 'stage_2', 'stage_3', 'stage_4', 'stage_5'] : ['stage_2'];

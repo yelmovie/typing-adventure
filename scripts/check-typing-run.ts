@@ -162,6 +162,17 @@ assert.equal(inputErrorCount('we go!', 'wego!'), 1, '빠진 공백 한 개');
 assert.equal(inputErrorCount('we go!', 'we  go!'), 1, '추가 공백 한 개');
 assert.equal(inputErrorCount('we go!', 'we'), 4, '제출 시에는 빠진 글자를 센다');
 assert.equal(inputErrorCount('we go!', 'we', false), 0, '입력 중 뒷부분 미완성은 오타가 아니다');
+// HP가 0이 되는 첫 순간에만 펫이 희생하고 절반으로 복구한다. 체크포인트 뒤에도 재사용할 수 없다.
+{
+  const first = make([unit('가')]);
+  assert.equal(first.run.rescueIfDown(0, 100), 50);
+  assert.equal(first.count('PET_RESCUE'), 1);
+  assert.equal(first.run.rescueIfDown(0, 100), 0);
+  const saved = first.run.serializeCounters();
+  const restored = make([unit('가')]);
+  restored.run.restoreCounters(saved);
+  assert.equal(restored.run.rescueIfDown(0, 100), 0, '복원 뒤 펫 희생 재사용 금지');
+}
 {
   const { run } = make([unit('cat')]);
   run.onCommit('b');

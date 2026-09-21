@@ -26,13 +26,28 @@ assert.equal(count('BOSS_CRYSTAL_BREAK'), 5);
 assert.equal(B.phase, 2);
 assert.equal(B.bossHp, BOSS.hp, 'P1 은 보호막, 보스 HP 그대로');
 
-// P2: 큐가 3초마다 차고, 4개 넘치면 어둠 → HP-10
+// P2: 큐가 차고 넘치면 어둠 공격. 공격 한 번의 피해는 정확히 HP-1.
 for (let i = 0; i < 6; i++) B.tick(0.1); // 첫 낱말 등장(0.5초)
 assert.ok(B.queue.length >= 1 && B.run.current?.text === B.queue[0].text);
 for (let i = 0; i < 160; i++) B.tick(0.1); // 16초 방치 → 큐 4 + 넘침
 assert.equal(B.queue.length, BOSS.queueMax);
 assert.ok(count('BOSS_DARK') >= 1);
 assert.ok(B.playerHp < 100);
+
+// 토끼는 첫 어둠 공격을 직접 막고, 다음 공격부터 HP가 정확히 1씩 감소한다.
+{
+  const rabbit: PetDef = { ...pet, id: 'rabbit', passive: 'bomb_time', active: 'time_plus' };
+  const emitted: [string, unknown][] = [];
+  const mode = new BossSystem(stage, 'normal', rabbit, words, '', (ev, data) => emitted.push([ev, data]));
+  mode.start();
+  while (mode.phase === 1) mode.submit(mode.run.current!.text, false);
+  for (let i = 0; i < BOSS.queueMax; i++) (mode as any).pushRush();
+  (mode as any).pushRush();
+  assert.equal(mode.playerHp, 100);
+  assert.equal(emitted.filter(([ev]) => ev === 'BOSS_PET_GUARD').length, 1);
+  (mode as any).pushRush();
+  assert.equal(mode.playerHp, 99, '보스 직접 공격은 HP-1');
+}
 
 // P2: 낱말 완성 → 보스 피해, HP 30% 이하 → 페이즈 3
 let guard = 0;

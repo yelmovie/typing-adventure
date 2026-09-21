@@ -197,6 +197,7 @@ export class BattleSystem implements TypingMode {
     }
     EventBus.emit(Events.INPUT_WRONG, { typed, target, hpLoss, timeLoss, forgiven, shielded: this.run.isShielded(), snapshot: this.snapshot() });
     if (hpLoss > 0) EventBus.emit(Events.PLAYER_HIT, { hpLoss, hp: this.playerHp });
+    this.playerHp = this.run.rescueIfDown(this.playerHp, this.playerMaxHp);
     if (this.playerHp <= 0) this.fail('hp');
     else if (this.timeLeft <= 0) this.fail('time');
     else EventBus.emit(Events.TARGET_CHANGED, this.snapshot());
