@@ -131,6 +131,8 @@ export class KeyboardGuide {
       class: opts.embedded ? 'kbd-embedded' : 'kbd-overlay',
       onclick: (e: MouseEvent) => { if (e.target === this.el) opts.onBackdropClick?.(); },
     }, this.panel);
+    // 자판 그림은 안내용이다. 태블릿에서 키를 손으로 눌러도 입력창 포커스를 뺏지 않아야 화면 키보드가 닫히지 않는다.
+    this.panel.addEventListener('mousedown', e => e.preventDefault());
   }
 
   /** Physical key codes remain available while the Korean IME is composing. */

@@ -223,7 +223,7 @@ export const EN: Record<string, string> = {
   '음소거': 'Mute', '켜기/끄기': 'on/off', '보물 낱말': 'Treasure word', '하트 낱말': 'Heart word', '폭탄 낱말': 'Bomb word',
   '진행도': 'Progress', '방어막': 'Shield', '어제': 'Past best', '추격': 'Chaser', '전송률 0%': 'Sent 0%',
   '위험 지점까지': 'Until danger', '열차 속도': 'Train speed', '어려운 낱말 건너뛰기 (Tab)': 'Jump past a difficult target (Tab)',
-  '점프': 'Jump', '감속': 'Slowed', '← 지움': '← Delete', '모험 안내': 'Adventure guide', '볼륨': 'Volume',
+  '점프': 'Jump', '폴짝': 'Hop', '앉기': 'Duck', '폴짝 뛰어 슬라임 피하기 (↑)': 'Hop over slimes (↑)', '앉아서 박쥐 피하기 (↓)': 'Duck under bats (↓)', '감속': 'Slowed', '← 지움': '← Delete', '모험 안내': 'Adventure guide', '볼륨': 'Volume',
   '학생 가이드': 'Student guide', '교사용 가이드': 'Teacher guide',
   '나의 교정 연습': 'My correction practice', '프롤로그 다시보기': 'Watch the prologue', '엔딩 다시보기': 'Watch the ending',
   '정보·크레딧': 'About & credits', '전체 초기화': 'Reset everything',

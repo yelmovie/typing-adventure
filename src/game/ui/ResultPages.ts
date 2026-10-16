@@ -33,7 +33,8 @@ export function resultPages(blocks: HTMLElement[], en: boolean) {
     const chrome = [...panel.children].filter(child => !child.classList.contains('result-body'))
       .reduce((sum, child) => sum + (child as HTMLElement).offsetHeight, 0);
     controls.hidden = false;
-    const stageHeight = document.getElementById('ui-stage')?.clientHeight ?? 1080;
+    // 4:3 가로 화면에선 #ui-stage 가 1080보다 높아도 결과 화면은 16:9 띠 안에 있다. 화면 자신의 높이로 잰다.
+    const stageHeight = el.closest<HTMLElement>('.screen')?.clientHeight ?? document.getElementById('ui-stage')?.clientHeight ?? 1080;
     const capacity = stageHeight - panel.offsetTop - 36 - parseFloat(css.paddingTop) - parseFloat(css.paddingBottom)
       - chrome - parseFloat(css.rowGap) * 3 - controls.offsetHeight - 12;
     content.style.height = `${Math.max(120, capacity)}px`;

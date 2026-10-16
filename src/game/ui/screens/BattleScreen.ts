@@ -216,7 +216,8 @@ export class BattleScreen extends Screen<BattleData> {
         h('div', { class: 'bb-target-row' }, this.hud.targetEl, this.hud.variantEl),
         this.hud.hintEl,
         this.gemBar,
-        h('div', { class: 'bb-input-wrap' }, this.inputEl, h('span', { class: 'bb-input-hint' }, icon('key_enter')), this.hud.skipBtn),
+        h('div', { class: 'bb-input-wrap' }, this.inputEl, h('span', { class: 'bb-input-hint' }, icon('key_enter')), this.hud.skipBtn,
+          this.battle instanceof WaveSystem ? this.createDodgePad() : null),
       ),
     );
 
@@ -230,7 +231,8 @@ export class BattleScreen extends Screen<BattleData> {
     if (!isBoss) this.el.append(this.hud.enemyPanel);
     if (!this.hud.combo.parentElement) this.el.append(this.hud.combo); // wave 는 HudController 가 상단 HUD 바 안에 넣었다
     this.el.append(this.bottom, this.kbd.el);
-    this.el.classList.add(`mode-${st.mode}`);
+    // 화면 요소는 판마다 재사용된다. 이전 판의 mode-·fever·outage 클래스가 남으면 다른 모드 레이아웃이 섞인다.
+    this.el.className = `screen battle mode-${st.mode}`;
 
     this.typing = new TypingSystem(this.inputEl, {
       onChange: (value, composing) => this.onInputChange(value, composing),
@@ -837,6 +839,21 @@ export class BattleScreen extends Screen<BattleData> {
         void navigate('battle', { stageId: nextId, speedrun: true, speedrunRun: { ...run, stageSec: [...run.stageSec] } });
       }, 1500);
     }, cleared ? 600 : 900);
+  }
+
+  /** 웨이브 회피(↑ 점프·↓ 앉기)를 태블릿 화면 키보드로도 할 수 있게 누르고 있는 동안 방향키처럼 동작하는 버튼. */
+  private createDodgePad() {
+    const pad = (dir: 'up' | 'down', arrow: string, label: string, aria: string) => {
+      const button = h('button', { type: 'button', class: `btn btn-sm btn-gray bb-dodge-${dir}`, 'aria-label': aria }, h('span', { 'aria-hidden': 'true' }, arrow), label);
+      const release = () => { if (button.classList.contains('pressed')) { button.classList.remove('pressed'); this.battle?.move?.(dir, false); } };
+      // pointerdown 기본 동작을 막아 입력창 포커스(=화면 키보드)를 지킨다.
+      button.addEventListener('pointerdown', (e) => { e.preventDefault(); button.setPointerCapture?.(e.pointerId); button.classList.add('pressed'); this.battle?.move?.(dir, true); });
+      for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) button.addEventListener(ev, release);
+      return button;
+    };
+    return h('div', { class: 'bb-dodge' },
+      pad('up', '▲', '폴짝', '폴짝 뛰어 슬라임 피하기 (↑)'),
+      pad('down', '▼', '앉기', '앉아서 박쥐 피하기 (↓)'));
   }
 
   protected onHide() {

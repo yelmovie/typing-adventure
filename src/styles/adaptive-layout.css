@@ -174,7 +174,15 @@
 #viewport:has(.portrait-display) { background: linear-gradient(#0b1431d9, #0b1431e8), url('/assets/backgrounds/bg_main_gate_blur.webp') center / cover; }
 #ui-stage.keyboard-display .battle-left-col { display: none; }
 #ui-stage.keyboard-display .bb-hint { display: none; }
+/* 화면 키보드가 올라오면 전장이 좁다. 목표 설명 줄(가이드 버튼 포함)은 이미 본 내용이라 접고, 입력 줄만 남겨 전장을 덜 가린다. */
+#ui-stage.keyboard-display .battle-bottom .bb-target-lbl { display: none; }
 
 @supports (padding: env(safe-area-inset-bottom)) {
   #ui-stage { --layout-edge: max(24px, calc(12 * var(--ui-unit)), env(safe-area-inset-left), env(safe-area-inset-right), env(safe-area-inset-bottom)); }
 }
+
+/* 16:9 가 아닌 가로 화면(Viewport.ts 의 --band-*): 기본 화면은 캔버스 띠에 맞춰 두고,
+   캔버스 위치에 묶이지 않는 전투·타자연습만 남는 공간(4:3 위아래, 화면 키보드 양옆)까지 쓴다. */
+#ui-stage:not(.portrait-display) #ui-root > .screen { inset: auto; left: var(--band-left, 0px); top: var(--band-top, 0px); width: 1920px; height: 1080px; }
+#ui-stage:not(.portrait-display) #ui-root > .screen.battle,
+#ui-stage:not(.portrait-display) #ui-root > .screen.tutorial { left: 0; top: 0; width: 100%; height: 100%; }
