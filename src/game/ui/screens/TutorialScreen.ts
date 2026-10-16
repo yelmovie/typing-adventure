@@ -154,7 +154,7 @@ export class TutorialScreen extends Screen<TutorialData> {
     };
     bindTarget();
     const longForm = s.part === 'story';
-    const input = h(longForm ? 'textarea' : 'input', { id: 'tutorial-input', type: longForm ? undefined : 'text', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', 'aria-labelledby': 'tutorial-title', 'aria-describedby': 'tutorial-hint tutorial-feedback', maxlength: longForm ? 1600 : 100, value: s.prefill ?? '', lang: getLanguage(), rows: longForm ? 5 : undefined }) as HTMLInputElement | HTMLTextAreaElement;
+    const input = h(longForm ? 'textarea' : 'input', { id: 'tutorial-input', type: longForm ? undefined : 'text', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', 'aria-labelledby': 'tutorial-title', 'aria-describedby': 'tutorial-hint tutorial-feedback', maxlength: longForm ? 1600 : 100, value: s.prefill ?? '', lang: getLanguage(), rows: longForm ? 2 : undefined }) as HTMLInputElement | HTMLTextAreaElement;
     const feedback = h('p', { id: 'tutorial-feedback', class: 'tutorial-feedback', role: 'status', 'aria-live': 'polite' });
     const send = h('button', { class: 'btn btn-primary', type: 'submit' }, copy('보내기', 'Send'), h('kbd', {}, 'Enter'));
     const next = h('button', { class: 'btn btn-primary tutorial-next', type: 'button', hidden: true, onclick: () => {
@@ -264,15 +264,17 @@ export class TutorialScreen extends Screen<TutorialData> {
         next.focus();
       }
     });
-    const panel = h('section', { class: `tutorial-panel tutorial-practice${longForm ? ' tutorial-longform' : ''}`, 'aria-labelledby': 'tutorial-title' },
+    const panel = h('section', { class: `tutorial-panel tutorial-practice${longForm ? ' tutorial-longform' : ''}${getLanguage() === 'en' ? ' practice-en' : ''}`, 'aria-labelledby': 'tutorial-title' },
+      // 제목·안내를 통계 옆에 붙여 세로 공간을 아낀다 — 아래 자판이 패널 안에 다 들어가야 한다.
       h('div', { class: 'tutorial-status-row' },
-        h('div', { class: 'tutorial-eyebrow' }, copy('자유 연습', 'FREE PRACTICE'), h('span', {}, `${m.stepIndex + 1} / ${m.steps.length}`)), speed),
+        h('div', { class: 'tutorial-heading' },
+          h('div', { class: 'tutorial-eyebrow' }, copy('자유 연습', 'FREE PRACTICE'), h('span', {}, `${m.stepIndex + 1} / ${m.steps.length}`)),
+          title, h('p', { class: 'tutorial-instruction' }, s.instruction)), speed),
       m.steps.length > 1 ? h('ol', { class: 'tutorial-steps', 'aria-label': copy('연습 파트', 'Practice parts') }, m.steps.map((step, i) => h('li', { class: i < m.stepIndex ? 'done' : i === m.stepIndex ? 'active' : '', 'data-step': i, 'aria-current': i === m.stepIndex ? 'step' : 'false', title: step.title }, String(PRACTICE_PARTS.indexOf(step.part) + 1)))) : null,
-      title, h('p', { class: 'tutorial-instruction' }, s.instruction),
       h('div', { class: `tutorial-target-wrap${partIndex >= 2 ? ' tutorial-prose' : ''}` }, target, progress),
       h('p', { id: 'tutorial-hint', class: 'tutorial-hint' }, s.hint), form, feedback,
       h('div', { class: 'tutorial-keyboard', 'aria-label': copy('자판 안내', 'Keyboard guide') },
-        h('div', { class: 'tutorial-keyboard-legend' }, copy('노랑: 다음 키 · 민트: 누른 키', 'Yellow: next key · Mint: pressed key')), keyboard.el), next);
+        keyboard.el), next);
     this.el.replaceChildren(
       this.header(),
       h('div', { class: 'tutorial-scene-caption' }, h('strong', {}, copy('한 글자씩, 차근차근!', 'One letter at a time!')), h('span', {}, copy('빛의 문자를 함께 되찾아 보자!', 'Let us recover the letters of light!'))), panel);

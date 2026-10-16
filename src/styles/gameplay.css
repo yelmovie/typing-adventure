@@ -55,14 +55,14 @@
 .tutorial h1 { margin: 8px 0; }
 .tutorial-instruction { margin: 8px 0; line-height: 1.35; }
 .tutorial-target-wrap { position: relative; }
-.tutorial-target-wrap .tutorial-target { padding: 12px 100px 12px 20px; }
+.tutorial-target-wrap .tutorial-target { padding: 12px max(100px, calc(72 * var(--ui-unit))) 12px 20px; }
 .tutorial-prose .tutorial-target { font-size: max(34px, calc(23 * var(--ui-unit))); line-height: 1.4; word-break: keep-all; }
 .tutorial-item-progress { position: absolute; right: 20px; top: 16px; font-size: max(20px, calc(14 * var(--ui-unit))); color: #bce7d6; }
 .tutorial-hint { margin: 10px 0; }
 .tutorial-feedback { min-height: 1.45em; margin: 10px 0; }
 .tutorial-feedback:empty { min-height: 0; margin: 4px 0; }
 .tutorial-keyboard { width: 100%; max-width: 1320px; box-sizing: border-box; margin: 8px auto 0; padding: 12px 12px 14px; border: 1px solid #88b6aa55; border-radius: 16px; background: #0b1b2280; }
-.tutorial-keyboard-legend { margin-bottom: 8px; color: #c3d9d6; font-size: max(20px, calc(13 * var(--ui-unit))); }
+.tutorial-keyboard .kbd-key-legend { margin-left: 12px; color: #c3d9d6; }
 .tutorial-keyboard .kbd-guide { position: static; width: 100%; box-sizing: border-box; padding: 0; border: 0; background: none; box-shadow: none; gap: 6px; }
 .tutorial-keyboard .kbd-keyboard-deck { position: relative; display: grid; justify-items: center; gap: 8px; width: 100%; min-height: 216px; overflow: hidden; border-radius: 14px; isolation: isolate; }
 .tutorial-keyboard .kbd-finger-guide { position: absolute; inset: 0; z-index: 3; display: block; pointer-events: none; }
@@ -96,7 +96,6 @@
 .short-display .tutorial-panel > .tutorial-status-row { grid-column: 1 / -1; }
 .short-display .tutorial-panel > .tutorial-keyboard { grid-column: 1 / -1; grid-row: auto; justify-self: center; }
 .short-display .tutorial-panel > .tutorial-next { grid-column: 1 / -1; }
-.short-display .tutorial-keyboard-legend { line-height: 1.4; }
 .tutorial-part-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin: 24px 0; }
 .tutorial .tutorial-part-card { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; text-align: left; padding: 24px; min-width: 0; }
 .tutorial-part-card strong { font-size: var(--read-title); }
@@ -174,3 +173,29 @@
 .wave-coin { color: #ffe18a; }
 .wave-gem-stone { font-size: 24px; text-shadow: 0 0 12px currentColor; }
 .wave-freeze { min-width: 72px; color: #bdecff; font-weight: 900; font-variant-numeric: tabular-nums; }
+
+/* 자유 연습: 패널 높이 안에 자판 아랫줄(ㅋㅌㅊㅍ)과 스페이스까지 들어가야 한다.
+   글감은 줄이지 않는다 — 폰 가로처럼 정말 안 들어가는 화면만 패널이 스크롤된다. */
+.tutorial-heading { min-width: 0; }
+.tutorial-heading h1 { margin: 6px 0 2px; }
+.tutorial-heading .tutorial-instruction { margin: 0; }
+.tutorial-practice .tutorial-steps { margin: 6px 0; }
+.tutorial-practice .tutorial-target-wrap { margin-top: 10px; }
+.tutorial-longform #tutorial-input { min-height: 0; height: calc(1.55em * 2 + 24px); resize: none; }
+.tutorial-practice .tutorial-keyboard { margin-top: 4px; padding: 8px 12px 10px; }
+.tutorial-keyboard .kbd-keyboard-deck { min-height: 0; }
+
+/* 태블릿 화면 키보드가 올라오면(높이가 반 가까이 줄어듦) 손가락 자판 안내는 의미가 없고 공간만 막는다.
+   글감과 입력창만 남겨 학생이 지금 칠 글자를 놓치지 않게 한다. 블루투스 키보드에선 그대로 보인다. */
+#ui-stage.keyboard-display .tutorial-practice .tutorial-keyboard,
+#ui-stage.keyboard-display .tutorial-practice .tutorial-instruction,
+#ui-stage.keyboard-display .tutorial-practice .tutorial-hint,
+#ui-stage.keyboard-display .tutorial-practice .tutorial-steps { display: none; }
+#ui-stage.keyboard-display .tutorial-practice .tutorial-form label { display: none; }
+.tutorial-practice .tutorial-speed-number { white-space: nowrap; }
+.tutorial-practice .tutorial-keyboard .kbd-hand-legend { flex-wrap: nowrap; gap: 8px 16px; white-space: nowrap; }
+.tutorial-practice .tutorial-keyboard .kbd-key-legend { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* 영어는 숫자줄까지 자판이 한 줄 더 많고 글감도 길다. 키를 조금 낮추고, 작은 화면에선 이야기 입력창을 한 줄로 둔다. */
+.practice-en .tutorial-keyboard .kbd-keyboard-deck { gap: 5px; }
+.practice-en .tutorial-keyboard .key { height: 38px; font-size: 24px; }
+.small-display .tutorial-longform.practice-en #tutorial-input { height: calc(1.55em + 24px); }

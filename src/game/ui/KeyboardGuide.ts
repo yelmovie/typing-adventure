@@ -117,7 +117,8 @@ export class KeyboardGuide {
       this.fingerLabel = h('strong', { class: 'kbd-finger-label' });
       this.fingerCopy = h('div', { class: 'kbd-finger-copy', 'aria-live': 'polite' },
         h('span', {}, this.english ? 'NEXT FINGER' : '다음 손가락'), this.fingerLabel);
-      handLegend.append(this.fingerCopy);
+      // 색 범례를 손 안내와 한 줄에 둬서 연습 패널 세로 공간을 아낀다.
+      handLegend.append(h('span', { class: 'kbd-key-legend' }, this.english ? 'Yellow: next key · Mint: pressed key' : '노랑: 다음 키 · 민트: 누른 키'), this.fingerCopy);
       this.fingerMarker = h('i', { class: 'kbd-fingertip-marker', 'aria-hidden': 'true' });
       this.fingerSecondaryMarker = h('i', { class: 'kbd-fingertip-marker secondary', 'aria-hidden': 'true' });
       this.fingerGuide = h('div', { class: 'kbd-finger-guide', 'aria-hidden': 'true' });
