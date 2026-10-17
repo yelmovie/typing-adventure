@@ -186,3 +186,6 @@
 .intro-tip b { color: var(--gold-300); }
 .intro-block h4 .ui-icon { width: 26px; height: 26px; }
 .stars-sm .star { font-size: 20px; }
+
+/* 지도 진행 패널의 도전 카드·이야기 줄도 태블릿에서 읽히게(실제 14px 이상). */
+#ui-stage .map-progress .mp-cards { font-size: max(18px, calc(14 * var(--ui-unit))); }

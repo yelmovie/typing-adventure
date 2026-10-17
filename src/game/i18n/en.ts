@@ -23,7 +23,7 @@ export const EN: Record<string, string> = {
   '네온 시티의 표준 목표는 800m·150초입니다. 학생 수준에 따라 난이도를 조정하고, 처음에는 연습 튜토리얼을 함께 진행하세요.': 'Neon City’s Standard goal is 800 m in 150 seconds. Adjust the difficulty for each learner and begin with the practice tutorial.',
   '타이핑 어드벤처': 'Typing Adventure',
   '한글 타자로 몬스터를 물리치는 판타지 모험': 'A fantasy adventure powered by your typing',
-  '모험 시작': 'Start adventure', '모험 이어하기': 'Continue adventure', '새 모험 시작': 'New adventure',
+  '모험 시작': 'Start adventure', '모험 이어하기': 'Continue adventure', '모험 지도 열기': 'Open adventure map', '새 모험 시작': 'New adventure',
   '이어서 하기': 'Continue', '처음부터': 'Start over', '진행': 'Progress',
   '모험가·친구 변경': 'Adventurer & companion', '오늘의 도전': 'Daily practice', '오늘의 인증서': 'My certificate',
   // 스피드런(전 코스 타임어택)·어둠의 모험(뉴게임+): 홈 버튼·HUD 지역 이름 뒤 표시

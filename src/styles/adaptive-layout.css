@@ -34,8 +34,8 @@
 #ui-stage.short-display .wave-economy { display: none; }
 #ui-stage.short-display .wave-item-bank { gap: 4px; }
 #ui-stage.short-display .wave-inventory-title { display: none; }
-#ui-stage.short-display .wave-item-slot { flex-basis: 44px; width: 44px; height: 44px; }
-#ui-stage.short-display .wave-item-slot img { width: 24px; height: 24px; }
+#ui-stage.short-display .wave-item-slot { flex-basis: max(44px, calc(44 * var(--ui-unit))); width: max(44px, calc(44 * var(--ui-unit))); height: max(44px, calc(44 * var(--ui-unit))); }
+#ui-stage.short-display .wave-item-slot img { width: max(24px, calc(24 * var(--ui-unit))); height: max(24px, calc(24 * var(--ui-unit))); }
 
 /* Every long panel retains its header and primary actions while its body scrolls. */
 #ui-stage .setup-panel.setup-fit { max-height: calc(100% - 160px); }

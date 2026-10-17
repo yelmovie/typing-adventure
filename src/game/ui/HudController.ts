@@ -72,7 +72,7 @@ export class HudController {
   private damageTimer = 0;
   private scoreFrame = 0;
 
-  constructor(opts: { stageIndex: number; stageName: string; playerName: string; level: number; portrait: string; petName: string; petPortrait: string; petSkill: string; countLabel?: string; progressKind?: 'targets' | 'words' | 'distance' | 'phase'; bestCpm?: number; race?: boolean; timeLabel?: string; hideEnemy?: boolean; telegram?: boolean; title?: string; petActive?: string; comboInTop?: boolean; onHome?: () => void }) {
+  constructor(opts: { stageIndex: number; stageName: string; playerName: string; level: number; portrait: string; petName: string; petPortrait: string; petSkill: string; countLabel?: string; progressKind?: 'targets' | 'words' | 'distance' | 'phase'; bestCpm?: number; race?: boolean; timeLabel?: string; hideEnemy?: boolean; telegram?: boolean; title?: string; petActive?: string; comboInTop?: boolean; onHome?: () => void; onPause?: () => void }) {
     this.progressKind = opts.progressKind ?? 'words';
     this.wordCur = h('span', { class: 'cur' }, '0');
     this.wordTot = h('span', {}, '0');
@@ -100,6 +100,7 @@ export class HudController {
         h('div', { class: 'stat-box' }, h('div', { class: 'lbl' }, icon('trophy'), ' 점수'), this.scoreVal),
         h('div', { class: 'stat-box' }, h('div', { class: 'lbl' }, icon('target'), ' 정확도'), this.accVal),
         h('div', { class: 'stat-box' }, h('div', { class: 'lbl' }, icon('bolt'), ' 현재 타수', opts.bestCpm ? h('span', { class: 'best' }, ` · 최고 ${opts.bestCpm}`) : null), this.cpmVal),
+        h('button', { class: 'icon-btn bt-pause', type: 'button', title: '잠시 멈춤', 'aria-label': '잠시 멈춤', onclick: () => { AudioManager.sfx('click'); opts.onPause?.(); } }, h('span', { class: 'bt-pause-glyph', 'aria-hidden': 'true' })),
         h('button', { class: 'icon-btn', title: '홈으로', onclick: () => { AudioManager.sfx('click'); opts.onHome?.(); } }, icon('home')),
         this.soundEl,
         h('button', { class: 'icon-btn', title: '설정', onclick: () => { AudioManager.sfx('click'); settingsModal(); } }, icon('settings')),

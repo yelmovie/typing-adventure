@@ -176,6 +176,7 @@ export class BattleScreen extends Screen<BattleData> {
       title: currentTitle(save.progress.coins ?? 0).name,
       comboInTop: st.mode === 'wave', // 12시 방향 몬스터의 낱말이 중앙 콤보에 가려지지 않게 HUD 바 안에 둔다
       onHome: () => this.homeMenu(),
+      onPause: () => void this.pauseMenu(),
     });
     this.kbd = new KeyboardGuide({ onBackdropClick: () => this.setKbdVisible(false) });
     this.kbd.setVisible(save.settings.showKeyboardGuide);

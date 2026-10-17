@@ -200,7 +200,7 @@ try {
   results.checks.push({ label: 'New practice tutorial opens offline with its target and input', pass: true });
   for (const [i, name] of ['푸른 숲', '네온 시티', '사막 유적', '폭주 열차', '어둠의 성채'].entries()) {
     await home(page);
-    await page.getByRole('button', { name: '모험 이어하기', exact: true }).click();
+    await page.getByRole('button', { name: '모험 지도 열기', exact: true }).click();
     await page.waitForSelector('.screen.worldmap:not(.hidden)');
     await page.waitForFunction(() => !document.querySelector('#fade.on') && !document.getElementById('ui-stage')?.inert);
     await page.getByRole('button', { name: new RegExp(`^${i + 1}\\. ${name}`) }).click();

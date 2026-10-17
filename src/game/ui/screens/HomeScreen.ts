@@ -143,9 +143,9 @@ export class HomeScreen extends Screen {
       const mode = resume.speedrun ? (language === 'en' ? `Speedrun ${stageNumber(resume.speedrun)}/${SPEEDRUN_STAGES.length} · ` : `스피드런 ${stageNumber(resume.speedrun)}/${SPEEDRUN_STAGES.length} · `)
         : resume.dark ? (language === 'en' ? 'Dark · ' : '어둠 · ') : '';
       return h('div', { class: 'home-resume', 'data-no-translate': 'true' },
-        this.btn(icon('pin'), language === 'en' ? `Continue · ${mode}${region} (${progress})` : `이어서 하기 · ${mode}${region} (진행 ${progress})`, 'btn-primary btn-lg home-resume-continue',
+        this.btn(icon('pin'), language === 'en' ? `Resume battle · ${mode}${region} (${progress})` : `하던 전투 이어하기 · ${mode}${region} (진행 ${progress})`, 'btn-primary btn-lg home-resume-continue',
           () => void navigate('battle', { stageId: resume.stageId, remix: resume.remix, dailyKind: resume.dailyKind, resume: true })),
-        this.btn(icon('flag'), language === 'en' ? 'Start over' : '처음부터', 'btn-gray btn-md home-resume-restart', () => { SaveSystem.clearCheckpoint(); this.show({}); }));
+        this.btn(icon('flag'), language === 'en' ? 'Restart that battle' : '그 전투 처음부터', 'btn-gray btn-md home-resume-restart', () => { SaveSystem.clearCheckpoint(); this.show({}); }));
     })() : null;
     // 완주한 뒤 홈의 주인공은 '오늘의 도전'. 이어서 하기(중간 저장)가 떠 있으면 그쪽이 우선이라 이 블록은 쉰다.
     const finished = has && ['stage_1', 'stage_2', 'stage_3', 'stage_4', 'stage_5'].every((id) => save.progress.clearedStages.includes(id));
@@ -172,7 +172,8 @@ export class HomeScreen extends Screen {
           : journey.complete ? (language === 'en' ? '5 lights restored · explore with new words' : '5개의 빛을 되찾았어 · 새 낱말로 다시 모험')
           : (language === 'en' ? `Next: ${nextRegion} · ${journey.restored.length}/5 lights` : `다음은 ${nextRegion} · 빛 ${journey.restored.length}/5`))),
       resumeChoice,
-      has ? this.btn(icon('pin'), '모험 이어하기', 'btn-primary btn-lg', () => void navigate('worldmap')) : newAdventure,
+      // 하던 전투가 있으면 그쪽이 주 버튼이다. 지도 버튼은 한 단계 낮춰 주 버튼이 둘로 보이지 않게 한다.
+      has ? this.btn(icon('pin'), '모험 지도 열기', resumeChoice ? 'btn-sky btn-lg home-map' : 'btn-primary btn-lg home-map', () => void navigate('worldmap')) : newAdventure,
       h('div', { class: 'home-secondary' },
         this.btn(icon('book'), language === 'en' ? 'Choose typing practice' : '타이핑 연습 선택', 'btn-sky btn-lg home-tutorial', () => void navigate('tutorial')),
         has && save.progress.clearedStages.includes('stage_1') ? this.btn(icon('flag'), '모험 플러스 · 새 낱말 도전', 'btn-sky btn-md home-replay', () => replayModal()) : null),

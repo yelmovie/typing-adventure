@@ -619,3 +619,7 @@
 @media (prefers-reduced-motion: reduce) {
   #ui-stage *, #ui-stage *::before, #ui-stage *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+
+/* 오늘의 도전 카드 설명(실제 10px → 16px) */
+#ui-stage .daily-pick-card .card-desc { font-size: var(--read-copy); }
+#ui-stage .daily-pick-card .card-name { font-size: var(--read-main); }

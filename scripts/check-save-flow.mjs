@@ -107,14 +107,14 @@ try {
   await run('잘못된 중첩 저장 구조 복구·홈 동작·복구 알림', corrupt, async (page) => {
     await page.locator('.save-notice:not([hidden])').waitFor();
     assert.match(await page.locator('.save-notice').innerText(), /복구/);
-    assert.ok(await page.getByRole('button', { name: '모험 이어하기', exact: true }).isVisible());
+    assert.ok(await page.getByRole('button', { name: '모험 지도 열기', exact: true }).isVisible());
     assert.ok(await page.locator('.home-more summary').isVisible());
     await page.getByRole('button', { name: '복구한 기록 사용', exact: true }).click();
     const data = await stored(page);
     assert.deepEqual(data.progress.stageStars, {});
     assert.deepEqual(data.progress.clearedStages, []);
     assert.equal(data.profile.name, corrupt.profile.name);
-    await page.getByRole('button', { name: '모험 이어하기', exact: true }).click();
+    await page.getByRole('button', { name: '모험 지도 열기', exact: true }).click();
     await page.waitForSelector('.worldmap');
   });
 
@@ -301,7 +301,7 @@ try {
       await page.waitForFunction((n) => window.__battle?.snapshot().wordsDone === n, done + 1);
     };
     assert.equal(await page.locator('.home-resume-continue').count(), 0, '중간 저장이 없으면 이어서 하기 선택이 없다');
-    await page.getByRole('button', { name: '모험 이어하기', exact: true }).click();
+    await page.getByRole('button', { name: '모험 지도 열기', exact: true }).click();
     await page.waitForSelector('.worldmap');
     await page.locator('.map-node').nth(2).click();
     await page.locator('.intro-battle').click();
@@ -314,8 +314,8 @@ try {
     assert.ok(before.next, '세 번째 문장이 목표로 보인다');
     await page.reload({ waitUntil: 'domcontentloaded' }); await home(page, true);
     const resume = page.locator('.home-resume-continue');
-    assert.match(await resume.innerText(), /이어서 하기 · STAGE 3 사막 유적 \(진행 2\/9\)/);
-    assert.ok(await page.getByRole('button', { name: '모험 이어하기', exact: true }).isVisible(), '지도로 가는 기존 버튼은 그대로');
+    assert.match(await resume.innerText(), /하던 전투 이어하기 · STAGE 3 사막 유적 \(진행 2\/9\)/);
+    assert.ok(await page.getByRole('button', { name: '모험 지도 열기', exact: true }).isVisible(), '지도로 가는 기존 버튼은 그대로');
     await resume.click();
     await watchChoices();
     await resolveChoice(); // 복원 직후 고르기가 다시 열리면 같은 세 번째 문장을 고른다
@@ -346,7 +346,7 @@ try {
   staleCheckpoint.checkpoint = { stageId: 'stage_1', savedAt: new Date(Date.now() - 3 * 3600e3).toISOString(), language: 'ko', done: 12, total: 30, state: { defeated: 12 } };
   await run('2시간 지난 중간 저장은 제안하지 않고 다음 저장 때 지운다', staleCheckpoint, async (page) => {
     assert.equal(await page.locator('.home-resume-continue').count(), 0);
-    assert.ok(await page.getByRole('button', { name: '모험 이어하기', exact: true }).isVisible());
+    assert.ok(await page.getByRole('button', { name: '모험 지도 열기', exact: true }).isVisible());
     await page.getByRole('button', { name: '설정', exact: true }).click();
     await page.getByRole('switch', { name: '배경 음악', exact: true }).click();
     await page.getByRole('button', { name: '닫기', exact: true }).click();

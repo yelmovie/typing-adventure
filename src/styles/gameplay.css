@@ -205,3 +205,20 @@
 .bb-dodge { display: flex; gap: 8px; }
 .bb-dodge .btn { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: var(--touch-size); min-height: var(--touch-size); padding: 0 12px; touch-action: none; user-select: none; -webkit-user-select: none; white-space: nowrap; }
 .bb-dodge .btn.pressed { filter: brightness(1.3); transform: translateY(2px); }
+
+/* 아이템 칸·개수·점수는 화면이 작아져도 손가락으로 누르고 읽을 수 있는 실제 크기를 지킨다(44px·12px 이상). */
+#ui-stage .wave-item-slot { flex-basis: max(46px, calc(44 * var(--ui-unit))); width: max(46px, calc(44 * var(--ui-unit))); height: max(46px, calc(44 * var(--ui-unit))); }
+#ui-stage .wave-item-slot img { width: max(28px, calc(24 * var(--ui-unit))); height: max(28px, calc(24 * var(--ui-unit))); }
+#ui-stage .wave-item-slot strong { font-size: max(13px, calc(12 * var(--ui-unit))); }
+#ui-stage .wave-inventory-title, #ui-stage .wave-score, #ui-stage .wave-coin, #ui-stage .wave-freeze { font-size: max(15px, calc(14 * var(--ui-unit))); }
+#ui-stage .stat-box .lbl .best { font-size: max(13px, calc(12 * var(--ui-unit))); }
+/* 전투 일시정지 버튼(태블릿엔 Esc 가 없다) */
+.bt-pause { display: inline-grid; place-items: center; }
+.bt-pause-glyph { display: block; width: 20px; height: 24px; border-radius: 2px; background: linear-gradient(90deg, #fff 0 34%, transparent 34% 66%, #fff 66% 100%); filter: drop-shadow(0 2px 0 #0008); }
+/* 폰 세로처럼 폭이 좁을 때: 아이템 칸은 한 줄을 통째로 쓰고 넘치면 접는다. 회피 버튼은 입력창을 좁히지 않게 다음 줄로. */
+#ui-stage.portrait-display .wave-inventory { grid-template-columns: minmax(0, 1fr) auto; }
+#ui-stage.portrait-display .wave-item-bank { grid-column: 1 / -1; flex-wrap: wrap; }
+#ui-stage.portrait-display .mode-wave .bb-input-wrap { grid-template-columns: minmax(0, 1fr) auto; }
+#ui-stage.portrait-display .bb-dodge { grid-column: 1 / -1; justify-content: flex-end; }
+/* 폰 세로(좁은 화면)는 상단 바에 자리가 없어 일시정지 버튼을 접는다. 설정 버튼을 열면 전투가 함께 멈춘다. */
+#ui-stage.portrait-display.narrow-display .battle-top .bt-pause { display: none; }

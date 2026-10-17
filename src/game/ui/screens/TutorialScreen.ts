@@ -163,6 +163,8 @@ export class TutorialScreen extends Screen<TutorialData> {
       } else if (m.next()) this.draw();
     } }, copy('다음 파트 연습 →', 'Next practice part →'));
     let composing = false;
+    // 한글 조합 중에 누른 Enter 는 조합 확정에 먹힌다. 확정 직후 제출해서 Enter 를 두 번 누르지 않게 한다(전투 TypingSystem 과 같은 방식).
+    let pendingSubmit = false;
     let liveCorrectStrokes = 0;
     let liveErrorStrokes = 0;
     const updateSpeed = () => {
@@ -205,12 +207,20 @@ export class TutorialScreen extends Screen<TutorialData> {
       });
     };
     input.addEventListener('compositionstart', () => { composing = true; });
-    input.addEventListener('compositionend', () => { composing = false; beginSpeed(); schedulePaint(); });
+    input.addEventListener('compositionend', () => {
+      composing = false; beginSpeed(); schedulePaint();
+      if (pendingSubmit) { pendingSubmit = false; form.requestSubmit(); }
+    });
     input.addEventListener('input', () => { beginSpeed(); schedulePaint(); });
     input.addEventListener('keydown', e => {
       const keyEvent = e as KeyboardEvent;
       keyboard.setPressed(keyEvent.code, true);
-      if (keyEvent.key === 'Enter' && (keyEvent.isComposing || composing || keyEvent.keyCode === 229)) keyEvent.preventDefault();
+      if (keyEvent.key === 'Enter' && (keyEvent.isComposing || composing || keyEvent.keyCode === 229)) {
+        keyEvent.preventDefault();
+        pendingSubmit = true;
+        // 일부 브라우저는 compositionend 를 Enter 보다 먼저 보내거나 늦게 보낸다. 조합이 끝나 있으면 바로 제출한다.
+        window.setTimeout(() => { if (pendingSubmit && !composing && input.isConnected) { pendingSubmit = false; form.requestSubmit(); } }, 60);
+      }
       else if (longForm && keyEvent.key === 'Enter') { keyEvent.preventDefault(); form.requestSubmit(); }
     });
     input.addEventListener('keyup', e => keyboard.setPressed((e as KeyboardEvent).code, false));

@@ -89,7 +89,7 @@ for (const test of cases) {
     assert.ok(Math.abs((await snapshot())[0].volume-0.47*0.3/0.7)<0.001);
     checks.push('Home volume applies the selected 30% slider and the home gain');
     await page.getByRole('button',{name:'확인',exact:true}).click();
-    await page.getByRole('button',{name:'모험 이어하기',exact:true}).click();
+    await page.getByRole('button',{name:'모험 지도 열기',exact:true}).click();
     await page.locator('.screen.worldmap:not(.hidden)').waitFor();
     await ready(); await musicPlaying();
     let media = await snapshot();
