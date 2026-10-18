@@ -17,7 +17,11 @@ function seed(language = 'ko') {
   return {
     version: '2',
     profile: { name: english ? 'English Tester' : '한글 검증', characterId: english ? 'pink_girl' : 'brown_boy', petId: english ? 'rabbit' : 'cat', difficulty: 'normal', canDo: english ? 'type a sentence' : '고쳐서 완성' },
-    progress: { unlockedStage: english ? 4 : 2, clearedStages: english ? ['stage_1', 'stage_2', 'stage_3'] : ['stage_1'], stageStars: english ? { stage_1: 3, stage_2: 2, stage_3: 1 } : { stage_1: 2 }, coins: english ? 93 : 47, fails: {}, assist: {}, tutorialCompleted: false, practicedParts: [], skippedPracticeStages: [] },
+    progress: { unlockedStage: english ? 4 : 2, clearedStages: english ? ['stage_1', 'stage_2', 'stage_3'] : ['stage_1'], stageStars: english ? { stage_1: 3, stage_2: 2, stage_3: 1 } : { stage_1: 2 }, coins: english ? 93 : 47, fails: {}, assist: {}, tutorialCompleted: false, practicedParts: [], skippedPracticeStages: [],
+      // Current persisted defaults; keep full-object assertions for language restoration.
+      completedPracticeStories: [], gems: { green: 0, blue: 0, violet: 0 }, items: { heart: 0, star: 0, shield: 0, bolt: 0 },
+      challenges: {}, storiesDone: {}, darkCleared: [], darkStars: {},
+    },
     records: { bestCpm: english ? 145 : 97, bestAccuracy: 94, bestCombo: 20, bestScoreByStage: { stage_1: english ? 2600 : 1700 }, ghosts: {}, daily: {}, learning: { patterns: { letters: { mistakes: 2, corrections: 1, newSuccesses: 1, delayedSuccesses: 0, lastTarget: english ? 'letter' : '낱말', lastTyped: english ? 'leter' : '낱맣', lastErrorAt: '2026-09-01T00:00:00.000Z' } }, recent: [{ at: '2026-09-01T00:00:00.000Z', stageId: 'stage_1', source: 'game', accuracy: 94, cpm: english ? 145 : 97, correct: english ? 15 : 12, corrected: 1, skipped: 0, newSuccesses: 1 }], seen: [english ? 'letter' : '낱말'] } },
     collection: { badges: ['first_clear', 'fever_master'], wordsSeen: ['seed-one'], petsUnlocked: ['cat', 'rabbit', 'dragon'], charactersUnlocked: ['brown_boy', 'pink_girl', 'glasses_boy', 'blond_explorer'], enemiesSeen: ['green_slime'] },
     settings: { language, bgm: false, sfx: false, screenShake: false, showKeyboardGuide: false, bgmVolume: 0.7, sfxVolume: 0.9, prologueSeen: true },
