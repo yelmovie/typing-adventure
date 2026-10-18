@@ -23,6 +23,7 @@
     "check:save": "node scripts/check-save-flow.mjs",
     "check:gameplay": "esbuild scripts/check-tutorial.ts scripts/check-race-pacing.ts --bundle --platform=node --format=esm --outdir=node_modules/.cache/checks --log-level=warning && node node_modules/.cache/checks/check-tutorial.js && node node_modules/.cache/checks/check-race-pacing.js && node scripts/check-content.mjs",
     "check:tutorial": "node scripts/check-tutorial-flow.mjs",
+    "check:practice": "node scripts/check-tablet-practice.mjs",
     "check:opening": "node scripts/check-opening.mjs",
     "check:feel": "node scripts/check-game-feel.mjs"
   },
