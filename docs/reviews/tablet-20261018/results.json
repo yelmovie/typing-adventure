@@ -1,0 +1,687 @@
+{
+  "testedSourceBase": "e6a841a8dacdeeadc1f0c4e3e610e8d07d8a6a4b",
+  "sourceFix": "TutorialScreen: let paint rebind changed targets",
+  "physicalDeviceTested": false,
+  "cases": [
+    {
+      "label": "ko-1024x768",
+      "failures": [],
+      "errors": [],
+      "completedDiaries": null,
+      "states": [
+        {
+          "name": "initial",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "1 / 15"
+        },
+        {
+          "name": "after-submit",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 15"
+        },
+        {
+          "name": "after-error",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 15"
+        },
+        {
+          "name": "keyboard-open",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": false,
+          "bottomRowVisible": null,
+          "spaceVisible": null,
+          "focused": true,
+          "progress": "2 / 15"
+        },
+        {
+          "name": "keyboard-close",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 15"
+        },
+        {
+          "name": "visual-keyboard-open",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": false,
+          "bottomRowVisible": null,
+          "spaceVisible": null,
+          "focused": true,
+          "progress": "2 / 15"
+        },
+        {
+          "name": "visual-keyboard-close",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 15"
+        }
+      ]
+    },
+    {
+      "label": "ko-1180x820",
+      "failures": [],
+      "errors": [],
+      "completedDiaries": null,
+      "states": [
+        {
+          "name": "initial",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "1 / 15"
+        },
+        {
+          "name": "after-submit",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 15"
+        },
+        {
+          "name": "after-error",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 15"
+        },
+        {
+          "name": "keyboard-open",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": false,
+          "bottomRowVisible": null,
+          "spaceVisible": null,
+          "focused": true,
+          "progress": "2 / 15"
+        },
+        {
+          "name": "keyboard-close",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 15"
+        },
+        {
+          "name": "visual-keyboard-open",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": false,
+          "bottomRowVisible": null,
+          "spaceVisible": null,
+          "focused": true,
+          "progress": "2 / 15"
+        },
+        {
+          "name": "visual-keyboard-close",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 15"
+        }
+      ]
+    },
+    {
+      "label": "ko-1280x800",
+      "failures": [],
+      "errors": [],
+      "completedDiaries": 4,
+      "states": [
+        {
+          "name": "initial",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "1 / 15"
+        },
+        {
+          "name": "after-submit",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 15"
+        },
+        {
+          "name": "after-error",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 15"
+        },
+        {
+          "name": "keyboard-open",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": false,
+          "bottomRowVisible": null,
+          "spaceVisible": null,
+          "focused": true,
+          "progress": "2 / 15"
+        },
+        {
+          "name": "keyboard-close",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 15"
+        },
+        {
+          "name": "visual-keyboard-open",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": false,
+          "bottomRowVisible": null,
+          "spaceVisible": null,
+          "focused": true,
+          "progress": "2 / 15"
+        },
+        {
+          "name": "visual-keyboard-close",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 15"
+        }
+      ]
+    },
+    {
+      "label": "ko-1024x600",
+      "failures": [],
+      "errors": [],
+      "completedDiaries": null,
+      "states": [
+        {
+          "name": "initial",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "1 / 15"
+        },
+        {
+          "name": "after-submit",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 15"
+        },
+        {
+          "name": "after-error",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 15"
+        },
+        {
+          "name": "keyboard-open",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": false,
+          "bottomRowVisible": null,
+          "spaceVisible": null,
+          "focused": true,
+          "progress": "2 / 15"
+        },
+        {
+          "name": "keyboard-close",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 15"
+        },
+        {
+          "name": "visual-keyboard-open",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": false,
+          "bottomRowVisible": null,
+          "spaceVisible": null,
+          "focused": true,
+          "progress": "2 / 15"
+        },
+        {
+          "name": "visual-keyboard-close",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 15"
+        }
+      ]
+    },
+    {
+      "label": "en-1024x768",
+      "failures": [],
+      "errors": [],
+      "completedDiaries": null,
+      "states": [
+        {
+          "name": "initial",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "1 / 14"
+        },
+        {
+          "name": "after-submit",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 14"
+        },
+        {
+          "name": "after-error",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 14"
+        },
+        {
+          "name": "keyboard-open",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": false,
+          "bottomRowVisible": null,
+          "spaceVisible": null,
+          "focused": true,
+          "progress": "2 / 14"
+        },
+        {
+          "name": "keyboard-close",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 14"
+        },
+        {
+          "name": "visual-keyboard-open",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": false,
+          "bottomRowVisible": null,
+          "spaceVisible": null,
+          "focused": true,
+          "progress": "2 / 14"
+        },
+        {
+          "name": "visual-keyboard-close",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 14"
+        }
+      ]
+    },
+    {
+      "label": "en-1180x820",
+      "failures": [],
+      "errors": [],
+      "completedDiaries": null,
+      "states": [
+        {
+          "name": "initial",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "1 / 14"
+        },
+        {
+          "name": "after-submit",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 14"
+        },
+        {
+          "name": "after-error",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 14"
+        },
+        {
+          "name": "keyboard-open",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": false,
+          "bottomRowVisible": null,
+          "spaceVisible": null,
+          "focused": true,
+          "progress": "2 / 14"
+        },
+        {
+          "name": "keyboard-close",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 14"
+        },
+        {
+          "name": "visual-keyboard-open",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": false,
+          "bottomRowVisible": null,
+          "spaceVisible": null,
+          "focused": true,
+          "progress": "2 / 14"
+        },
+        {
+          "name": "visual-keyboard-close",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 14"
+        }
+      ]
+    },
+    {
+      "label": "en-1280x800",
+      "failures": [],
+      "errors": [],
+      "completedDiaries": 4,
+      "states": [
+        {
+          "name": "initial",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "1 / 14"
+        },
+        {
+          "name": "after-submit",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 14"
+        },
+        {
+          "name": "after-error",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 14"
+        },
+        {
+          "name": "keyboard-open",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": false,
+          "bottomRowVisible": null,
+          "spaceVisible": null,
+          "focused": true,
+          "progress": "2 / 14"
+        },
+        {
+          "name": "keyboard-close",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 14"
+        },
+        {
+          "name": "visual-keyboard-open",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": false,
+          "bottomRowVisible": null,
+          "spaceVisible": null,
+          "focused": true,
+          "progress": "2 / 14"
+        },
+        {
+          "name": "visual-keyboard-close",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 14"
+        }
+      ]
+    },
+    {
+      "label": "en-1024x600",
+      "failures": [],
+      "errors": [],
+      "completedDiaries": null,
+      "states": [
+        {
+          "name": "initial",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "1 / 14"
+        },
+        {
+          "name": "after-submit",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 14"
+        },
+        {
+          "name": "after-error",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 14"
+        },
+        {
+          "name": "keyboard-open",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": false,
+          "bottomRowVisible": null,
+          "spaceVisible": null,
+          "focused": true,
+          "progress": "2 / 14"
+        },
+        {
+          "name": "keyboard-close",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 14"
+        },
+        {
+          "name": "visual-keyboard-open",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": false,
+          "bottomRowVisible": null,
+          "spaceVisible": null,
+          "focused": true,
+          "progress": "2 / 14"
+        },
+        {
+          "name": "visual-keyboard-close",
+          "targetVisible": true,
+          "inputVisible": true,
+          "sendVisible": true,
+          "guideDisplayed": true,
+          "bottomRowVisible": true,
+          "spaceVisible": true,
+          "focused": true,
+          "progress": "2 / 14"
+        }
+      ]
+    }
+  ]
+}
