@@ -234,7 +234,7 @@ export class TutorialScreen extends Screen<TutorialData> {
       if (outcome === 'ignored') return;
       if (outcome === 'wrong') {
         this.currentTargetErrors = Math.max(1, this.currentTargetErrors);
-        target.dataset.target = m.target; paint();
+        paint();
         feedback.textContent = s.resetOnMistake
           ? copy('괜찮아요! 첫 낱말부터 다시 두 번 이어서 성공해 봐요.', 'That is okay! Start with the first word and try two correct words in a row.')
           : copy('아직 조금 달라요. 위 글자를 보고 Backspace로 고쳐 봐요.', 'Almost! Check the target and use Backspace to fix it.');
@@ -247,7 +247,8 @@ export class TutorialScreen extends Screen<TutorialData> {
       AudioManager.sfx('perfect');
       EventBus.emit(TUTORIAL_FEEDBACK, { step: partIndex, completed: m.stepComplete });
       if (outcome === 'correct') {
-        input.value = ''; target.dataset.target = m.target; paint(); input.focus();
+        // paint() must see the previous target so it rebinds the displayed characters.
+        input.value = ''; paint(); input.focus();
         feedback.textContent = s.part === 'story'
           ? copy(`좋아요! ${m.targetIndex}쪽까지 썼어요. 다음 두 줄도 이어 가요.`, `Great! ${m.targetIndex} sections done. Keep the diary going.`)
           : copy(`좋아요! ${m.targetIndex}개 성공. 다음도 써 볼까요?`, 'One down! Send the next word.');
