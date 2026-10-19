@@ -75,7 +75,8 @@
 .tutorial-keyboard .kbd-fingertip-marker.secondary { width: 14px; height: 14px; border-color: #ddf5ff; background: #72d7ff; box-shadow: 0 0 0 5px #72d7ff44, 0 0 18px 8px #53caffbb; }
 .tutorial-keyboard .kbd-row { width: 100%; justify-content: center; gap: 8px; }
 .tutorial-keyboard .kbd-row-2 { width: 94%; }
-.tutorial-keyboard .kbd-row-3 { width: 88%; }
+.tutorial-keyboard .kbd-row-3 { width: 100%; }
+.tutorial-keyboard .kbd-row-3 .key.wide { flex: 1.4; }
 .tutorial-keyboard .kbd-space-row { width: 65%; }
 .tutorial-keyboard .key { z-index: 1; flex: 1; width: auto; min-width: 0; height: 48px; font-size: 28px; border-radius: 8px; animation: none; }
 .tutorial-keyboard .key.next, .tutorial-keyboard .key.next-shift, .tutorial-keyboard .key.next-back { z-index: 5; }

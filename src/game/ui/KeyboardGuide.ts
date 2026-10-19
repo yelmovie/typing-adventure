@@ -10,7 +10,7 @@ type GuideKey = { key: string; shift?: string; hand: Exclude<Hand, 'both'>; fing
 const KO_FINGER_ROWS: Finger[][] = [
   ['left-pinky', 'left-ring', 'left-middle', 'left-index', 'left-index', 'right-index', 'right-index', 'right-middle', 'right-ring', 'right-pinky'],
   ['left-pinky', 'left-ring', 'left-middle', 'left-index', 'left-index', 'right-index', 'right-index', 'right-middle', 'right-ring'],
-  ['left-pinky', 'left-ring', 'left-middle', 'left-index', 'left-index', 'right-index', 'right-index'],
+  ['left-pinky', 'left-ring', 'left-middle', 'left-index', 'left-index', 'right-index', 'right-index', 'right-middle', 'right-ring'],
 ];
 const EN_FINGER_ROWS: Finger[][] = [
   KO_FINGER_ROWS[0],
@@ -24,13 +24,21 @@ const assignHands = (rows: { key: string; shift?: string }[][], fingers: Finger[
     return { ...key, finger, hand: finger.startsWith('left') ? 'left' : 'right' };
   }),
 );
+// 쉼표·마침표는 연습 문장에 자주 나오므로 실제 자판 순서(ㅡ , .)대로 셋째 줄에 둔다. 숫자는 한글 연습 문장에 없어 생략.
+// 전투 오버레이는 고정 폭 키라 셋째 줄이 튀어나오므로 연습(embedded) 자판에만 보여 준다.
+const PRACTICE_ONLY_KEYS = new Set([',', '.']);
+// 그림에 없는 숫자 키(느낌표 등)도 "다음 손가락" 안내는 이어지도록 손가락만 따로 둔다.
+const OFF_GUIDE_FINGERS: Record<string, Finger> = {
+  '1': 'left-pinky', '2': 'left-ring', '3': 'left-middle', '4': 'left-index', '5': 'left-index',
+  '6': 'right-index', '7': 'right-index', '8': 'right-middle', '9': 'right-ring', '0': 'right-pinky',
+};
 const ROWS = assignHands([
   [
     { key: 'ㅂ', shift: 'ㅃ' }, { key: 'ㅈ', shift: 'ㅉ' }, { key: 'ㄷ', shift: 'ㄸ' }, { key: 'ㄱ', shift: 'ㄲ' }, { key: 'ㅅ', shift: 'ㅆ' },
     { key: 'ㅛ' }, { key: 'ㅕ' }, { key: 'ㅑ' }, { key: 'ㅐ', shift: 'ㅒ' }, { key: 'ㅔ', shift: 'ㅖ' },
   ],
   [{ key: 'ㅁ' }, { key: 'ㄴ' }, { key: 'ㅇ' }, { key: 'ㄹ' }, { key: 'ㅎ' }, { key: 'ㅗ' }, { key: 'ㅓ' }, { key: 'ㅏ' }, { key: 'ㅣ' }],
-  [{ key: 'ㅋ' }, { key: 'ㅌ' }, { key: 'ㅊ' }, { key: 'ㅍ' }, { key: 'ㅠ' }, { key: 'ㅜ' }, { key: 'ㅡ' }],
+  [{ key: 'ㅋ' }, { key: 'ㅌ' }, { key: 'ㅊ' }, { key: 'ㅍ' }, { key: 'ㅠ' }, { key: 'ㅜ' }, { key: 'ㅡ' }, { key: ',', shift: '<' }, { key: '.', shift: '>' }],
 ], KO_FINGER_ROWS);
 const EN_ROWS = assignHands([
   'qwertyuiop'.split('').map((key) => ({ key })),
@@ -73,7 +81,8 @@ export class KeyboardGuide {
     this.rightShiftKey = specialKey('Shift ⇧', 'wide shift-right hand-split', 'right', 'ShiftRight', 'right-pinky');
     this.spaceKey = specialKey('Space', 'space', 'both', 'Space', 'left-thumb');
     this.enterKey = specialKey('⏎ Enter', 'wide', 'right', 'Enter', 'right-pinky');
-    const rows = (this.english ? EN_ROWS : ROWS).map((r, i) =>
+    const guideRows = (this.english ? EN_ROWS : ROWS).map(row => opts.embedded ? row : row.filter(k => !PRACTICE_ONLY_KEYS.has(k.key)));
+    const rows = guideRows.map((r, i) =>
       h(
         'div',
         { class: `kbd-row kbd-row-${i + 1}` },
@@ -93,18 +102,6 @@ export class KeyboardGuide {
     );
     rows[2].prepend(this.leftShiftKey);
     rows[2].append(this.rightShiftKey);
-    const punctuation = opts.embedded && !this.english ? ['1', '.'].map(key => {
-      const hand: Exclude<Hand, 'both'> = key === '1' ? 'left' : 'right';
-      const finger: Finger = key === '1' ? 'left-pinky' : 'right-ring';
-      const el = h('div', {
-        class: `key hand-${hand}${hand === 'right' ? ' hand-split' : ''}`,
-        'data-key': key,
-        'data-hand': hand,
-        'data-finger': finger,
-        'aria-label': `${key === '1' ? '1, !' : key}, ${handName(hand)}`,
-      }, key === '1' ? h('span', { class: 'alt' }, '!') : null, key);
-      this.keys.set(key, el); return el;
-    }) : [];
     const handLegend = h('div', { class: 'kbd-hand-legend', 'aria-label': this.english ? 'Keyboard hand colors' : '자판 손 색깔 안내' },
       h('span', { class: 'kbd-hand-item' }, h('i', { class: 'kbd-hand-swatch hand-left' }), this.english ? 'Left hand' : '왼손'),
       h('span', { class: 'kbd-hand-item' }, h('i', { class: 'kbd-hand-swatch hand-right' }), this.english ? 'Right hand' : '오른손'),
@@ -112,7 +109,7 @@ export class KeyboardGuide {
     );
     // 전투 오버레이는 게임을 멈추지 않는다. 글자를 치면 걷힌다는 걸 알려 "멈춘 것처럼" 보이지 않게 한다.
     const hint = opts.embedded ? null : h('p', { class: 'kbd-hint' }, this.english ? 'Start typing and the guide slides away · Esc' : '글자를 치면 가이드가 사라져요 · Esc');
-    const spaceRow = h('div', { class: 'kbd-row kbd-space-row' }, punctuation, this.spaceKey);
+    const spaceRow = h('div', { class: 'kbd-row kbd-space-row' }, this.spaceKey);
     if (opts.embedded) {
       this.fingerLabel = h('strong', { class: 'kbd-finger-label' });
       this.fingerCopy = h('div', { class: 'kbd-finger-copy', 'aria-live': 'polite' },
@@ -195,13 +192,14 @@ export class KeyboardGuide {
       secondaryKey = this.spaceKey;
     }
     else {
-      nextKey = this.keys.get(SHIFTED_KEYS[key] ?? (this.english ? key.toLowerCase() : key));
+      const base = SHIFTED_KEYS[key] ?? (this.english ? key.toLowerCase() : key);
+      nextKey = this.keys.get(base);
       nextKey?.classList.add('next');
-      primary = nextKey?.dataset.finger as Finger | undefined;
+      primary = (nextKey?.dataset.finger as Finger | undefined) ?? OFF_GUIDE_FINGERS[base];
     }
     // 큰글자·쌍자음은 글자 키와 반대 손의 Shift를 눌러 손가락 자리를 지킨다.
-    if (shift) {
-      secondaryKey = nextKey?.dataset.hand === 'left' ? this.rightShiftKey : this.leftShiftKey;
+    if (shift && primary) {
+      secondaryKey = primary.startsWith('left') ? this.rightShiftKey : this.leftShiftKey;
       secondaryKey.classList.add('next-shift');
       secondary = secondaryKey.dataset.finger as Finger;
     }
